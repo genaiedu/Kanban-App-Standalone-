@@ -1,4 +1,4 @@
-// js/auth.js — Authentifizierung (Lehrer normal, Schüler mit INI + Passwort)
+// js/auth.js — Authentifizierung (Tutor normal, Schüler mit INI + Passwort)
 import { S, getUser, saveUser } from './state.js';
 
 const STUDENT_CFG_KEY = 'kf_student_config';
@@ -157,7 +157,7 @@ window.submitStudentLogin = async function() {
 
 window.resetStudentAuth = async function() {
   const ok = await showConfirm(
-    'Neu anmelden?\n\nDeine Boards bleiben gespeichert, aber du musst einen neuen Lehrer auswählen und ein neues Passwort setzen.',
+    'Neu anmelden?\n\nDeine Boards bleiben gespeichert, aber du musst einen neuen Tutor auswählen und ein neues Passwort setzen.',
     'Ja, neu anmelden', 'Abbrechen'
   );
   if (!ok) return;
@@ -206,7 +206,7 @@ function enterApp(user, isStudent) {
     if (iniBtn)    iniBtn.style.display    = 'none';
     if (returnBtn) returnBtn.style.display = 'none';
     if (badge) {
-      badge.textContent = 'Schüler';
+      badge.textContent = 'SchülerIn';
       badge.style.background = 'rgba(34,197,94,0.15)';
       badge.style.color = '#4ade80';
       badge.style.borderColor = 'rgba(34,197,94,0.35)';
@@ -217,7 +217,7 @@ function enterApp(user, isStudent) {
     if (iniBtn)    iniBtn.style.display    = '';
     if (returnBtn) returnBtn.style.display = '';
     if (badge) {
-      badge.textContent = 'Lehrkraft';
+      badge.textContent = 'Tutor';
       badge.style.background = 'rgba(99,102,241,0.2)';
       badge.style.color = '#818cf8';
       badge.style.borderColor = 'rgba(99,102,241,0.35)';
@@ -239,7 +239,7 @@ function enterApp(user, isStudent) {
   if (typeof loadBoards       === 'function') loadBoards();
 }
 
-// ── PROFIL BEARBEITEN (Lehrer) ────────────────────────────
+// ── PROFIL BEARBEITEN (Tutor) ────────────────────────────
 window.openProfileEdit = function() {
   const user  = getUser();
   const modal = document.getElementById('modal-profile-edit');
@@ -286,12 +286,12 @@ window.loadTeacherIni = async function() {
 
   if (!iniObj) { showToast('Keine gültige INI-Datei.', 'error'); return; }
 
-  // Für Lehrer: für nächsten Import merken (kein erneuter Upload nötig)
+  // Für Tutor: für nächsten Import merken (kein erneuter Upload nötig)
   window._loadedIni = iniObj;
 
   const session = window._kfSession;
   if (session?.isStudent) {
-    // Für Schüler: Lehrer-Schlüssel aktualisieren (z.B. anderer Lehrer)
+    // Für Schüler: Tutor-Schlüssel aktualisieren (z.B. anderer Tutor)
     session.teacherPublicKeyJwk = iniObj.publicKey;
     session.teacherName = iniObj.teacherName;
     const cfg = getStudentConfig() || {};
@@ -300,7 +300,7 @@ window.loadTeacherIni = async function() {
     saveStudentConfig(cfg);
   }
 
-  showToast(`INI von "${iniObj.teacherName || 'Lehrer'}" geladen`);
+  showToast(`INI von "${iniObj.teacherName || 'Tutor'}" geladen`);
 };
 
 // ── ABMELDEN (zurück zum Begrüßungsbildschirm, alle Daten löschen) ──

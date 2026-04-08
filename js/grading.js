@@ -289,7 +289,7 @@ window.exportBoardGrades = async () => {
             const comments = c.comments || [];
             if (comments.length > 0) {
               comments.forEach(cm => {
-                const rolle = cm.role === 'teacher' ? 'Lehrer' : 'Schüler';
+                const rolle = cm.role === 'teacher' ? 'Tutor' : 'SchülerIn';
                 const zeit = cm.createdAt ? new Date(cm.createdAt).toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
                 lines.push(`       💬 [${rolle}] ${cm.author || '?'} (${zeit}): ${cm.text}`);
               });

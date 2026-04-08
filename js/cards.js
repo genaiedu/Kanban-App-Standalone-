@@ -271,7 +271,7 @@ window.renderCards = function(colId) {
     if (allComments.length === 0) {
       flagsHtml += `<button class="comment-flag empty-flag" onclick="event.stopPropagation(); window.openComments('${card.id}', '${colId}')" title="Kommentar hinzufügen"><i data-lucide="message-square-plus" style="width:12px;height:12px;pointer-events:none;"></i></button>`;
     } else {
-      if (teacherCount > 0) flagsHtml += `<button class="comment-flag teacher-flag" onclick="event.stopPropagation(); window.openComments('${card.id}', '${colId}')" title="Lehrer-Feedback">${teacherCount} <i data-lucide="graduation-cap" style="width:12px;height:12px;pointer-events:none;"></i></button>`;
+      if (teacherCount > 0) flagsHtml += `<button class="comment-flag teacher-flag" onclick="event.stopPropagation(); window.openComments('${card.id}', '${colId}')" title="Tutor-Feedback">${teacherCount} <i data-lucide="graduation-cap" style="width:12px;height:12px;pointer-events:none;"></i></button>`;
       if (studentCount > 0) flagsHtml += `<button class="comment-flag student-flag" onclick="event.stopPropagation(); window.openComments('${card.id}', '${colId}')" title="Kommentare">${studentCount} <i data-lucide="message-square" style="width:12px;height:12px;pointer-events:none;"></i></button>`;
     }
     flagsHtml += '</div>';
@@ -540,7 +540,7 @@ window.renderCommentsList = () => {
     listEl.innerHTML = comments.map((c, i) => `
       <div style="background:var(--surface2); border-radius:8px; padding:10px 12px; border-left:3px solid ${c.role === 'teacher' ? '#f59e0b' : 'var(--accent)'}; margin-bottom:6px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-          <strong style="font-size:12px; color:${c.role === 'teacher' ? '#f59e0b' : 'var(--accent)'};">${c.role === 'teacher' ? '👨‍🏫 Lehrer' : '🙋 Schüler'}</strong>
+          <strong style="font-size:12px; color:${c.role === 'teacher' ? '#f59e0b' : 'var(--accent)'};">${c.role === 'teacher' ? '👨‍🏫 Tutor' : '🙋 SchülerIn'}</strong>
           <button class="card-btn delete" onclick="window.removeComment(${i})" title="Löschen"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
         </div>
         <div style="font-size:13px; color:var(--text);">${typeof escHtml === 'function' ? escHtml(c.text) : c.text}</div>
@@ -557,14 +557,15 @@ window.addComment = () => {
   const input  = document.getElementById('new-comment-input');
   const text   = input?.value.trim();
   if (!text) return;
-  // Rolle automatisch aus Session ableiten: Schüler → 'student', Lehrer → 'teacher'
+  // Rolle automatisch aus Session ableiten: Schüler → 'student', Tutor → 'teacher'
   const role = window._kfSession?.isStudent ? 'student' : 'teacher';
   const card = (S.cards[colId]||[]).find(c => c.id === cardId);
   if (!card) return;
   const comments = [...(card.comments || []), { text, role, createdAt: new Date().toISOString() }];
+  card.comments = comments;
   updateCard(S.currentBoard.id, colId, cardId, { comments });
-  window.loadCards(colId);
   if (input) input.value = '';
+  if (typeof window.renderCards === 'function') window.renderCards(colId);
   window.renderCommentsList();
 };
 
@@ -574,7 +575,8 @@ window.removeComment = (idx) => {
   const card   = (S.cards[colId]||[]).find(c => c.id === cardId);
   if (!card) return;
   const comments = (card.comments || []).filter((_, i) => i !== idx);
+  card.comments = comments;
   updateCard(S.currentBoard.id, colId, cardId, { comments });
-  window.loadCards(colId);
+  if (typeof window.renderCards === 'function') window.renderCards(colId);
   window.renderCommentsList();
 };

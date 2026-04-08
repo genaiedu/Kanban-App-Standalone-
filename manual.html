@@ -18,7 +18,7 @@
     margin-top: -20px;
   }
   .back-to-top:hover { transform: translateY(-3px); }
-  
+
   .help-tip {
     margin-top:12px; padding:10px 14px; background:rgba(245,158,11,0.1); border-left:3px solid #f59e0b; border-radius:0 6px 6px 0;
   }
@@ -65,16 +65,16 @@
   </div>
   <div style="text-align:center;">
     <div class="modal-title" style="margin-bottom:4px;">Nutzerhandbuch</div>
-    <div style="font-size:13px; color:var(--text-muted);">KanbanFluss – Kurzanleitung</div>
+    <div style="font-size:13px; color:var(--text-muted);">KanbanFluss Standalone – Kurzanleitung</div>
   </div>
 </div>
 
 <div id="manual-content-wrapper" style="font-size:13px; line-height:1.8; color:var(--text-muted);">
 
   <div id="toc-top" class="help-section" style="background:rgba(77,127,255,0.04); border:1px solid rgba(77,127,255,0.15); border-radius:12px; padding:20px; scroll-margin-top: 20px; margin-bottom: 32px;">
-    
+
     <div style="display:flex; flex-wrap:wrap; gap:24px;">
-      
+
       <div style="flex:1; min-width:240px;">
         <div style="display:flex; align-items:center; gap:8px; color:var(--accent); font-weight:600; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid rgba(77,127,255,0.15);">
           <i data-lucide="users" style="width:16px;height:16px;"></i>
@@ -82,20 +82,20 @@
         </div>
         <div style="display:flex; flex-direction:column; gap:2px;">
           <a href="#ch-was-ist-kanban" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Was ist ein Kanban-Board?</a>
-          <a href="#ch-gast" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Gast-Modus (Demo)</a>
-          <a href="#ch-registrierung" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Registrierung und Anmeldung</a>
-          <a href="#ch-profil" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Profil bearbeiten</a>
+          <a href="#ch-wie-funktioniert" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Wie die App funktioniert</a>
+          <a href="#ch-anmeldung-tutor" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Anmeldung als Tutor</a>
+          <a href="#ch-anmeldung-schueler" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Anmeldung als Schülerin oder Schüler</a>
           <a href="#ch-boards-erstellen" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Boards erstellen und duplizieren</a>
           <a href="#ch-spalten" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Spalten verwalten</a>
           <a href="#ch-karten" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Karten erstellen und bearbeiten</a>
           <a href="#ch-kommentare" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Kommentare und Feedback</a>
-          <a href="#ch-abhaengigkeiten" class="toc-link"><i data-lucide="link" style="width:14px;height:14px;"></i> Voraussetzungen & Abhängigkeiten</a>
+          <a href="#ch-abhaengigkeiten" class="toc-link"><i data-lucide="link" style="width:14px;height:14px;"></i> Voraussetzungen &amp; Abhängigkeiten</a>
           <a href="#ch-dragdrop" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Karten verschieben</a>
           <a href="#ch-gruppieren" class="toc-link"><i data-lucide="link-2" style="width:14px;height:14px;"></i> Karten verketten (Gruppen)</a>
           <a href="#ch-loeschen" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Karten löschen</a>
           <a href="#ch-hintergrund" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Hintergrund anpassen</a>
           <a href="#ch-agenda" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Agenda, Termine und Fristen</a>
-          <a href="#ch-export-import" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Export, Backups und KI</a>
+          <a href="#ch-export-import" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Exportieren, Image und KI Import</a>
           <a href="#ch-pwa" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> App installieren</a>
         </div>
       </div>
@@ -103,27 +103,23 @@
       <div style="flex:1; min-width:240px;">
         <div style="display:flex; align-items:center; gap:8px; color:var(--accent); font-weight:600; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid rgba(77,127,255,0.15);">
           <i data-lucide="graduation-cap" style="width:16px;height:16px;"></i>
-          Für Lehrkräfte
+          Für Tutoren
         </div>
         <div style="display:flex; flex-direction:column; gap:2px;">
-          <a href="#ch-admin-zugang" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Zugang und Admin-Bereich</a>
-          <a href="#ch-lerngruppen" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Lerngruppen &amp; Einladungslinks</a>
-          <a href="#ch-nutzerverwaltung" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Nutzerverwaltung</a>
-          <a href="#ch-abgabe" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Abgabetermin festlegen</a>
-          <a href="#ch-aging-warnung" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Aging-Warnung einstellen</a>
-          <a href="#ch-aging-pause" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Aging pausieren (Ferien)</a>
+          <a href="#ch-ini-erstellen" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Tutor-INI erstellen</a>
+          <a href="#ch-image-oeffnen" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Image einer Schülerin oder eines Schülers öffnen</a>
           <a href="#ch-benotung" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Benotung (Prozess &amp; Produkt)</a>
           <a href="#ch-noten-export" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Noten exportieren &amp; Gutachten</a>
+          <a href="#ch-rueckgabe" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Image zurückgeben</a>
           <a href="#ch-hintergrundbilder" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Hintergrundbilder verwalten</a>
-          <a href="#ch-weitere-admins" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Weitere Lehrer als Admins</a>
-          <a href="#ch-passwort" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Admin-Passwort</a>
-          <a href="#ch-datenschutz" class="toc-link" style="margin-top: 12px;"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Datenschutzhinweis</a>
+          <a href="#ch-datenschutz" class="toc-link" style="margin-top:12px;"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Datenschutzhinweis</a>
         </div>
       </div>
 
     </div>
   </div>
 
+  <!-- WAS IST KANBAN -->
   <div id="ch-was-ist-kanban" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="trello" style="width:24px;height:24px;"></i> Was ist ein Kanban-Board?</span></div>
     <p>Kanban ist eine Methode zur Visualisierung und Steuerung von Arbeit. Der Begriff stammt aus dem Japanischen und bedeutet so viel wie <strong style="color:var(--text);">„Signalkarte"</strong>. Entwickelt wurde die Methode ursprünglich von Toyota in den 1950er Jahren – heute wird sie weltweit in Schulen, Unternehmen und von Einzelpersonen eingesetzt.</p>
@@ -140,66 +136,78 @@
     </div>
   </div>
 
-  <div id="ch-gast" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="user" style="width:24px;height:24px;"></i> Gast-Modus (Demo)</span></div>
-    <p>Auf der Login-Seite gibt es die Schaltfläche <strong style="color:var(--text);">„Als Gast testen"</strong>. Ein Klick darauf öffnet sofort ein vorbereitetes Demo-Board mit Beispiel-Karten – ohne Registrierung, ohne Passwort.</p>
-    <p style="margin-top:8px;">Der Gast-Modus eignet sich, um die App kennenzulernen, bevor man ein eigenes Konto erstellt. Beim Start wird automatisch eine <strong style="color:var(--text);">Spotlight-Tour</strong> gestartet, die durch die wichtigsten Funktionen führt. Gast-Boards werden nach 20 Minuten Inaktivität automatisch gelöscht.</p>
-    <div class="help-tip">
-      <div class="help-tip-title">Gut zu wissen</div>
-      <p style="margin-top:4px; margin-bottom:0;">Wenn gerade ein anderer Gast online ist, öffnet sich dessen Board – so kann man die App sogar zu zweit gleichzeitig ausprobieren (Live-Kooperation).</p>
+  <!-- WIE FUNKTIONIERT DIE APP -->
+  <div id="ch-wie-funktioniert" class="help-section" style="scroll-margin-top: 20px;">
+    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="info" style="width:24px;height:24px;"></i> Wie die App funktioniert</span></div>
+    <p>KanbanFluss Standalone funktioniert <strong style="color:var(--text);">ohne Cloud und ohne Konto</strong>. Alle Daten bleiben auf dem jeweiligen Gerät. Der Austausch zwischen Tutor und Schülern läuft über zwei Dateitypen, die manuell weitergegeben werden:</p>
+    <ul style="margin:10px 0 0 18px; display:flex; flex-direction:column; gap:8px;">
+      <li>
+        <strong style="color:var(--text);">INI-Datei</strong> – Wird einmalig vom Tutor erstellt und an alle Schülerinnen und Schüler weitergegeben (z.&nbsp;B. per E-Mail, Messenger oder USB-Stick). Die INI-Datei enthält den öffentlichen Schlüssel des Tutors und ermöglicht den verschlüsselten Austausch.
+      </li>
+      <li>
+        <strong style="color:var(--text);">Image</strong> – So heißt die exportierte Board-Datei einer Schülerin oder eines Schülers. Schülerinnen und Schüler exportieren ihr Image und geben es an den Tutor weiter. Der Tutor öffnet es, gibt Feedback, benotet – und gibt das Image zurück. Die Schülerin oder der Schüler kann das zurückgegebene Image mit dem eigenen Passwort öffnen.
+      </li>
+    </ul>
+    <div class="help-info">
+      <div class="help-info-title">Verschlüsselung</div>
+      <p style="margin-top:4px; margin-bottom:0;">Jedes Image ist verschlüsselt. Nur der Tutor (mit seiner INI) und die Schülerin oder der Schüler (mit dem Passwort) können es öffnen. Kein Dritter kann die Inhalte lesen – auch wenn die Datei auf dem falschen Weg landet.</p>
     </div>
   </div>
 
-  <div id="ch-registrierung" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="log-in" style="width:24px;height:24px;"></i> Registrierung und Anmeldung</span></div>
-    <p>Beim ersten Besuch der App kannst du dich auf zwei Wegen registrieren:</p>
-    <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
-      <li><strong style="color:var(--text);">Mit Google-Konto</strong> – Ein Klick auf „Mit Google registrieren" öffnet ein Popup, in dem du dein Google-Konto auswählst. Name und E-Mail werden automatisch übernommen.</li>
-      <li><strong style="color:var(--text);">Per E-Mail</strong> – Fülle das Formular mit Name, E-Mail und einem Passwort (mindestens 6 Zeichen) aus.</li>
-    </ul>
-    <p style="margin-top:8px;">Wichtig ist in beiden Fällen die Angabe deiner <strong style="color:var(--text);">Lerngruppe</strong> (z.&nbsp;B. deine Klasse oder dein Kurs). Dieses Feld steht ganz oben im Registrierungsformular.</p>
+  <!-- ANMELDUNG TUTOR -->
+  <div id="ch-anmeldung-tutor" class="help-section" style="scroll-margin-top: 20px;">
+    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="log-in" style="width:24px;height:24px;"></i> Anmeldung als Tutor</span></div>
+    <p>Beim ersten Öffnen der App gibst du deinen <strong style="color:var(--text);">Namen</strong> ein und klickst auf „Los geht's". Das war's – du bist sofort im Tutor-Modus.</p>
+    <p style="margin-top:8px;">Der nächste wichtige Schritt ist die Erstellung deiner <strong style="color:var(--text);">INI-Datei</strong> (siehe Abschnitt <a href="#ch-ini-erstellen" style="color:var(--accent);">Tutor-INI erstellen</a>). Ohne INI können Schülerinnen und Schüler sich nicht bei dir registrieren.</p>
     <div class="help-tip">
-      <div class="help-tip-title">Tipp: Einladungslink nutzen</div>
-      <p style="margin-top:4px; margin-bottom:0;">Hast du von deiner Lehrkraft einen speziellen <strong style="color:var(--text);">Einladungslink</strong> erhalten? Dann klicke einfach darauf – die App füllt das Lerngruppen-Feld automatisch aus. Du musst nichts manuell eintippen und kannst dich nicht vertippen.</p>
+      <div class="help-tip-title">Beim nächsten Mal</div>
+      <p style="margin-top:4px; margin-bottom:0;">Wenn du die App erneut öffnest, landest du direkt in der App – dein Name ist gespeichert. Mit „Abmelden" in der Seitenleiste kannst du den Namen zurücksetzen.</p>
     </div>
-    <p style="margin-top:10px;">Beim nächsten Besuch meldest du dich einfach mit denselben Zugangsdaten an. Deine Boards und Aufgaben sind genau so, wie du sie zuletzt hinterlassen hast.</p>
-    <p style="margin-top:8px;"><strong style="color:var(--text);">Passwort vergessen?</strong> Auf der Login-Seite gibt es den Link „Passwort vergessen?". Dort gibst du deine E-Mail-Adresse ein und erhältst eine Nachricht mit einem Link zum Zurücksetzen. Die E-Mail kann im Spam-Ordner landen – bitte dort nachschauen.</p>
   </div>
 
-  <div id="ch-profil" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="user-circle" style="width:24px;height:24px;"></i> Profil bearbeiten</span></div>
-    <p>In der linken Seitenleiste siehst du oben deinen <strong style="color:var(--text);">Namen und deine Lerngruppe</strong>. Ein Klick darauf öffnet das Profil-Fenster, in dem du Folgendes ändern kannst:</p>
-    <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
-      <li><strong style="color:var(--text);">Name</strong> – Dein Anzeigename, der auf Karten und in der Admin-Übersicht erscheint</li>
-      <li><strong style="color:var(--text);">Lerngruppe</strong> – Die Klasse oder der Kurs, dem du zugeordnet bist</li>
-    </ul>
-    <p style="margin-top:8px;">Die E-Mail-Adresse wird angezeigt, kann aber nicht geändert werden, da sie mit deinem Login verknüpft ist.</p>
+  <!-- ANMELDUNG SCHÜLER -->
+  <div id="ch-anmeldung-schueler" class="help-section" style="scroll-margin-top: 20px;">
+    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="user-check" style="width:24px;height:24px;"></i> Anmeldung als Schülerin oder Schüler</span></div>
+    <p>Die SchülerIn-Ansicht wird über einen speziellen Link aufgerufen (der Tutor gibt diesen weiter). Beim ersten Aufruf erscheint ein <strong style="color:var(--text);">Registrierungsformular</strong> in drei Schritten:</p>
+    <ol style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:6px;">
+      <li><strong style="color:var(--text);">INI-Datei laden</strong> – Lade die INI-Datei, die du von deinem Tutor erhalten hast. Sie wird einmalig eingelesen und auf dem Gerät gespeichert.</li>
+      <li><strong style="color:var(--text);">Namen eingeben</strong> – Gib deinen Namen oder Nickname ein.</li>
+      <li><strong style="color:var(--text);">Passwort setzen</strong> – Wähle ein Passwort (mindestens 4 Zeichen). Dieses Passwort schützt dein Image. <strong style="color:var(--danger);">Merke es dir gut</strong> – es kann nicht zurückgesetzt werden.</li>
+    </ol>
+    <p style="margin-top:10px;">Beim nächsten Besuch wirst du direkt nach deinem Passwort gefragt. Name und INI sind bereits hinterlegt.</p>
+    <div class="help-tip">
+      <div class="help-tip-title">Anderen Tutor wählen</div>
+      <p style="margin-top:4px; margin-bottom:0;">Auf dem Login-Bildschirm gibt es den Button <strong style="color:var(--text);">„Anderen Tutor wählen / Neu anmelden"</strong>. Damit kannst du eine neue INI-Datei laden und ein neues Passwort setzen – deine bisherigen Boards bleiben erhalten.</p>
+    </div>
   </div>
 
+  <!-- BOARDS ERSTELLEN -->
   <div id="ch-boards-erstellen" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="layout-dashboard" style="width:24px;height:24px;"></i> Boards erstellen und duplizieren</span></div>
-    <p>Ein <strong style="color:var(--text);">Board</strong> ist dein Arbeitsbereich – zum Beispiel für ein Projekt, eine Klasse oder eine Aufgabensammlung. Klicke in der linken Seitenleiste auf <strong style="color:var(--text);">„＋ Neues Board"</strong> um den Einrichtungsassistenten zu starten.</p>
+    <p>Ein <strong style="color:var(--text);">Board</strong> ist dein Arbeitsbereich – zum Beispiel für ein Projekt, eine Klasse oder eine Aufgabensammlung. Klicke in der linken Seitenleiste auf <strong style="color:var(--text);">„＋ Neues Board"</strong>, um den Einrichtungsassistenten zu starten.</p>
     <p style="margin-top:8px;">Der Assistent führt dich durch drei Schritte:</p>
     <ol style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
       <li><strong style="color:var(--text);">Board-Name</strong> – Gib dem Board einen aussagekräftigen Namen (z.&nbsp;B. „Klimawandel-Projekt" oder „Sprint 1").</li>
       <li><strong style="color:var(--text);">Teamgröße</strong> – Wähle aus, wie viele Personen mitarbeiten (1–10). Das WIP-Limit wird automatisch berechnet: Teamgröße × 1,5, aufgerundet.</li>
-      <li><strong style="color:var(--text);">Nicknames</strong> – Gib für jede Person einen Namen oder Nickname ein. Diese erscheinen später beim Zuweisen von Aufgaben als Auswahl.</li>
+      <li><strong style="color:var(--text);">Nicknames</strong> – Gib für jede Person einen Namen oder Nickname ein. Diese erscheinen beim Zuweisen von Aufgaben als Auswahl.</li>
     </ol>
     <p style="margin-top:8px;">Nach der Erstellung enthält das Board drei Standardspalten: <em>— Offen</em>, <em>— In Bearbeitung</em> und <em>— Fertig</em>.</p>
-    <p style="margin-top:10px;"><strong style="color:var(--text);">Board duplizieren:</strong> In der Seitenleiste erscheint beim Hovern über ein Board ein Kopier-Symbol. Ein Klick erstellt eine vollständige Kopie mit allen Spalten, Karten und Einstellungen. Nützlich, wenn ein Board als Vorlage dienen soll.</p>
+    <p style="margin-top:10px;"><strong style="color:var(--text);">Board duplizieren:</strong> In der Seitenleiste erscheint beim Hovern über ein Board ein Kopier-Symbol. Ein Klick erstellt eine vollständige Kopie mit allen Spalten, Karten und Einstellungen.</p>
   </div>
 
+  <!-- SPALTEN -->
   <div id="ch-spalten" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="columns" style="width:24px;height:24px;"></i> Spalten verwalten</span></div>
     <p>Jedes Board besteht aus <strong style="color:var(--text);">Spalten</strong>, die den Status einer Aufgabe beschreiben. Du kannst beliebig viele eigene Spalten hinzufügen – klicke dafür auf <strong style="color:var(--text);">„＋ Spalte hinzufügen"</strong> ganz rechts im Board.</p>
     <p style="margin-top:8px;">Spalten können über das Mülleimer-Symbol gelöscht werden. <strong style="color:var(--danger);">Achtung:</strong> Dabei werden auch alle Karten in dieser Spalte unwiderruflich gelöscht.</p>
-    <p style="margin-top:8px;"><strong style="color:var(--text);">WIP-Limit:</strong> Die Spalte „In Bearbeitung" hat ein automatisches Limit für gleichzeitig aktive Aufgaben. Wenn das Limit erreicht ist, färbt sich die Spalte <strong style="color:#f59e0b;">orange</strong> (eine Karte unter dem Limit) bzw. <strong style="color:var(--danger);">rot</strong> (Limit erreicht). Im roten Zustand können keine weiteren Karten hineingezogen werden – erst wenn eine bestehende Karte in „Fertig" verschoben wurde.</p>
+    <p style="margin-top:8px;"><strong style="color:var(--text);">WIP-Limit:</strong> Die Spalte „In Bearbeitung" hat ein automatisches Limit für gleichzeitig aktive Aufgaben. Wenn das Limit erreicht ist, färbt sich die Spalte <strong style="color:#f59e0b;">orange</strong> (eine Karte unter dem Limit) bzw. <strong style="color:var(--danger);">rot</strong> (Limit erreicht). Im roten Zustand können keine weiteren Karten hineingezogen werden.</p>
     <div class="help-tip">
       <div class="help-tip-title">Die Voraussetzungen-Spalte</div>
-      <p style="margin-top:4px; margin-bottom:0;">Wenn du eine neue Spalte erstellst, fragt dich das System, ob dies die spezielle <strong style="color:var(--text);">Voraussetzungen-Spalte</strong> werden soll. Diese eignet sich perfekt, um Vorarbeiten abzulegen, von denen andere Karten abhängig sind (siehe <a href="#ch-abhaengigkeiten" style="color:var(--accent);">Abhängigkeiten</a>).</p>
+      <p style="margin-top:4px; margin-bottom:0;">Wenn du eine neue Spalte erstellst, fragt dich das System, ob dies die spezielle <strong style="color:var(--text);">Voraussetzungen-Spalte</strong> werden soll. Diese eignet sich perfekt, um Vorarbeiten abzulegen, von denen andere Karten abhängig sind.</p>
     </div>
   </div>
 
+  <!-- KARTEN -->
   <div id="ch-karten" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="copy" style="width:24px;height:24px;"></i> Karten erstellen und bearbeiten</span></div>
     <p><strong style="color:var(--text);">Karten</strong> sind einzelne Aufgaben. Klicke auf <strong style="color:var(--text);">„＋ Karte hinzufügen"</strong> unterhalb einer Spalte, um eine neue Karte zu erstellen. Beim Erstellen kannst du direkt eine <strong style="color:var(--text);">Priorität</strong> wählen:</p>
@@ -212,228 +220,214 @@
     <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
       <li>Den <strong style="color:var(--text);">Text</strong> der Aufgabe ändern</li>
       <li>Die <strong style="color:var(--text);">Priorität</strong> anpassen</li>
-      <li>Ein <strong style="color:var(--text);">Fälligkeitsdatum</strong> setzen – die Karte zeigt dann farbig an, wie viel Zeit noch bleibt</li>
+      <li>Ein <strong style="color:var(--text);">Fälligkeitsdatum</strong> setzen</li>
       <li>Die Karte einem <strong style="color:var(--text);">Teammitglied zuweisen</strong></li>
     </ul>
   </div>
 
+  <!-- KOMMENTARE -->
   <div id="ch-kommentare" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="message-square" style="width:24px;height:24px;"></i> Kommentare und Feedback</span></div>
-    <p>Jede Karte hat ein <strong style="color:var(--text);">Kommentarsystem</strong>, über das Schülerinnen und Schüler untereinander und mit der Lehrkraft kommunizieren können – direkt an der jeweiligen Aufgabe.</p>
+    <p>Jede Karte hat ein <strong style="color:var(--text);">Kommentarsystem</strong>. Schülerinnen und Schüler können Notizen hinterlassen; der Tutor kann direkt an der Karte Feedback geben – sichtbar nach der Rückgabe des Images.</p>
     <p style="margin-top:8px;">Auf jeder Karte siehst du kleine Symbole, die den Kommentar-Status anzeigen:</p>
     <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
-      <li><strong style="color:var(--text);"><i data-lucide="graduation-cap" style="width:14px;height:14px;vertical-align:-2px;"></i> Zahl</strong> – Anzahl der Lehrer-Kommentare (Feedback der Lehrkraft)</li>
-      <li><strong style="color:var(--text);"><i data-lucide="message-square" style="width:14px;height:14px;vertical-align:-2px;"></i> Zahl</strong> – Anzahl der Schüler-Kommentare</li>
-      <li><strong style="color:var(--text-muted);"><i data-lucide="message-square-plus" style="width:14px;height:14px;vertical-align:-2px;"></i> (leer)</strong> – Noch keine Kommentare, klicke hier um den ersten zu schreiben</li>
+      <li><strong style="color:var(--text);"><i data-lucide="graduation-cap" style="width:14px;height:14px;vertical-align:-2px;"></i> Zahl</strong> – Anzahl der Tutor-Kommentare (Feedback)</li>
+      <li><strong style="color:var(--text);"><i data-lucide="message-square" style="width:14px;height:14px;vertical-align:-2px;"></i> Zahl</strong> – Anzahl der SchülerIn-Kommentare</li>
+      <li><strong style="color:var(--text-muted);"><i data-lucide="message-square-plus" style="width:14px;height:14px;vertical-align:-2px;"></i> (leer)</strong> – Noch keine Kommentare</li>
     </ul>
-    <p style="margin-top:8px;">Klicke auf eines dieser Symbole, um die Kommentarliste zu öffnen. Dort kannst du einen neuen Kommentar schreiben und mit <strong style="color:var(--text);">Senden</strong> abschicken (oder einfach Enter drücken). Eigene Kommentare können auch wieder gelöscht werden.</p>
+    <p style="margin-top:8px;">Klicke auf eines dieser Symbole, um die Kommentarliste zu öffnen. Neuen Kommentar schreiben und mit <strong style="color:var(--text);">Enter</strong> oder „Senden" abschicken.</p>
   </div>
 
+  <!-- ABHÄNGIGKEITEN -->
   <div id="ch-abhaengigkeiten" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="link" style="width:24px;height:24px;"></i> Voraussetzungen & Abhängigkeiten</span></div>
-    <p>Bei komplexen Projekten kann es vorkommen, dass eine Aufgabe erst gestartet werden kann, wenn eine andere bereits erledigt ist. Dafür gibt es das <strong style="color:var(--text);">Abhängigkeitssystem</strong>.</p>
-    <p style="margin-top:8px;">Auf den Karten siehst du ganz links ein Ketten-Symbol, das dir den Status der Voraussetzungen anzeigt:</p>
+    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="link" style="width:24px;height:24px;"></i> Voraussetzungen &amp; Abhängigkeiten</span></div>
+    <p>Bei komplexen Projekten kann eine Aufgabe erst gestartet werden, wenn eine andere bereits erledigt ist. Dafür gibt es das <strong style="color:var(--text);">Abhängigkeitssystem</strong>.</p>
+    <p style="margin-top:8px;">Das Ketten-Symbol auf jeder Karte zeigt den Status:</p>
     <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
-      <li><strong style="color:var(--danger);"><i data-lucide="link" style="width:14px;height:14px;vertical-align:-2px;"></i> Rote Kette</strong> – Es fehlen noch Voraussetzungen. Diese Karte ist <strong style="color:var(--text);">blockiert</strong> und kann nicht nach rechts verschoben werden.</li>
-      <li><strong style="color:var(--success);"><i data-lucide="link" style="width:14px;height:14px;vertical-align:-2px;"></i> Grüne Kette</strong> – Alle Voraussetzungen sind erfüllt (die benötigten Karten liegen in einer "Fertig"-Spalte). Die Aufgabe ist freigegeben.</li>
-      <li><strong style="color:var(--text-muted);"><i data-lucide="link" style="width:14px;height:14px;vertical-align:-2px;"></i> Graue Kette</strong> – Keine Voraussetzungen definiert. Ein Klick darauf lässt dich neue Verknüpfungen hinzufügen.</li>
+      <li><strong style="color:var(--danger);"><i data-lucide="link" style="width:14px;height:14px;vertical-align:-2px;"></i> Rote Kette</strong> – Voraussetzungen fehlen noch. Diese Karte ist <strong style="color:var(--text);">blockiert</strong>.</li>
+      <li><strong style="color:var(--success);"><i data-lucide="link" style="width:14px;height:14px;vertical-align:-2px;"></i> Grüne Kette</strong> – Alle Voraussetzungen erfüllt. Die Aufgabe ist freigegeben.</li>
+      <li><strong style="color:var(--text-muted);"><i data-lucide="link" style="width:14px;height:14px;vertical-align:-2px;"></i> Graue Kette</strong> – Keine Voraussetzungen definiert.</li>
     </ul>
-    <p style="margin-top:8px;">Ein Klick auf das Ketten-Symbol öffnet eine Liste. Dort kannst du genau sehen, welche anderen Karten benötigt werden und ob diese bereits grün markiert sind.</p>
+    <p style="margin-top:8px;">Ein Klick auf das Symbol öffnet die Verknüpfungsliste.</p>
   </div>
 
+  <!-- DRAG & DROP -->
   <div id="ch-dragdrop" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="move" style="width:24px;height:24px;"></i> Karten verschieben</span></div>
     <p>Es gibt zwei Wege, Karten zwischen Spalten zu verschieben:</p>
-    <p style="margin-top:8px;"><strong style="color:var(--text);">1. Drag &amp; Drop</strong> – Halte eine Karte gedrückt und ziehe sie in die gewünschte Spalte. Die Zielspalte wird beim Darüberziehen hervorgehoben.</p>
-    <p style="margin-top:8px;"><strong style="color:var(--text);">2. Pfeil-Buttons</strong> – Auf jeder Karte befinden sich kleine Pfeil-Symbole (<i data-lucide="chevron-left" style="width:14px;height:14px;vertical-align:-2px;"></i> <i data-lucide="chevron-right" style="width:14px;height:14px;vertical-align:-2px;"></i>). Ein Klick verschiebt die Karte um genau eine Spalte nach links oder rechts – mit einer kurzen Animation. Du kannst Karten mit den Pfeilen (<i data-lucide="chevron-up" style="width:14px;height:14px;vertical-align:-2px;"></i> <i data-lucide="chevron-down" style="width:14px;height:14px;vertical-align:-2px;"></i>) auch nach oben oder unten innerhalb der Spalte sortieren.</p>
+    <p style="margin-top:8px;"><strong style="color:var(--text);">1. Drag &amp; Drop</strong> – Halte eine Karte gedrückt und ziehe sie in die gewünschte Spalte.</p>
+    <p style="margin-top:8px;"><strong style="color:var(--text);">2. Pfeil-Buttons</strong> – Die Pfeile <i data-lucide="chevron-left" style="width:14px;height:14px;vertical-align:-2px;"></i> <i data-lucide="chevron-right" style="width:14px;height:14px;vertical-align:-2px;"></i> verschieben die Karte spaltenweise; <i data-lucide="chevron-up" style="width:14px;height:14px;vertical-align:-2px;"></i> <i data-lucide="chevron-down" style="width:14px;height:14px;vertical-align:-2px;"></i> sortieren innerhalb der Spalte.</p>
     <div class="help-tip">
       <div class="help-tip-title">Verschieben blockiert?</div>
-      <p style="margin-top:4px; margin-bottom:0;">Wenn eine Karte unerfüllte Voraussetzungen hat (<strong style="color:var(--danger);">rote Kette</strong>), blockiert das System das Verschieben nach rechts, bis alle Abhängigkeiten erfüllt wurden.</p>
+      <p style="margin-top:4px; margin-bottom:0;">Karten mit unerfüllten Voraussetzungen (<strong style="color:var(--danger);">rote Kette</strong>) können nicht nach rechts verschoben werden.</p>
     </div>
-    <p style="margin-top:10px;">Beim Verschieben werden automatisch <strong style="color:var(--text);">Zeitstempel</strong> gesetzt:</p>
-    <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
-      <li><strong style="color:var(--text);"><i data-lucide="play" style="width:12px;height:12px;vertical-align:-1px;"></i> Startdatum</strong> – wird gesetzt, sobald eine Karte zum ersten Mal aus „Offen" bewegt wird</li>
-      <li><strong style="color:var(--text);"><i data-lucide="check" style="width:12px;height:12px;vertical-align:-1px;"></i> Enddatum</strong> – wird automatisch gesetzt, wenn die Karte in die „Fertig"-Spalte gelangt</li>
-    </ul>
+    <p style="margin-top:10px;">Beim Verschieben werden automatisch <strong style="color:var(--text);">Zeitstempel</strong> gesetzt: Startdatum (erstes Verlassen von „Offen") und Enddatum (Eingang in „Fertig").</p>
   </div>
 
+  <!-- GRUPPIEREN -->
   <div id="ch-gruppieren" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="link-2" style="width:24px;height:24px;"></i> Karten verketten (Gruppen)</span></div>
-    <p>Oft gehören Aufgaben eng zusammen, zum Beispiel weil sie als <strong style="color:var(--text);">Gruppenarbeit</strong> im Team erledigt werden oder große Teilaufgaben bilden. Du kannst Karten <strong style="color:var(--text);">verketten</strong>, sodass sie einen gemeinsamen optischen Block bilden.</p>
-    <p style="margin-top:8px;">Klicke dazu in der unteren Leiste der Karte auf das <strong style="color:var(--accent);"><i data-lucide="link-2" style="width:14px;height:14px;vertical-align:-2px;"></i> Link-Symbol</strong>. Die Karte verbindet sich automatisch mit der Karte direkt darunter. Die Rahmen zwischen den Karten verschmelzen zu einer gestrichelten Linie und sie erhalten einen farbigen Rand, wodurch sie als Einheit erkennbar sind.</p>
-    <p style="margin-top:8px;">Um eine Karte wieder aus dem Block zu lösen, klicke auf das Symbol der <strong style="color:var(--danger);"><i data-lucide="unlink" style="width:14px;height:14px;vertical-align:-2px;"></i> zerbrochenen Kette</strong>.</p>
+    <p>Zusammengehörige Aufgaben können <strong style="color:var(--text);">verkettet</strong> werden – sie bilden dann einen gemeinsamen optischen Block und bewegen sich beim Verschieben immer gemeinsam.</p>
+    <p style="margin-top:8px;">Klicke auf das <strong style="color:var(--accent);"><i data-lucide="link-2" style="width:14px;height:14px;vertical-align:-2px;"></i> Link-Symbol</strong> in der Kartenleiste, um die Karte mit der darunterliegenden zu verbinden. Zum Lösen: <strong style="color:var(--danger);"><i data-lucide="unlink" style="width:14px;height:14px;vertical-align:-2px;"></i> zerbrochene Kette</strong> klicken.</p>
     <div class="help-info">
-      <div class="help-info-title">Vorteil beim Verschieben</div>
-      <p style="margin-top:4px; margin-bottom:0;">Wenn du eine Karte innerhalb einer Gruppe (Kette) anfasst und per Drag &amp; Drop oder über die Pfeil-Buttons (<i data-lucide="chevron-left" style="width:12px;height:12px;vertical-align:-1px;"></i> <i data-lucide="chevron-right" style="width:12px;height:12px;vertical-align:-1px;"></i> oder <i data-lucide="chevron-up" style="width:12px;height:12px;vertical-align:-1px;"></i> <i data-lucide="chevron-down" style="width:12px;height:12px;vertical-align:-1px;"></i>) verschiebst, <strong style="color:var(--text);">bewegt sich immer der gesamte Block</strong> als gemeinsame Einheit! So zerfällt eure Gruppenarbeit nie.</p>
+      <div class="help-info-title">Gruppenarbeit</div>
+      <p style="margin-top:4px; margin-bottom:0;">Trotz Verkettung bleiben Karten intern eigenständig – im Notenmodul können weiterhin individuelle Noten vergeben werden.</p>
     </div>
-    <p style="margin-top:10px;"><em>Hinweis für Lehrkräfte:</em> Trotz der Verkettung auf dem Board, bleiben die Karten im Hintergrund eigenständig. Im <strong style="color:var(--text);">Notenmodul</strong> können so weiterhin individuelle Noten an verschiedene Teammitglieder vergeben werden, auch wenn sie gemeinsam als Gruppe an einer Aufgabe gearbeitet haben.</p>
   </div>
 
+  <!-- LÖSCHEN -->
   <div id="ch-loeschen" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="trash-2" style="width:24px;height:24px;"></i> Karten löschen</span></div>
-    <p>Du kannst Karten über das <strong style="color:var(--text);">Mülleimer-Symbol</strong> auf der Karte löschen. Dabei gilt eine wichtige Regel: Du kannst nur <strong style="color:var(--text);">eigene Karten</strong> löschen – also Karten, die dir zugewiesen sind oder die keiner Person zugewiesen wurden.</p>
-    <p style="margin-top:8px;">Karten, die einem anderen Teammitglied zugewiesen sind, können nicht gelöscht werden. Das verhindert, dass versehentlich fremde Arbeit verloren geht. Admins (Lehrkräfte) können hingegen alle Karten löschen.</p>
+    <p>Karten können über das <strong style="color:var(--text);">Mülleimer-Symbol</strong> gelöscht werden. Du kannst nur <strong style="color:var(--text);">eigene Karten</strong> löschen – also Karten, die dir zugewiesen sind oder keiner Person zugewiesen wurden. Tutoren können alle Karten löschen.</p>
   </div>
 
+  <!-- HINTERGRUND -->
   <div id="ch-hintergrund" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="palette" style="width:24px;height:24px;"></i> Hintergrund anpassen</span></div>
-    <p>Klicke in der Seitenleiste auf <strong style="color:var(--text);">Einstellungen</strong>, um dein persönliches Erscheinungsbild anzupassen. Hier findest du drei Bereiche:</p>
+    <p>Klicke in der Seitenleiste auf <strong style="color:var(--text);">Einstellungen</strong>:</p>
     <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:6px;">
-      <li><strong style="color:var(--text);">Erscheinungsbild</strong> – Wechsle zwischen dunklem und hellem Modus. Der dunkle Modus ist Standard und schont die Augen bei längerer Arbeit.</li>
-      <li><strong style="color:var(--text);">Panel-Transparenz</strong> – Der Regler steuert, wie durchsichtig die Bedienelemente über dem Hintergrundbild erscheinen. Ganz links = fast durchsichtig, ganz rechts = undurchsichtig.</li>
-      <li><strong style="color:var(--text);">Hintergrund</strong> – Wähle aus Farbverläufen (Standard, Ozean, Aurora, Dämmerung, Mitternacht, Saphir) oder aus den Hintergrundbildern (H1 bis H60).</li>
+      <li><strong style="color:var(--text);">Erscheinungsbild</strong> – Dunkler oder heller Modus</li>
+      <li><strong style="color:var(--text);">Panel-Transparenz</strong> – Regler für die Durchsichtigkeit der Bedienelemente</li>
+      <li><strong style="color:var(--text);">Hintergrund</strong> – Farbverläufe oder Hintergrundbilder (H1–H60)</li>
     </ul>
-    <p style="margin-top:8px;">Alle Einstellungen werden in deinem Konto gespeichert und sind auf jedem Gerät verfügbar, mit dem du dich anmeldest.</p>
+    <p style="margin-top:8px;">Alle Einstellungen werden lokal auf diesem Gerät gespeichert.</p>
   </div>
 
+  <!-- AGENDA -->
   <div id="ch-agenda" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="calendar" style="width:24px;height:24px;"></i> Agenda, Termine und Fristen</span></div>
-    <p>Die <strong style="color:var(--text);">Agenda</strong> (Kalender-Symbol oberhalb des Boards) gibt dir einen schnellen Überblick über alle Aufgaben – sortiert nach Fälligkeitsdatum.</p>
-    <p style="margin-top:8px;">In der Agenda siehst du auf einen Blick:</p>
+    <p>Die <strong style="color:var(--text);">Agenda</strong> (Kalender-Symbol in der Board-Leiste) gibt einen Überblick über alle Aufgaben sortiert nach Fälligkeitsdatum.</p>
+    <p style="margin-top:8px;"><strong style="color:var(--text);">Welche Termine gibt es?</strong></p>
     <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
-      <li>Alle Karten mit Spalte, Zuweisung und Prioritäts-Markierung</li>
-      <li>Farbliche Dringlichkeit: <strong style="color:var(--success);">grün</strong> (genug Zeit), <strong style="color:#f59e0b;">orange</strong> (≤ 2 Tage), <strong style="color:var(--danger);">rot</strong> (überfällig)</li>
-      <li>Falls eine <strong style="color:var(--text);">Projekt-Deadline</strong> gesetzt wurde, erscheint sie ganz oben als Countdown</li>
+      <li><strong style="color:var(--text);">Fälligkeitsdatum pro Karte</strong> – Selbst im Bearbeitungsdialog gesetzt</li>
+      <li><strong style="color:var(--text);">Projekt-Deadline</strong> – Im Werkzeugkasten gesetzt, gilt für das gesamte Board als farbiger Countdown</li>
+      <li><strong style="color:var(--text);">Aging-Warnung</strong> – Karten, die zu lange in „In Bearbeitung" liegen, werden rötlich markiert. Das Aging kann mit dem <strong style="color:var(--text);">Sanduhr-Symbol</strong> pausiert werden (z.&nbsp;B. in den Ferien)</li>
     </ul>
-
-    <p style="margin-top:16px;"><strong style="color:var(--text);">Welche Termine gibt es?</strong></p>
-    <p style="margin-top:8px;"><strong style="color:var(--text);">1. Fälligkeitsdatum pro Karte</strong> – Setzt du selbst über den Bearbeitungsdialog. Zeigt an, bis wann du eine einzelne Aufgabe erledigen möchtest.</p>
-    <p style="margin-top:8px;"><strong style="color:var(--text);">2. Projekt-Deadline</strong> – Wird von der Lehrkraft für das gesamte Board gesetzt. Gilt als verbindlicher Abgabetermin für alle Aufgaben des Projekts.</p>
-    <p style="margin-top:8px;"><strong style="color:var(--text);">3. Aging-Warnung</strong> – Karten, die zu lange in „In Bearbeitung" liegen, werden nach einer festgelegten Anzahl von Tagen rötlich markiert. Ein Sanduhr-Symbol oben im Board zeigt an, ob das Aging gerade aktiv oder pausiert ist (z.&nbsp;B. in den Ferien).</p>
   </div>
 
+  <!-- EXPORT / IMAGE / KI IMPORT -->
   <div id="ch-export-import" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="file-json" style="width:24px;height:24px;"></i> Export, Backups und KI-Assistent</span></div>
-    <p>In der Leiste oberhalb des Boards befinden sich neben der Sanduhr und dem Kalender drei weitere Schaltflächen:</p>
+    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="file-json" style="width:24px;height:24px;"></i> Exportieren, Image und KI Import</span></div>
+    <p>In der Leiste oberhalb des Boards befinden sich drei Schaltflächen:</p>
 
-    <p style="margin-top:12px;"><strong style="color:var(--text);">Export (Sicherungskopie)</strong></p>
-    <p>Gibt den gesamten Board-Inhalt als formatierten Klartext aus – mit allen Spalten, Karten, Prioritäten, Zuweisungen, Zeitstempeln, <strong style="color:var(--text);">Abhängigkeiten, Kommentaren</strong> und einer sortierten Agenda. Zudem versteckt sich im Text eine exakte System-Sicherungskopie. Der Text lässt sich per Klick kopieren und eignet sich für E-Mails oder als Backup-Speicher.</p>
+    <p style="margin-top:12px;"><strong style="color:var(--text);">💾 Exportieren</strong></p>
+    <p>Gibt den gesamten Board-Inhalt als formatierten Klartext aus – mit allen Spalten, Karten, Prioritäten, Zuweisungen, Zeitstempeln, Abhängigkeiten und Kommentaren. Der Text lässt sich kopieren und eignet sich als Dokumentation oder als Grundlage für den KI-Assistenten.</p>
 
-    <p style="margin-top:12px;"><strong style="color:var(--text);">Import & System-Backup</strong></p>
-    <p>Über den Import kann ein zuvor exportierter Board-Text wieder eingelesen werden. Das System erkennt automatisch, ob es sich um ein <strong style="color:var(--text);">Sicherungs-Backup</strong> handelt: In diesem Fall wird automatisch ein komplett neues Board als Kopie erstellt, um deine alten Fortschritte (und die geschützte "Fertig"-Spalte) nicht zu überschreiben. Fügst du hingegen den reinen JSON-Code der KI ein, wird dein aktuelles Board (bis auf die "Fertig"-Spalte) überschrieben.</p>
+    <p style="margin-top:12px;"><strong style="color:var(--text);">📥 Image exportieren (Seitenleiste)</strong></p>
+    <p>Der Button <strong style="color:var(--text);">„Exportieren (.json)"</strong> in der Seitenleiste erzeugt ein verschlüsseltes <strong style="color:var(--text);">Image</strong> – die eigentliche Datei, die du deinem Tutor gibst. Das Image enthält alle Boards, Karten, Noten und Einstellungen, verschlüsselt mit deinem Passwort und dem öffentlichen Schlüssel des Tutors.</p>
 
-    <p style="margin-top:12px;"><strong style="color:var(--text);">✦ KI-Assistent</strong></p>
-    <p>Erzeugt einen fertigen Prompt für ein externes KI-System (ChatGPT, Claude, Gemini). Das Besondere: Die KI-Funktionen werden bewusst <strong style="color:var(--text);">nicht</strong> in die App eingebaut – es werden keine API-Keys hinterlegt und keine Daten übertragen. Stattdessen kopierst du den Prompt manuell in das KI-System deiner Wahl.</p>
-    <p style="margin-top:8px;">Das KI-System bietet zwei Wege an:</p>
-    <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
-      <li><strong style="color:var(--text);">Pfad A – Board überarbeiten:</strong> Du fügst den Export-Text ein. Die KI prüft Rechtschreibung, ordnet Voraussetzungen und geht jede Karte auf mögliche Aufteilung durch.</li>
-      <li><strong style="color:var(--text);">Pfad B – Neues Board erstellen:</strong> Die KI stellt Fragen zu Thema, Team, Deadline und entwirft ein Board, das über die Import-Funktion eingelesen werden kann.</li>
-    </ul>
+    <p style="margin-top:12px;"><strong style="color:var(--text);">📂 Importieren (Seitenleiste)</strong></p>
+    <p>Damit lädst du ein Image, das du von deinem Tutor zurückbekommen hast. Es wird mit deinem eigenen Passwort entschlüsselt – kein neues Passwort nötig.</p>
+
+    <p style="margin-top:12px;"><strong style="color:var(--text);">✦ KI Import</strong></p>
+    <p>Liest einen JSON-Code ein, den ein KI-System (ChatGPT, Claude, Gemini) für dich erstellt hat. Das System erkennt automatisch, ob es sich um einen vollständigen Board-Entwurf oder eine Ergänzung handelt. Nutze dafür den <strong style="color:var(--text);">KI-Assistenten</strong> (Roboter-Symbol), der dir einen fertigen Prompt zum Kopieren erzeugt.</p>
+
+    <div class="help-info">
+      <div class="help-info-title">KI-Prinzip</div>
+      <p style="margin-top:4px; margin-bottom:0;">KI-Funktionen sind bewusst <strong style="color:var(--text);">nicht</strong> in die App eingebaut – kein API-Key, keine Datenübertragung. Du kopierst den Prompt manuell in das KI-System deiner Wahl und fügst das Ergebnis über KI Import ein.</p>
+    </div>
   </div>
 
+  <!-- PWA -->
   <div id="ch-pwa" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="smartphone" style="width:24px;height:24px;"></i> App installieren</span></div>
-    <p>KanbanFluss kann auf dem Handy oder Computer als <strong style="color:var(--text);">eigenständige App</strong> installiert werden – ohne App Store. Auf Android-Geräten und Desktop-Chrome erscheint automatisch ein Installationshinweis. Auf dem iPhone: Seite im Safari öffnen, dann <em>Teilen → Zum Home-Bildschirm</em>.</p>
-    <p style="margin-top:8px;">Die installierte Version öffnet sich im Vollbildmodus ohne Browser-Adressleiste und fühlt sich an wie eine native App. Alle Daten werden weiterhin in class Cloud gespeichert – die Installation betrifft nur die Darstellung.</p>
+    <p>KanbanFluss kann als <strong style="color:var(--text);">eigenständige App</strong> installiert werden – ohne App Store. Auf Android und Desktop-Chrome erscheint automatisch ein Installationshinweis. Auf dem iPhone: Seite in Safari öffnen, dann <em>Teilen → Zum Home-Bildschirm</em>.</p>
+    <p style="margin-top:8px;">Die installierte Version öffnet sich im Vollbildmodus ohne Browser-Adressleiste. Alle Daten bleiben lokal auf dem Gerät.</p>
   </div>
 
+  <!-- TUTOR-BEREICH -->
   <div style="margin:28px 0 16px; padding:12px 18px; background:rgba(77,127,255,0.08); border-left:3px solid var(--accent); border-radius:0 8px 8px 0;">
-    <div style="font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--accent);">Für Lehrerinnen und Lehrer</div>
-    <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Die folgenden Funktionen sind nur im Admin-Bereich verfügbar.</div>
+    <div style="font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--accent);">Für Tutoren</div>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Die folgenden Funktionen sind nur im Tutor-Modus verfügbar.</div>
   </div>
 
-  <div id="ch-admin-zugang" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="shield-check" style="width:24px;height:24px;"></i> Zugang zum Admin-Bereich</span></div>
-    <p>Der Admin-Bereich ermöglicht den Zugriff auf alle Boards aller Schülerinnen und Schüler sowie die Verwaltung zentraler Einstellungen. Schülerinnen und Schüler sehen den Admin-Button nicht.</p>
-    <p style="margin-top:8px;">Es gibt zwei Wege, Admin-Zugang zu erhalten:</p>
-    <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
-      <li><strong style="color:var(--text);">Geschützte Admin-E-Mail</strong> – Bestimmte E-Mail-Adressen sind direkt im Quellcode hinterlegt und haben automatisch Zugang.</li>
-      <li><strong style="color:var(--text);">Admin-Passwort</strong> – Weitere Lehrkräfte, die im Reiter „Admins" eingetragen sind, melden sich mit dem gemeinsamen Admin-Passwort an.</li>
-    </ul>
-    <p style="margin-top:8px;">Klicke in der Seitenleiste auf <strong style="color:var(--text);">Admin</strong>. Beim allerersten Aufruf wird das Admin-Passwort festgelegt.</p>
-    <div class="help-info">
-      <div class="help-info-title">Superadmin-Modus</div>
-      <p style="margin-top:4px; margin-bottom:0;">Als geschützter Admin siehst du im Admin-Panel oben einen Schalter für den <strong style="color:var(--text);">Superadmin-Modus</strong>. Im Normalmodus siehst du nur die Boards deiner eigenen Lerngruppe. Im Superadmin-Modus werden alle Boards der gesamten Schule angezeigt – nützlich für die schulweite Übersicht.</p>
-    </div>
-  </div>
-
-  <div id="ch-lerngruppen" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="users" style="width:24px;height:24px;"></i> Lerngruppen &amp; Einladungslinks</span></div>
-    <p>Im Admin-Bereich unter <strong style="color:var(--text);">Gruppen-Boards</strong> siehst du alle Boards deiner Lerngruppe gebündelt – pro Schülerin oder Schüler mit einem ausklappbaren Board-Überblick und einem Schraubenschlüssel-Symbol für die Bewertung.</p>
-    <p style="margin-top:8px;">Klicke oben rechts auf <strong style="color:var(--text);">Einladen</strong>, um einen <strong style="color:var(--text);">Einladungslink</strong> für deine aktuelle Lerngruppe zu generieren. Wenn du diesen Link an deine Klasse weitergibst (z.&nbsp;B. über den Beamer, per E-Mail oder als QR-Code), werden alle, die sich darüber registrieren, automatisch der richtigen Gruppe zugeordnet.</p>
+  <!-- INI ERSTELLEN -->
+  <div id="ch-ini-erstellen" class="help-section" style="scroll-margin-top: 20px;">
+    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="key" style="width:24px;height:24px;"></i> Tutor-INI erstellen</span></div>
+    <p>Die INI-Datei ist das Herzstück des Systems. Sie enthält dein <strong style="color:var(--text);">kryptografisches Schlüsselpaar</strong>: Der öffentliche Schlüssel geht an die Schülerinnen und Schüler; der private Schlüssel bleibt in der Datei und wird mit deinem Passwort gesichert.</p>
+    <p style="margin-top:8px;">So erstellst du deine INI:</p>
+    <ol style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+      <li>Klicke in der Seitenleiste auf <strong style="color:var(--text);">„🔑 Tutor-INI erstellen"</strong></li>
+      <li>Gib deinen Namen und ein starkes Passwort ein</li>
+      <li>Speichere die erzeugte <code>.ini</code>-Datei sicher ab</li>
+      <li>Gib diese Datei an deine Schülerinnen und Schüler weiter</li>
+    </ol>
     <div class="help-tip">
-      <div class="help-tip-title">Praxis-Tipp</div>
-      <p style="margin-top:4px; margin-bottom:0;">Projiziere den Link in der ersten Stunde an die Wand. Die Schülerinnen und Schüler tippen ihn ein, registrieren sich – fertig. Kein manuelles Zuordnen nötig.</p>
+      <div class="help-tip-title">Wichtig</div>
+      <p style="margin-top:4px; margin-bottom:0;">Verliere deine INI-Datei und dein Passwort nicht. Ohne sie kannst du die Images deiner Schülerinnen und Schüler <strong style="color:var(--danger);">nicht</strong> öffnen. Erstelle die INI nur einmal und nutze sie für alle Kurse.</p>
     </div>
   </div>
 
-  <div id="ch-nutzerverwaltung" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="user-cog" style="width:24px;height:24px;"></i> Nutzerverwaltung</span></div>
-    <p>Im Reiter <strong style="color:var(--text);">Nutzer</strong> (nur im Superadmin-Modus sichtbar) sind alle registrierten Konten aufgelistet. Pro Person siehst du Name, E-Mail, Gruppenzugehörigkeit und alle Boards.</p>
-    <p style="margin-top:8px;">Hier kannst du:</p>
-    <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
-      <li>Die <strong style="color:var(--text);">Gruppenzugehörigkeit</strong> eines Nutzers ändern (Eingabefeld + OK)</li>
-      <li>Einen <strong style="color:var(--text);">Einladungslink</strong> pro Gruppe kopieren</li>
-      <li>Einen Nutzer <strong style="color:var(--text);">komplett löschen</strong> (inkl. aller Boards, Karten und Einstellungen)</li>
-    </ul>
-    <p style="margin-top:8px;">Der geschützte Hauptadmin kann nicht gelöscht werden (Systemschutz).</p>
+  <!-- IMAGE EINES SCHÜLERS ÖFFNEN -->
+  <div id="ch-image-oeffnen" class="help-section" style="scroll-margin-top: 20px;">
+    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="folder-open" style="width:24px;height:24px;"></i> Image einer Schülerin oder eines Schülers öffnen</span></div>
+    <p>Wenn du von einer Schülerin oder einem Schüler eine Image-Datei (<code>.json</code>) erhältst, gehst du so vor:</p>
+    <ol style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+      <li>Klicke in der Seitenleiste auf <strong style="color:var(--text);">„📂 INI laden"</strong> und wähle deine eigene INI-Datei</li>
+      <li>Klicke auf <strong style="color:var(--text);">„Importieren (.json)"</strong> und wähle das Image</li>
+      <li>Gib dein INI-Passwort ein</li>
+    </ol>
+    <p style="margin-top:8px;">Die Boards werden geladen. Du kannst jetzt Kommentare hinterlassen, Noten vergeben und das Board bearbeiten.</p>
+    <div class="help-tip">
+      <div class="help-tip-title">INI nur einmal laden</div>
+      <p style="margin-top:4px; margin-bottom:0;">Wenn du deine INI bereits geladen hast, musst du sie beim nächsten Import in derselben Sitzung nicht erneut auswählen – sie ist bereits hinterlegt.</p>
+    </div>
   </div>
 
-  <div id="ch-abgabe" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="target" style="width:24px;height:24px;"></i> Abgabetermin (Projekt-Deadline)</span></div>
-    <p>Im Werkzeugkasten (<i data-lucide="wrench" style="width:13px;height:13px;vertical-align:-2px;"></i>) eines Boards kannst du einen <strong style="color:var(--text);">Abgabetermin</strong> festlegen. Dieser erscheint als farbiger Countdown in der Agenda des jeweiligen Boards.</p>
-    <p style="margin-top:8px;">Der Countdown färbt sich automatisch <strong style="color:var(--success);">grün</strong> (genug Zeit), <strong style="color:#f59e0b;">orange</strong> (bald fällig) und <strong style="color:var(--danger);">rot</strong> (überschritten). Anders als das Fälligkeitsdatum einzelner Karten wird die Projekt-Deadline von der Lehrkraft gesetzt und gilt für das gesamte Board.</p>
-  </div>
-
-  <div id="ch-aging-warnung" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="clock" style="width:24px;height:24px;"></i> Aging-Warnung einstellen</span></div>
-    <p>Im Werkzeugkasten (<i data-lucide="wrench" style="width:13px;height:13px;vertical-align:-2px;"></i>) eines Boards lässt sich festlegen, nach wie vielen Tagen eine Karte in der Spalte „In Bearbeitung" rötlich markiert wird. Der <strong style="color:var(--text);">Standardwert ist 5 Tage</strong>.</p>
-    <p style="margin-top:8px;">Das Aging-Prinzip: Wenn eine Aufgabe zu lange in Bearbeitung bleibt, stimmt etwas nicht – Blockade, falsche Aufwandseinschätzung oder mangelnde Priorisierung. Die rötliche Markierung mit Uhr-Symbol macht das für alle sichtbar.</p>
-    <p style="margin-top:8px;"><strong style="color:var(--text);">Empfehlung:</strong> Bei kurzen Projektphasen (2 Wochen) sind 2–3 Tage sinnvoll. Bei Langzeitprojekten eher 5–7 Tage.</p>
-  </div>
-
-  <div id="ch-aging-pause" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="pause-circle" style="width:24px;height:24px;"></i> Aging pausieren (Ferien)</span></div>
-    <p>In der Board-Leiste befindet sich ein <strong style="color:var(--text);">Sanduhr-Symbol</strong>. Damit kannst du das Aging vorübergehend anhalten – zum Beispiel während der Ferien, an Feiertagen oder bei längeren Unterbrechungen.</p>
-    <p style="margin-top:8px;">Die Sanduhr wird <strong style="color:var(--danger);">rot und durchgestrichen</strong>, solange die Pause aktiv ist. Beim erneuten Klick läuft das Aging weiter. Die pausierte Zeit wird <strong style="color:var(--text);">korrekt herausgerechnet</strong>: Wenn eine Karte vor einer zweiwöchigen Ferienpause drei Tage in Bearbeitung war, steht nach den Ferien weiterhin „3 Tage" – nicht „17 Tage". Auch mehrere Pausen werden korrekt kumuliert.</p>
-    <p style="margin-top:8px;">Schülerinnen und Schüler sehen den Zustand der Sanduhr, können sie aber nicht bedienen. So erkennen sie, ob gerade pausiert wird.</p>
-  </div>
-
+  <!-- BENOTUNG -->
   <div id="ch-benotung" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="check-circle" style="width:24px;height:24px;"></i> Benotung (Prozess &amp; Produkt)</span></div>
-    <p>Das Benotungssystem folgt dem Prinzip <strong style="color:var(--text);">50 % Prozess + 50 % Produkt</strong>. Öffne den Werkzeugkasten (<i data-lucide="wrench" style="width:13px;height:13px;vertical-align:-2px;"></i>) neben einem Board im Admin-Bereich:</p>
+    <p>Das Benotungssystem folgt dem Prinzip <strong style="color:var(--text);">50 % Prozess + 50 % Produkt</strong>. Öffne den Werkzeugkasten (<i data-lucide="wrench" style="width:13px;height:13px;vertical-align:-2px;"></i>) neben einem Board:</p>
     <p style="margin-top:10px;"><strong style="color:var(--text);">Prozessnote</strong></p>
-    <p>Jede abgeschlossene Aufgabe in der „Fertig"-Spalte kann einzeln benotet werden (Note 1–6). Zusätzlich vergibst du eine <strong style="color:var(--text);">Aufwands-Gewichtung</strong> (1x, 2x, 4x, 8x, 16x), die bestimmt, wie stark diese Karte in die Prozessnote einfließt. Aufwändige Aufgaben (z.&nbsp;B. 16x) zählen damit exponentiell stärker als kleine To-Dos (1x). Das System berechnet zudem automatisch den <strong>prozentualen Anteil</strong> der Person am Gesamtprojekt. Noch nicht benotete Karten werden <strong style="color:var(--danger);">rot</strong> markiert.</p>
+    <p>Jede abgeschlossene Aufgabe in der „Fertig"-Spalte kann einzeln benotet werden (Note 1–6). Zusätzlich vergibst du eine <strong style="color:var(--text);">Aufwands-Gewichtung</strong> (1x, 2x, 4x, 8x, 16x), die bestimmt, wie stark diese Karte in die Prozessnote einfließt. Das System berechnet automatisch den <strong>prozentualen Anteil</strong> der Person am Gesamtprojekt.</p>
     <p style="margin-top:10px;"><strong style="color:var(--text);">Produktnote</strong></p>
-    <p>Unter den Prozesskarten findest du pro Teammitglied ein separates Feld für die Bewertung des Endprodukts und der Präsentation. Hier kannst du auch einen Kommentar hinterlassen.</p>
+    <p>Pro Teammitglied gibt es ein Feld für die Bewertung des Endprodukts und der Präsentation – mit optionalem Kommentar.</p>
     <p style="margin-top:10px;"><strong style="color:var(--text);">Gesamtnote</strong></p>
-    <p>Die App berechnet automatisch den gewichteten Durchschnitt der Prozesskarten und bildet mit der Produktnote die Gesamtnote (50/50). Diese wird live oben im Header jedes Mitglieds angezeigt.</p>
+    <p>Die App berechnet automatisch den gewichteten Durchschnitt und zeigt die Gesamtnote (50/50) live an.</p>
     <div class="help-info">
-      <div class="help-info-title">Board-Beobachtung</div>
-      <p style="margin-top:4px; margin-bottom:0;">Im Werkzeugkasten gibt es einen Schalter <strong style="color:var(--text);">„Beobachten"</strong>. Wenn aktiviert, zeigt dir das Admin-Panel oben eine gelbe Warnung an, sobald beobachtete Boards unbenotete Aufgaben in der Fertig-Spalte haben.</p>
+      <div class="help-info-title">Noten werden mitgespeichert</div>
+      <p style="margin-top:4px; margin-bottom:0;">Wenn du das Image einer Schülerin oder eines Schülers zurückgibst, sind alle Noten und Kommentare darin enthalten. Die Schülerin oder der Schüler sieht das Feedback nach dem Import mit dem eigenen Passwort.</p>
     </div>
   </div>
 
+  <!-- NOTEN EXPORTIEREN -->
   <div id="ch-noten-export" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="printer" style="width:24px;height:24px;"></i> Noten exportieren &amp; Gutachten</span></div>
-    <p>Im Werkzeugkasten findest du zwei zusätzliche Funktionen zur Dokumentation:</p>
+    <p>Im Werkzeugkasten findest du zwei Dokumentationsfunktionen:</p>
     <p style="margin-top:10px;"><strong style="color:var(--text);">Noten exportieren</strong></p>
-    <p>Kopiert eine vollständige Notenübersicht in die Zwischenablage – mit allen Karten, Noten, Aufwandswerten, Kommentaren und der berechneten Gesamt&shy;note pro Mitglied. Der Text lässt sich direkt in ein Dokument, eine E-Mail oder eine Tabelle einfügen. Dient auch als Sicherungskopie, falls ein Board versehentlich gelöscht wird.</p>
+    <p>Kopiert eine vollständige Notenübersicht in die Zwischenablage – mit allen Karten, Noten, Aufwandswerten, Kommentaren und der berechneten Gesamtnote pro Mitglied. Direkt in ein Dokument, eine E-Mail oder eine Tabelle einfügbar.</p>
     <p style="margin-top:10px;"><strong style="color:var(--text);">Gutachten-Prompt erzeugen</strong></p>
-    <p>Pro Mitglied gibt es einen Button, der einen fertigen Prompt für ein KI-System erzeugt. Dieser Prompt enthält alle Karten, Noten, den vollständigen Kommentarverlauf, die Aufwandsgewichtungen sowie den prozentualen Projektanteil. Das KI-System wird angewiesen, daraus ein sachliches, aber <strong style="color:var(--text);">immer wertschätzendes und (bei schlechten Noten) aufmunterndes Gutachten</strong> von 8–12 Sätzen zu verfassen – in der dritten Person, ohne Floskeln, passend für einen Projektbericht oder ein Zeugnis. Den kopierten Prompt einfach in ChatGPT, Claude oder Gemini einfügen.</p>
+    <p>Pro Mitglied gibt es einen Button, der einen fertigen Prompt für ein KI-System (ChatGPT, Claude, Gemini) erzeugt. Das KI-System wird angewiesen, ein sachliches, wertschätzendes Gutachten von 8–12 Sätzen zu verfassen – passend für einen Projektbericht oder ein Zeugnis.</p>
   </div>
 
+  <!-- RÜCKGABE -->
+  <div id="ch-rueckgabe" class="help-section" style="scroll-margin-top: 20px;">
+    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="send" style="width:24px;height:24px;"></i> Image zurückgeben</span></div>
+    <p>Nachdem du ein Image einer Schülerin oder eines Schülers importiert, bearbeitet und benotet hast, kannst du es zurückgeben:</p>
+    <ol style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+      <li>Klicke in der Seitenleiste auf <strong style="color:var(--text);">„📤 An SchülerIn zurückgeben"</strong></li>
+      <li>Speichere die erzeugte Datei</li>
+      <li>Gib die Datei an die Schülerin oder den Schüler zurück</li>
+    </ol>
+    <p style="margin-top:8px;">Die Schülerin oder der Schüler importiert die Datei über <strong style="color:var(--text);">„Importieren (.json)"</strong> – und öffnet sie mit dem <strong style="color:var(--text);">eigenen Passwort</strong>. Kein Übergabe-Passwort nötig.</p>
+    <div class="help-info">
+      <div class="help-info-title">Wie funktioniert das?</div>
+      <p style="margin-top:4px; margin-bottom:0;">Die zurückgegebene Datei enthält denselben verschlüsselten Datenschlüssel wie das Original – nur die Board-Inhalte wurden aktualisiert. Die Schülerin oder der Schüler entschlüsselt mit dem eigenen Passwort, genauso wie beim Original-Export.</p>
+    </div>
+  </div>
+
+  <!-- HINTERGRUNDBILDER -->
   <div id="ch-hintergrundbilder" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="image" style="width:24px;height:24px;"></i> Hintergrundbilder verwalten</span></div>
-    <p>Die Hintergrundbilder müssen als <code>H1.png</code>, <code>H2.png</code> usw. im Ordner <code>images/</code> auf GitHub Pages liegen. Die App zeigt automatisch Thumbnails für alle verfügbaren Bilder an. So können schulspezifische oder themenbezogene Hintergründe bereitgestellt werden, ohne dass Schülerinnen und Schüler etwas hochladen müssen.</p>
+    <p>Die Hintergrundbilder müssen als <code>H1.png</code>, <code>H2.png</code> usw. im Ordner <code>images/</code> liegen. Die App zeigt automatisch Thumbnails für alle verfügbaren Bilder an. So können schulspezifische oder themenbezogene Hintergründe bereitgestellt werden.</p>
   </div>
 
-  <div id="ch-weitere-admins" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="shield" style="width:24px;height:24px;"></i> Weitere Lehrkräfte als Admins</span></div>
-    <p>Im Reiter <strong style="color:var(--text);">System-Admins</strong> (Superadmin-Modus) können weitere E-Mail-Adressen mit Admin-Zugang ausgestattet werden. Eingetragene Personen melden sich mit dem gemeinsamen Admin-Passwort an und haben dann dieselben Möglichkeiten – ideal für Fachteams oder gemeinsame Projektwochen.</p>
-    <p style="margin-top:8px;">Geschützte Admin-E-Mails (im Quellcode hinterlegt) werden als „(Geschützt)" angezeigt und können nicht entfernt werden.</p>
-  </div>
-
-  <div id="ch-passwort" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="key" style="width:24px;height:24px;"></i> Admin-Passwort ändern</span></div>
-    <p>Das Admin-Passwort kann jederzeit geändert werden (mindestens 6 Zeichen). Es wird verschlüsselt in der Datenbank gespeichert und gilt für alle über den Admins-Reiter eingetragenen Personen.</p>
-    <p style="margin-top:8px;">Geschützte Admin-E-Mail-Adressen benötigen kein Passwort und sind von einer Änderung nicht betroffen.</p>
-  </div>
-
+  <!-- DATENSCHUTZ -->
   <div id="ch-datenschutz" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="lock" style="width:24px;height:24px;"></i> Datenschutzhinweis</span></div>
-    <p>Deine Boards, Aufgaben und Profildaten werden in der Cloud (Google Firebase, Server in der EU) gespeichert. Der Betreiber hat als Administrator die technische Möglichkeit, alle Boards einzusehen. Es werden keine Tracking-Cookies verwendet. Persönliche Einstellungen (Hintergrund, Transparenz) werden lokal im Browser und in der Datenbank gespeichert.</p>
-    <p style="margin-top:8px;">Weitere Informationen findest du in der <a onclick="closeModal('modal-help'); openLegal();" style="color:var(--accent); cursor:pointer;">Datenschutzerklärung</a>.</p>
+    <p>KanbanFluss Standalone speichert alle Daten <strong style="color:var(--text);">ausschließlich lokal</strong> im Browser des jeweiligen Geräts (localStorage). Es werden keine Daten an externe Server übertragen, keine Cookies gesetzt und kein Nutzerverhalten erfasst.</p>
+    <p style="margin-top:8px;">Der Datenaustausch zwischen Tutor und Schülerinnen und Schülern erfolgt über verschlüsselte Dateien, die manuell weitergegeben werden. Der Inhalt der Dateien ist ohne das richtige Passwort bzw. die INI-Datei nicht lesbar.</p>
+    <p style="margin-top:8px;"><strong style="color:var(--text);">Beim Abmelden</strong> werden alle lokalen Daten gelöscht. Bitte vorher ein Image exportieren, um den Fortschritt zu sichern.</p>
   </div>
 
   <a href="#toc-top" class="back-to-top" title="Zum Inhaltsverzeichnis">

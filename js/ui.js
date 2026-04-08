@@ -300,6 +300,7 @@ window.addComment = async () => {
   updateCard(S.currentBoard.id, colId, cardId, { comments: updatedComments });
   input.value = '';
   card.comments = updatedComments;
+  if (typeof window.renderCards === 'function') window.renderCards(colId);
   renderCommentsList(card);
   if (typeof closeModal === 'function') closeModal('modal-comments');
 };
@@ -312,6 +313,7 @@ window.deleteComment = async (cardId, colId, commentId) => {
   const updatedComments = (card.comments || []).filter(c => c.id !== commentId);
   updateCard(S.currentBoard.id, colId, cardId, { comments: updatedComments });
   card.comments = updatedComments;
+  if (typeof window.renderCards === 'function') window.renderCards(colId);
   renderCommentsList(card);
 };
 

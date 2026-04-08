@@ -91,7 +91,7 @@ window.kfCrypto = {
     catch(e) { return false; }
   },
 
-  // ── INI-DATEI (Lehrer-Schlüsselpaar) ─────────────────────
+  // ── INI-DATEI (Tutor-Schlüsselpaar) ─────────────────────
   async createIni(teacherName, masterPassword) {
     const pair    = await this.genRSAKeyPair();
     const pubJwk  = await this.exportPubJwk(pair.publicKey);
@@ -112,7 +112,7 @@ window.kfCrypto = {
 
   // ── DOPPELT VERSCHLÜSSELTES BACKUP (Schüler) ─────────────
   // Schüler können mit eigenem Passwort öffnen,
-  // Lehrer mit Masterpasswort + INI-Datei
+  // Tutor mit Masterpasswort + INI-Datei
   async encryptDual(jsonStr, studentPassword, teacherPubKey, teacherName) {
     const dataKey    = await this.genDataKey();
     const dataKeyB64 = await this.exportKey(dataKey);
