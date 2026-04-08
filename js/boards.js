@@ -179,12 +179,15 @@ window.updateNickAvatar = (i) => {
 };
 
 // ── BOARDS LADEN ─────────────────────────────────────
-window.loadBoards = function() {
+window.loadBoards = function(autoSelect = true) {
   S.boards = getBoards();
   renderBoardsList();
   if (S.currentBoard && !S.boards.find(b => b.id === S.currentBoard.id)) S.currentBoard = null;
   if (S.boards.length > 0) {
-    if (!S.currentBoard) selectBoard(S.boards[0].id);
+    if (!S.currentBoard) {
+      if (autoSelect) selectBoard(S.boards[0].id);
+      else showEmptyState();
+    }
   } else {
     S.currentBoard = null;
     showEmptyState();
