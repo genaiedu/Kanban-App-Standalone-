@@ -13,6 +13,21 @@ function saveStudentConfig(cfg) {
 // ── APP STARTEN ──────────────────────────────────────────
 window.initApp = function() {
   document.getElementById('loading-screen').style.display = 'none';
+
+  // Nach Seiten-Reload: Rückgabe-Keys und INI aus sessionStorage wiederherstellen
+  try {
+    const savedKeys = sessionStorage.getItem('kf_return_keys');
+    if (savedKeys) {
+      window._studentReturnKeys = JSON.parse(savedKeys);
+      sessionStorage.removeItem('kf_return_keys');
+    }
+    const savedIni = sessionStorage.getItem('kf_loaded_ini');
+    if (savedIni) {
+      window._loadedIni = JSON.parse(savedIni);
+      sessionStorage.removeItem('kf_loaded_ini');
+    }
+  } catch(e) { /* ignorieren */ }
+
   const isStudent = sessionStorage.getItem('kf_role') === 'schueler';
 
   if (isStudent) {

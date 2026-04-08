@@ -678,6 +678,14 @@ window.importDataFromFile = async (event) => {
   if (settings) localStorage.setItem('kanban_settings', JSON.stringify(settings));
   if (grades && Object.keys(grades).length > 0) localStorage.setItem('kanban_grades', JSON.stringify(grades));
 
+  // _studentReturnKeys über den Reload retten (liegt sonst im Speicher und geht verloren)
+  if (window._studentReturnKeys) {
+    sessionStorage.setItem('kf_return_keys', JSON.stringify(window._studentReturnKeys));
+  }
+  if (window._loadedIni) {
+    sessionStorage.setItem('kf_loaded_ini', JSON.stringify(window._loadedIni));
+  }
+
   showToast('Backup wiederhergestellt! Seite wird neu geladen…');
   setTimeout(() => location.reload(), 1200);
 };
