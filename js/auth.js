@@ -246,14 +246,16 @@ function enterApp(user, isStudent) {
   if (nameDisplay)  nameDisplay.textContent  = user.displayName || 'Nutzer';
   if (groupDisplay) groupDisplay.textContent = user.groupId || '';
 
-  const adminBtn  = document.getElementById('sidebar-admin-btn');
-  const iniBtn    = document.getElementById('sidebar-ini-btn');
-  const returnBtn = document.getElementById('sidebar-return-to-student-btn');
-  const badge     = document.getElementById('sidebar-role-badge');
+  const adminBtn     = document.getElementById('sidebar-admin-btn');
+  const iniBtn       = document.getElementById('sidebar-ini-btn');
+  const returnBtn    = document.getElementById('sidebar-return-to-student-btn');
+  const fmIniLabel   = document.getElementById('fm-ini-label');
+  const badge        = document.getElementById('sidebar-role-badge');
   if (isStudent) {
-    if (adminBtn)  adminBtn.style.display  = 'none';
-    if (iniBtn)    iniBtn.style.display    = 'none';
-    if (returnBtn) returnBtn.style.display = 'none';
+    if (adminBtn)   adminBtn.style.display   = 'none';
+    if (iniBtn)     iniBtn.style.display     = 'none';
+    if (returnBtn)  returnBtn.style.display  = 'none';
+    if (fmIniLabel) fmIniLabel.style.display = 'none';
     if (badge) {
       badge.textContent = 'SchülerIn';
       badge.style.background = 'rgba(34,197,94,0.15)';
@@ -262,9 +264,10 @@ function enterApp(user, isStudent) {
     }
     S.isAdminMode = false;
   } else {
-    if (adminBtn)  adminBtn.style.display  = '';
-    if (iniBtn)    iniBtn.style.display    = '';
-    if (returnBtn) returnBtn.style.display = '';
+    if (adminBtn)   adminBtn.style.display   = '';
+    if (iniBtn)     iniBtn.style.display     = '';
+    if (returnBtn)  returnBtn.style.display  = '';
+    if (fmIniLabel) fmIniLabel.style.display = '';
     if (badge) {
       badge.textContent = 'Tutor';
       badge.style.background = 'rgba(99,102,241,0.2)';

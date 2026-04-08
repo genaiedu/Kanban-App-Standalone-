@@ -742,6 +742,20 @@ window.saveDeadline = (boardId, inputId) => {
   showToast(value ? 'Abgabetermin gesetzt' : 'Abgabetermin entfernt');
 };
 
+// ── DATEIVERWALTUNGS-PANEL ────────────────────────────────
+window.toggleFilemanagementPanel = function() {
+  const panel = document.getElementById('filemanagement-panel');
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen && typeof reloadIcons === 'function') reloadIcons();
+};
+
+window.closeFilemanagementPanel = function() {
+  const panel = document.getElementById('filemanagement-panel');
+  if (panel) panel.style.display = 'none';
+};
+
 // ── SESSION ZURÜCKSETZEN (wird von logoutUser in auth.js aufgerufen) ──
 window.resetToolsSession = function() {
   _teacherSessionPassword = null;

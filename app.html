@@ -193,26 +193,13 @@
         <button class="sidebar-action-btn" onclick="openAdminArea()" id="sidebar-admin-btn">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg> Admin
         </button>
-        <button class="sidebar-action-btn" onclick="document.getElementById('modal-create-ini').style.display='flex'" id="sidebar-ini-btn">
-          <i data-lucide="key-round" style="width:16px;height:16px;"></i> Tutor-INI erstellen
-        </button>
-        <button class="sidebar-action-btn" id="sidebar-load-ini-btn" onclick="loadTeacherIni()">
-          <i data-lucide="folder-open" style="width:16px;height:16px;"></i> INI laden
-        </button>
-        <button class="sidebar-action-btn" id="sidebar-return-to-student-btn" onclick="exportForStudent()" style="display:none;">
-          <i data-lucide="send" style="width:16px;height:16px;"></i> An SchülerIn zurückgeben
+        <button class="sidebar-action-btn" onclick="toggleFilemanagementPanel()">
+          <i data-lucide="hard-drive-download" style="width:16px;height:16px;"></i> Dateien
         </button>
         <div class="sidebar-divider-line"></div>
         <button class="sidebar-action-btn" onclick="openProfileEdit()">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profil bearbeiten
         </button>
-        <button class="sidebar-action-btn" onclick="exportDataAsFile()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Alles exportieren (.json)
-        </button>
-        <button class="sidebar-action-btn" onclick="document.getElementById('backup-file-input').click()" title="Datei importieren">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importieren (.json)
-        </button>
-        <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none;" onchange="importDataFromFile(event)"/>
         <div class="sidebar-divider-line"></div>
         <button class="sidebar-action-btn" id="sidebar-relogin-btn" onclick="resetTutorProfile()" style="font-size:12px; opacity:0.75;">
           <i data-lucide="rotate-ccw" style="width:16px;height:16px;"></i> Neu anmelden
@@ -694,8 +681,46 @@
         </div>
       </div>
 
-    </div> 
-  </div> 
+    </div>
+  </div>
+</div>
+
+<!-- ── DATEIVERWALTUNG PANEL ──────────────────────────── -->
+<div id="filemanagement-panel" style="display:none;">
+  <div class="settings-overlay" onclick="closeFilemanagementPanel()"></div>
+  <div class="settings-drawer" style="width:340px;">
+    <div class="settings-header">
+      <span class="settings-title" style="display:flex;align-items:center;gap:8px;">
+        <i data-lucide="hard-drive-download" style="width:16px;height:16px;"></i>
+        Dateiverwaltung
+      </span>
+      <button class="settings-close" onclick="closeFilemanagementPanel()">✕</button>
+    </div>
+    <div class="settings-body">
+
+      <div class="settings-label">Export &amp; Import</div>
+      <button class="sidebar-action-btn" style="width:100%;margin-bottom:8px;" onclick="exportDataAsFile()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Alles exportieren (.json)
+      </button>
+      <button class="sidebar-action-btn" style="width:100%;margin-bottom:20px;" onclick="document.getElementById('backup-file-input').click()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importieren (.json)
+      </button>
+      <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none;" onchange="importDataFromFile(event)"/>
+
+      <div class="settings-label" id="fm-ini-label">Tutor-INI</div>
+      <button class="sidebar-action-btn" style="width:100%;margin-bottom:8px;" id="sidebar-ini-btn" onclick="document.getElementById('modal-create-ini').style.display='flex'">
+        <i data-lucide="key-round" style="width:16px;height:16px;"></i> Tutor-INI erstellen
+      </button>
+      <button class="sidebar-action-btn" style="width:100%;margin-bottom:20px;" id="sidebar-load-ini-btn" onclick="loadTeacherIni()">
+        <i data-lucide="folder-open" style="width:16px;height:16px;"></i> INI laden
+      </button>
+
+      <button class="sidebar-action-btn" style="width:100%;display:none;" id="sidebar-return-to-student-btn" onclick="exportForStudent()">
+        <i data-lucide="send" style="width:16px;height:16px;"></i> An SchülerIn zurückgeben
+      </button>
+
+    </div>
+  </div>
 </div>
 
 
