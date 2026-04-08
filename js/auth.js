@@ -49,9 +49,29 @@ async function initStudentAuth() {
   const config = getStudentConfig();
   if (!config) {
     await showTeacherSelection();
-  } else {
-    showStudentLogin(config);
+    return;
   }
+
+  // Nach Import-Reload: gespeichertes Passwort → Auto-Login, kein erneutes Eingeben nötig
+  const autoPw = sessionStorage.getItem('kf_auto_login');
+  if (autoPw) {
+    sessionStorage.removeItem('kf_auto_login');
+    try {
+      const ok = await window.kfCrypto.checkToken(config.verifyToken, autoPw);
+      if (ok) {
+        window._kfSession = {
+          studentPassword: autoPw,
+          teacherPublicKeyJwk: config.publicKeyJwk,
+          teacherName: config.teacherName,
+          isStudent: true
+        };
+        enterApp(getUser(), true);
+        return;
+      }
+    } catch(e) { /* Auto-Login fehlgeschlagen → normalen Login zeigen */ }
+  }
+
+  showStudentLogin(config);
 }
 
 // Gespeichertes INI-Objekt während der Registrierung

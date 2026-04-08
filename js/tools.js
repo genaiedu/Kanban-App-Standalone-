@@ -452,6 +452,39 @@ window.showAgenda = () => {
 // ── PASSWORT-DIALOG (Tutor-Exporte) ─────────────────────
 let _teacherSessionPassword = null;
 
+// Einfacher Passwort-Dialog für SchülerInnen (bei zurückgegebener Datei mit anderem Passwort)
+function _showStudentPasswordDialog(teacherName) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.65);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:rgba(var(--panel-rgb),0.97);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:28px 24px 20px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+    box.innerHTML = `
+      <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px;">🔐 Datei entschlüsseln</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.5;">
+        Diese Datei wurde mit einem anderen Passwort exportiert.<br>
+        Gib das Passwort ein, das du beim Export verwendet hast${teacherName ? ` (Tutor: <strong>${teacherName}</strong>)` : ''}.
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Dein Export-Passwort</label>
+        <input id="_stu-pw-i" type="password" placeholder="Passwort eingeben"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:14px;outline:none;"/>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button id="_stu-pw-cancel" style="padding:8px 18px;font-size:13px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;">Abbrechen</button>
+        <button id="_stu-pw-ok" style="padding:8px 18px;font-size:13px;border-radius:10px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-weight:600;">🔓 Entschlüsseln</button>
+      </div>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    const inp = box.querySelector('#_stu-pw-i');
+    setTimeout(() => inp?.focus(), 50);
+    const done = (val) => { document.body.removeChild(overlay); resolve(val); };
+    box.querySelector('#_stu-pw-cancel').onclick = () => done(null);
+    box.querySelector('#_stu-pw-ok').onclick = () => done(inp.value || null);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') done(inp.value || null); });
+  });
+}
+
 function _showPasswordDialog(mode) {
   return new Promise(resolve => {
     const isSave = mode === 'save';
@@ -595,22 +628,29 @@ window.importDataFromFile = async (event) => {
 
   if (parsed.encrypted === true) {
     if (parsed.version === 2) {
-      // ── Schüler-Backup: Tutor öffnet mit Masterpasswort ──
       let decrypted = null;
-
-      // Erst versuchen: Schüler-Passwort aus Sitzung (falls Schüler selbst importiert)
       const session = window._kfSession;
-      if (session?.isStudent && session.studentPassword) {
-        try { decrypted = await window.kfCrypto.decryptDualStudent(parsed, session.studentPassword); } catch(e) { /* falsch */ }
-      }
+      const isStudentSession = session?.isStudent === true;
 
-      if (!decrypted) {
-        // Tutor-Weg: INI-Datei + Masterpasswort
-        // Zuerst prüfen ob INI bereits geladen wurde (via "INI laden"-Button)
+      if (isStudentSession) {
+        // ── SCHÜLER importiert zurückgegebene Datei ──
+        // Erst mit Sitzungs-Passwort versuchen
+        if (session.studentPassword) {
+          try { decrypted = await window.kfCrypto.decryptDualStudent(parsed, session.studentPassword); } catch(e) { /* weiter */ }
+        }
+        // Scheitert das (z.B. anderes Gerät / Passwort vergessen): explizit nach Passwort fragen
+        if (!decrypted) {
+          const pw = await _showStudentPasswordDialog(parsed.teacherName);
+          if (!pw) return;
+          try { decrypted = await window.kfCrypto.decryptDualStudent(parsed, pw); }
+          catch(e) { showToast('❌ Falsches Passwort – diese Datei wurde mit einem anderen Passwort exportiert.', 'error'); return; }
+        }
+
+      } else {
+        // ── TUTOR öffnet Schüler-Image mit INI + Masterpasswort ──
         let iniObj = window._loadedIni || null;
 
         if (!iniObj) {
-          // INI per Datei-Upload holen
           iniObj = await new Promise(resolve => {
             const input = document.createElement('input');
             input.type = 'file'; input.accept = '.ini,.json';
@@ -632,14 +672,12 @@ window.importDataFromFile = async (event) => {
 
         if (!iniObj) { showToast('INI-Datei ungültig oder abgebrochen.', 'error'); return; }
 
-        // Masterpasswort nur fragen wenn noch nicht aus dieser Sitzung bekannt
         const pw = _teacherSessionPassword || await _showPasswordDialog('load');
         if (!pw) return;
         try {
           const privKey = await window.kfCrypto.getPrivKeyFromIni(iniObj, pw);
           const result  = await window.kfCrypto.decryptDualTeacherFull(parsed, privKey);
           decrypted = result.data;
-          // Rückgabe-Keys für "An Schüler zurückgeben" merken
           window._studentReturnKeys = {
             dataKeyB64:  result.dataKeyB64,
             stuKeyEnc:   result.stuKeyEnc,
@@ -678,12 +716,16 @@ window.importDataFromFile = async (event) => {
   if (settings) localStorage.setItem('kanban_settings', JSON.stringify(settings));
   if (grades && Object.keys(grades).length > 0) localStorage.setItem('kanban_grades', JSON.stringify(grades));
 
-  // _studentReturnKeys über den Reload retten (liegt sonst im Speicher und geht verloren)
+  // Vor Reload: Sitzungsdaten in sessionStorage retten (überleben den Reload)
   if (window._studentReturnKeys) {
     sessionStorage.setItem('kf_return_keys', JSON.stringify(window._studentReturnKeys));
   }
   if (window._loadedIni) {
     sessionStorage.setItem('kf_loaded_ini', JSON.stringify(window._loadedIni));
+  }
+  // SchülerIn-Passwort retten → nach Reload automatisch einloggen (kein erneutes Eingeben nötig)
+  if (window._kfSession?.isStudent && window._kfSession.studentPassword) {
+    sessionStorage.setItem('kf_auto_login', window._kfSession.studentPassword);
   }
 
   showToast('Import erfolgreich! Seite wird neu geladen…');
