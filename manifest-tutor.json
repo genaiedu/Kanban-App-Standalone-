@@ -1,7 +1,7 @@
 {
-  "name": "KanbanFluss Tutor",
-  "short_name": "KF Tutor",
-  "description": "KanbanFluss – Tutor-App für Lehrkräfte",
+  "name": "EDUBAN Tutor",
+  "short_name": "EDUBAN T",
+  "description": "EDUBAN – Tutor-App für Lehrkräfte",
   "start_url": "./tutor.html",
   "display": "standalone",
   "background_color": "#0a0e1a",

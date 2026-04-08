@@ -1,7 +1,7 @@
 {
-  "name": "KanbanFluss",
-  "short_name": "Kanban",
-  "description": "Meine Kanban Board App",
+  "name": "EDUBAN – Kanban für Bildung",
+  "short_name": "EDUBAN",
+  "description": "EDUBAN – Kanban für Bildung",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0a0e1a",

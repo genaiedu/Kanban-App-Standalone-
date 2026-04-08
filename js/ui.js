@@ -106,7 +106,7 @@ window.openHelp = async () => {
 // --- Tour Logik ---
 let tourStep = 0;
 const tourSteps = [
-  { selector: '#sidebar-el', infoPos: 'right', text: 'Willkommen bei KanbanFluss! In dieser Seitenleiste findest du alle deine Boards.' },
+  { selector: '#sidebar-el', infoPos: 'right', text: 'Willkommen bei EDUBAN! In dieser Seitenleiste findest du alle deine Boards.' },
   { selector: '.sidebar-grip', shape: 'circle', infoPos: 'right', text: 'Mit diesem Griff kannst du die Seitenleiste jederzeit ein- und ausklappen.' },
   { selector: '.board-header', infoPos: 'board-right', text: 'Das hier ist das Herzstück: Dein Kanban-Board.' },
   { selector: '#columns-container', infoPos: 'board-right', text: 'Standardmäßig gibt es drei Spalten. Du kannst Aufgaben per Drag & Drop verschieben.' },

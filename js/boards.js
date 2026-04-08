@@ -197,7 +197,7 @@ window.showEmptyState = function() {
   const boardContent = document.getElementById('board-content');
   if (boardContent) boardContent.style.display = 'none';
   const titleDisplay = document.getElementById('board-title-display');
-  if (titleDisplay) titleDisplay.innerHTML = 'Willkommen bei KanbanFluss';
+  if (titleDisplay) titleDisplay.innerHTML = 'Willkommen bei EDUBAN';
 };
 
 window.renderBoardsList = function() {

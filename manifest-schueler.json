@@ -1,7 +1,7 @@
 {
-  "name": "KanbanFluss",
-  "short_name": "KanbanFluss",
-  "description": "KanbanFluss – Lern-App für Schülerinnen und Schüler",
+  "name": "EDUBAN – Kanban für Bildung",
+  "short_name": "EDUBAN",
+  "description": "EDUBAN – Lern-App für Schülerinnen und Schüler",
   "start_url": "./schueler.html",
   "display": "standalone",
   "background_color": "#0a0e1a",

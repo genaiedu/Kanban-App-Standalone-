@@ -26,7 +26,7 @@ window.createTeacherIniFile = async () => {
       try {
         const handle = await window.showSaveFilePicker({
           suggestedName,
-          types: [{ description: 'KanbanFluss Tutor-INI', accept: { 'application/json': ['.ini'] } }],
+          types: [{ description: 'EDUBAN Tutor-INI', accept: { 'application/json': ['.ini'] } }],
         });
         const w = await handle.createWritable();
         await w.write(iniJson); await w.close();
@@ -594,13 +594,13 @@ window.exportDataAsFile = async () => {
   const date = new Date().toISOString().slice(0, 10);
   const who  = session?.isStudent ? (session.teacherName ? `${session.teacherName}-` : '') : '';
   const name = (S.currentUser?.displayName || '').replace(/\s+/g,'_') || 'nutzer';
-  const suggestedName = `kanbanfluss-${who}${name}-${date}.json`;
+  const suggestedName = `eduban-${who}${name}-${date}.json`;
 
   if (window.showSaveFilePicker) {
     try {
       const handle = await window.showSaveFilePicker({
         suggestedName,
-        types: [{ description: 'KanbanFluss Datei', accept: { 'application/json': ['.json'] } }],
+        types: [{ description: 'EDUBAN Datei', accept: { 'application/json': ['.json'] } }],
       });
       const writable = await handle.createWritable();
       await writable.write(json);
@@ -705,7 +705,7 @@ window.importDataFromFile = async (event) => {
     }
   }
 
-  if (!Array.isArray(parsed.boards)) { showToast('Keine gültige KanbanFluss-Datei.', 'error'); return; }
+  if (!Array.isArray(parsed.boards)) { showToast('Keine gültige EDUBAN-Datei.', 'error'); return; }
 
   const ok = await showConfirm(
     `Export vom ${parsed.exportedAt ? new Date(parsed.exportedAt).toLocaleString('de-DE') : 'unbekanntem Datum'} importieren?\n\nDies ersetzt ALLE aktuellen Daten!`,
@@ -797,13 +797,13 @@ window.exportForStudent = async function() {
 
   const date = new Date().toISOString().slice(0, 10);
   const name = (S.currentUser?.displayName || '').replace(/\s+/g,'_') || 'tutor';
-  const suggestedName = `kanbanfluss-rueckgabe-${name}-${date}.json`;
+  const suggestedName = `eduban-rueckgabe-${name}-${date}.json`;
 
   if (window.showSaveFilePicker) {
     try {
       const handle = await window.showSaveFilePicker({
         suggestedName,
-        types: [{ description: 'KanbanFluss Datei', accept: { 'application/json': ['.json'] } }],
+        types: [{ description: 'EDUBAN Datei', accept: { 'application/json': ['.json'] } }],
       });
       const w = await handle.createWritable();
       await w.write(json); await w.close();

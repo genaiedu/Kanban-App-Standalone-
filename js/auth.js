@@ -96,7 +96,7 @@ window.loadIniFromFile = async function(event) {
   try {
     const text   = await file.text();
     const iniObj = JSON.parse(text);
-    if (!iniObj.kanbanfluss_ini) throw new Error('Keine gültige KanbanFluss-INI-Datei.');
+    if (!iniObj.kanbanfluss_ini) throw new Error('Keine gültige EDUBAN-INI-Datei.');
 
     _pendingIni = iniObj;
     _setStudentStep('register');
