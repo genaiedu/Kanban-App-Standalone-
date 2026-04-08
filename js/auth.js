@@ -283,6 +283,10 @@ function enterApp(user, isStudent) {
     if (typeof setAllGrips === 'function') setAllGrips('260px');
   }
 
+  // Board-State komplett zurücksetzen – kein fremdes Board darf sichtbar sein
+  S.currentBoard = null;
+  if (typeof showEmptyState === 'function') showEmptyState();
+
   if (typeof loadSavedBg      === 'function') loadSavedBg();
   if (typeof loadSavedOverlay === 'function') loadSavedOverlay();
   if (typeof loadSavedTheme   === 'function') loadSavedTheme();
@@ -371,6 +375,11 @@ window.logoutUser = async function() {
   localStorage.removeItem(STUDENT_CFG_KEY);
   window._kfSession = null;
   if (typeof window.resetToolsSession === 'function') window.resetToolsSession();
+
+  // Board-Inhalt sofort aus dem DOM entfernen
+  S.currentBoard = null;
+  S.currentUser  = null;
+  if (typeof showEmptyState === 'function') showEmptyState();
 
   document.getElementById('app-screen').classList.remove('visible');
 
