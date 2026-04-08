@@ -31,7 +31,7 @@ window.createTeacherIniFile = async () => {
         const w = await handle.createWritable();
         await w.write(iniJson); await w.close();
       } catch(e) {
-        if (e.name === 'AbortError') { btn.disabled = false; btn.textContent = '🔑 INI-Datei erstellen & speichern'; return; }
+        if (e.name === 'AbortError') { btn.disabled = false; btn.innerHTML = '<i data-lucide="key-round" style="width:14px;height:14px;"></i> INI-Datei erstellen & speichern'; if(typeof reloadIcons==='function') reloadIcons(); return; }
         throw e;
       }
     } else {
@@ -55,7 +55,7 @@ window.createTeacherIniFile = async () => {
   } catch(e) {
     errEl.textContent = 'Fehler: ' + e.message;
   } finally {
-    btn.disabled = false; btn.textContent = '🔑 INI-Datei erstellen & speichern';
+    btn.disabled = false; btn.innerHTML = '<i data-lucide="key-round" style="width:14px;height:14px;"></i> INI-Datei erstellen & speichern'; if(typeof reloadIcons==='function') reloadIcons();
   }
 };
 
@@ -460,7 +460,7 @@ function _showStudentPasswordDialog(teacherName) {
     const box = document.createElement('div');
     box.style.cssText = 'background:rgba(var(--panel-rgb),0.97);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:28px 24px 20px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
     box.innerHTML = `
-      <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px;">🔐 Datei entschlüsseln</div>
+      <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px;"><i data-lucide="lock" style="width:18px;height:18px;"></i> Datei entschlüsseln</div>
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.5;">
         Diese Datei wurde mit einem anderen Passwort exportiert.<br>
         Gib das Passwort ein, das du beim Export verwendet hast${teacherName ? ` (Tutor: <strong>${teacherName}</strong>)` : ''}.
@@ -472,10 +472,11 @@ function _showStudentPasswordDialog(teacherName) {
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button id="_stu-pw-cancel" style="padding:8px 18px;font-size:13px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;">Abbrechen</button>
-        <button id="_stu-pw-ok" style="padding:8px 18px;font-size:13px;border-radius:10px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-weight:600;">🔓 Entschlüsseln</button>
+        <button id="_stu-pw-ok" style="padding:8px 18px;font-size:13px;border-radius:10px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:6px;"><i data-lucide="unlock" style="width:14px;height:14px;"></i> Entschlüsseln</button>
       </div>`;
     overlay.appendChild(box);
     document.body.appendChild(overlay);
+    if (typeof reloadIcons === 'function') reloadIcons();
     const inp = box.querySelector('#_stu-pw-i');
     setTimeout(() => inp?.focus(), 50);
     const done = (val) => { document.body.removeChild(overlay); resolve(val); };
@@ -494,10 +495,10 @@ function _showPasswordDialog(mode) {
     box.style.cssText = 'background:rgba(var(--panel-rgb),0.97);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:28px 24px 20px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
     box.innerHTML = `
       <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:12px;">
-        🔐 ${isSave ? 'Export verschlüsseln' : 'Import entschlüsseln'}
+        <i data-lucide="lock" style="width:18px;height:18px;"></i> ${isSave ? 'Export verschlüsseln' : 'Import entschlüsseln'}
       </div>
       ${isSave ? `<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);border-radius:8px;padding:10px 12px;font-size:12px;color:#ef4444;margin-bottom:16px;line-height:1.5;">
-        ⚠️ <strong>Achtung:</strong> Ohne dieses Passwort kann die Datei <strong>nicht importiert</strong> werden!
+        <i data-lucide="alert-triangle" style="width:13px;height:13px;vertical-align:-1px;"></i> <strong>Achtung:</strong> Ohne dieses Passwort kann die Datei <strong>nicht importiert</strong> werden!
       </div>` : `<div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Gib das Passwort ein, mit dem diese Datei exportiert wurde.</div>`}
       <div style="margin-bottom:12px;">
         <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Passwort</label>
@@ -513,10 +514,11 @@ function _showPasswordDialog(mode) {
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button id="_pw-cancel" style="padding:8px 18px;font-size:13px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;">Abbrechen</button>
         <button id="_pw-ok" style="padding:8px 18px;font-size:13px;border-radius:10px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-weight:600;">
-          ${isSave ? '🔒 Verschlüsselt speichern' : '🔓 Entschlüsseln'}
+          <i data-lucide="${isSave ? 'lock' : 'unlock'}" style="width:14px;height:14px;"></i> ${isSave ? 'Verschlüsselt speichern' : 'Entschlüsseln'}
         </button>
       </div>`;
     overlay.appendChild(box); document.body.appendChild(overlay);
+    if (typeof reloadIcons === 'function') reloadIcons();
     const pwI = box.querySelector('#_pw-i'), pwC = box.querySelector('#_pw-c'), errEl = box.querySelector('#_pw-e');
     setTimeout(() => pwI.focus(), 50);
     const close = v => { overlay.remove(); resolve(v); };

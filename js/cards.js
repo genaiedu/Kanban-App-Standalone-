@@ -540,7 +540,7 @@ window.renderCommentsList = () => {
     listEl.innerHTML = comments.map((c, i) => `
       <div style="background:var(--surface2); border-radius:8px; padding:10px 12px; border-left:3px solid ${c.role === 'teacher' ? '#f59e0b' : 'var(--accent)'}; margin-bottom:6px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-          <strong style="font-size:12px; color:${c.role === 'teacher' ? '#f59e0b' : 'var(--accent)'};">${c.role === 'teacher' ? '👨‍🏫 Tutor' : '🙋 SchülerIn'}</strong>
+          <strong style="font-size:12px; color:${c.role === 'teacher' ? '#f59e0b' : 'var(--accent)'};">${c.role === 'teacher' ? '<i data-lucide="graduation-cap" style="width:12px;height:12px;vertical-align:-1px;"></i> Tutor' : '<i data-lucide="user" style="width:12px;height:12px;vertical-align:-1px;"></i> SchülerIn'}</strong>
           <button class="card-btn delete" onclick="window.removeComment(${i})" title="Löschen"><i data-lucide="trash-2" style="width:12px;height:12px;"></i></button>
         </div>
         <div style="font-size:13px; color:var(--text);">${typeof escHtml === 'function' ? escHtml(c.text) : c.text}</div>
