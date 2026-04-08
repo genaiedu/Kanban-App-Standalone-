@@ -37,8 +37,8 @@
 </div>
 
 <!-- ── SCHÜLER-LOGIN-SCREEN ───────────────────────────── -->
-<div id="student-auth-screen" style="display:none; position:fixed; inset:0; background:var(--bg-body); z-index:900; align-items:center; justify-content:center; padding:20px;">
-  <div class="auth-box" style="max-width:420px;">
+<div id="student-auth-screen" style="display:none; position:fixed; inset:0; background:var(--bg-body); z-index:900; overflow-y:auto; flex-direction:column; align-items:center; justify-content:flex-start; padding:20px;">
+  <div class="auth-box" style="max-width:420px; margin:auto;">
     <div class="auth-logo">
       <div style="background:#ffffff; border-radius:24px; width:100px; height:100px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 24px rgba(0,0,0,0.15);">
         <img src="images/logo.png" style="width:78px; height:78px; object-fit:contain;" alt="KanbanFluss" onerror="this.style.display='none';"/>
@@ -81,7 +81,10 @@
       </div>
       <div id="student-reg-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-bottom:8px;"></div>
       <button id="student-reg-submit" class="btn btn-primary" onclick="submitStudentRegister()" style="width:100%;">Anmelden</button>
-      <button class="btn" onclick="showTeacherSelection ? showTeacherSelection() : location.reload()" style="width:100%; margin-top:8px; background:transparent; border:1px solid var(--border);">← Anderen Tutor wählen</button>
+      <div style="text-align:center; margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
+        <span style="font-size:12px; color:var(--text-muted);">Neu hier oder Tutorwechsel?</span><br>
+        <button onclick="showTeacherSelection()" style="margin-top:6px; background:none; border:none; color:var(--accent); font-size:13px; cursor:pointer; text-decoration:underline; padding:0;">Melde dich neu an.</button>
+      </div>
     </div>
 
     <!-- Schritt 3: Wiederkehrende Schülerin / wiederkehrender Schüler -->
@@ -95,7 +98,10 @@
       </div>
       <div id="student-login-error" style="color:#ef4444; font-size:13px; min-height:18px; margin-bottom:8px;"></div>
       <button id="student-login-submit" class="btn btn-primary" onclick="submitStudentLogin()" style="width:100%;">Anmelden</button>
-      <button class="btn" onclick="resetStudentAuth()" style="width:100%; margin-top:8px; background:transparent; border:1px solid var(--border); font-size:12px; opacity:0.7;">Anderen Tutor wählen / Neu anmelden</button>
+      <div style="text-align:center; margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
+        <span style="font-size:12px; color:var(--text-muted);">Neu hier oder Tutorwechsel?</span><br>
+        <button onclick="resetStudentAuth()" style="margin-top:6px; background:none; border:none; color:var(--accent); font-size:13px; cursor:pointer; text-decoration:underline; padding:0;">Melde dich neu an.</button>
+      </div>
     </div>
   </div>
 </div>
@@ -120,6 +126,10 @@
       <input type="text" id="profile-group" placeholder="z. B. 10b"/>
     </div>
     <button class="btn btn-primary" onclick="saveProfile()" style="width:100%; margin-top:8px;">Los geht's</button>
+    <div id="tutor-relogin-hint" style="display:none; text-align:center; margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
+      <span style="font-size:12px; color:var(--text-muted);">Bereits registriert?</span><br>
+      <button onclick="resumeTutorSession()" style="margin-top:6px; background:none; border:none; color:var(--accent); font-size:13px; cursor:pointer; text-decoration:underline; padding:0;">Zurück zur App.</button>
+    </div>
   </div>
 </div>
 
@@ -204,6 +214,9 @@
         </button>
         <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none;" onchange="importDataFromFile(event)"/>
         <div class="sidebar-divider-line"></div>
+        <button class="sidebar-action-btn" id="sidebar-relogin-btn" onclick="resetTutorProfile()" style="font-size:12px; opacity:0.75;">
+          ↺ Neu anmelden
+        </button>
         <button class="sidebar-action-btn" id="sidebar-logout-btn" onclick="logoutUser()" style="color: var(--danger, #ef4444);">
           ← Abmelden
         </button>

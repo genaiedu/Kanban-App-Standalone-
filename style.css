@@ -121,11 +121,16 @@ body {
 
 /* --- AUTH --------------------------------------- */
 #auth-screen {
-  height: 100vh;
+  min-height: 100vh;
   overflow-y: auto;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding: 20px;
+}
+#auth-screen .auth-box {
+  margin: auto;
 }
 
 .auth-box {

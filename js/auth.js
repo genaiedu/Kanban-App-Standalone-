@@ -173,7 +173,36 @@ function _setStudentStep(step) {
   });
 }
 
-// ── LEHRER: PROFIL SPEICHERN ─────────────────────────────
+// ── TUTOR: NEU ANMELDEN (Profil zurücksetzen, Boards bleiben) ──
+window.resetTutorProfile = async function() {
+  const ok = await showConfirm(
+    'Neu anmelden?\n\nDein Profil (Name) wird zurückgesetzt. Deine Boards und Daten bleiben erhalten.',
+    'Ja, neu anmelden', 'Abbrechen'
+  );
+  if (!ok) return;
+  saveUser({ displayName: '', groupId: '' });
+  document.getElementById('app-screen').classList.remove('visible');
+  const nameEl = document.getElementById('profile-name');
+  const groupEl = document.getElementById('profile-group');
+  if (nameEl) nameEl.value = '';
+  if (groupEl) groupEl.value = '';
+  // "Zurück"-Hinweis anzeigen damit man zurückkommt
+  const hint = document.getElementById('tutor-relogin-hint');
+  if (hint) hint.style.display = 'block';
+  document.getElementById('auth-screen').style.display = 'flex';
+  setTimeout(() => { document.getElementById('profile-name')?.focus(); }, 100);
+};
+
+// ── TUTOR: ZURÜCK ZUR APP (nach ungewolltem Neuanmelden) ──
+window.resumeTutorSession = function() {
+  const user = getUser();
+  if (user.displayName) {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-screen').classList.add('visible');
+  }
+};
+
+// ── TUTOR: PROFIL SPEICHERN ──────────────────────────────
 window.saveProfile = function() {
   const name  = document.getElementById('profile-name')?.value.trim()  || '';
   const group = document.getElementById('profile-group')?.value.trim() || '';
