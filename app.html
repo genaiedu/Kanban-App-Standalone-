@@ -7,7 +7,6 @@
 
   <link rel="icon" type="image/png" sizes="512x512" href="images/logo-512.png"/>
   <link rel="icon" type="image/png" sizes="192x192" href="images/logo-192.png"/>
-  <link rel="icon" type="image/png" href="images/logo.png"/>
   
   <script src="fonts/lucide.min.js"></script>
 
@@ -17,7 +16,7 @@
   <meta name="theme-color" content="#0a0e1a">
   <meta name="mobile-web-app-capable" content="yes"> <meta name="apple-mobile-web-app-capable" content="yes"> <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="EDUBAN">
-  <link rel="apple-touch-icon" href="images/logo.png">
+  <link rel="apple-touch-icon" href="images/logo-192.png">
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -116,7 +115,7 @@
         <img src="images/logo.png" style="width:110px; height:110px; object-fit:contain;" alt="EDUBAN" onerror="this.style.display='none';"/>
       </div>
     </div>
-    <div class="auth-title">Willkommen bei EDUBAN</div>
+    <div class="auth-title">Willkommen!</div>
     <div class="auth-subtitle">Alle Daten bleiben lokal auf diesem Gerät.</div>
     <div class="error-msg" id="profile-error"></div>
     <div class="form-group">
@@ -154,7 +153,7 @@
     <div class="logo-wrapper">
       <img src="images/logo.png" alt="Logo" onerror="this.style.display='none';"/>
     </div>
-    <span class="sidebar-brand">EDUBAN</span>
+
   </div>
   
   <div id="user-sidebar-info" onclick="openProfileEdit()" style="cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; transition: background 0.2s;" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor='transparent'">
@@ -224,7 +223,7 @@
         <div class="empty-icon">
           <img src="images/logo.png" alt="EDUBAN" style="width:100%; height:100%; object-fit:contain;" onerror="this.style.display='none';"/>
         </div>
-        <div class="empty-title">Willkommen bei EDUBAN</div>
+        <div class="empty-title">Willkommen!</div>
         <div class="empty-sub">Erstelle dein erstes Board und organisiere deine Aufgaben.</div>
         <button class="btn-create-first" onclick="showNewBoard()">Erstes Board erstellen</button>
       </div>
