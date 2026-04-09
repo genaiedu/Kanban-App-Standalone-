@@ -64,7 +64,7 @@ function prepareBoardData() {
     const colCards = (S.cards[col.id] || []).filter(c => c.assignee);
     colCards.forEach(card => {
       peopleSet.add(card.assignee);
-      allCardsFlat.push({ id: card.id, label: card.label || '?', titel: card.text, wer: card.assignee, prio: card.priority || 'mittel', deps: card.dependencies || [], gruppe: card.groupId || null });
+      allCardsFlat.push({ id: card.id, label: card.label || '?', titel: card.text, wer: card.assignee, prio: card.priority || 'mittel', deps: card.dependencies || [], gruppe: card.groupId || null, colName: col.name });
     });
     if (colCards.length) boardData.push({ spalte: col.name, karten: colCards.map(c => allCardsFlat.find(f => f.id === c.id)) });
   });
@@ -161,7 +161,19 @@ window.renderUBahnMap = function() {
   });
   svg += `</svg>`;
 
-  let html = ``;
+  const isInProgress = c => c.colName && c.colName.toLowerCase().includes('bearb');
+
+  let html = `<style>
+    @keyframes ubahn-pulse {
+      0%   { transform:scale(1);   opacity:0.85; }
+      60%  { transform:scale(1.9); opacity:0; }
+      100% { transform:scale(1.9); opacity:0; }
+    }
+    .ubahn-pulse-ring {
+      position:absolute; border-radius:50%; pointer-events:none;
+      animation: ubahn-pulse 1.8s ease-out infinite;
+    }
+  </style>`;
   people.forEach(p => {
     const sPt = trackPoints[p][0], ePt = trackPoints[p][maxRows], color = lineColors[p];
     html += `<button onclick='window.renderUBahnPerson(${JSON.stringify(p)})' style="position:absolute;left:${sPt.x - 60}px;top:${sPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:1001;"><div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;font-weight:900;font-size:12px;color:var(--text);box-shadow:0 4px 16px ${color}44;">${esc(p)}</div></button>`;
@@ -171,10 +183,12 @@ window.renderUBahnMap = function() {
 
   placedCards.forEach(k => {
     const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
+    const active = isInProgress(k);
     html += `
-      <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})' 
+      <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
            style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;justify-content:center;align-items:center;cursor:pointer;z-index:1002;" class="ubahn-station">
-        <div style="position:relative; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4);">
+        ${active ? `<div class="ubahn-pulse-ring" style="width:60px;height:60px;border:3px solid ${color};left:60px;top:-8px;"></div>` : ''}
+        <div style="position:relative; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4)${active ? `,0 0 16px ${color}88` : ''};">
           ${esc(k.label)}
           ${isHigh ? `<span style="position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid var(--surface); z-index:10;"></span>` : ''}
         </div>
@@ -201,10 +215,12 @@ window.renderUBahnPerson = function(workerName) {
         let members = k.gruppe ? Array.from(new Set(allCardsFlat.filter(c => c.gruppe === k.gruppe && c.wer !== workerName).map(c => c.wer))) : [];
         let dotW = members.length ? 64 : 44;
         let isHigh = k.prio === 'hoch';
+        const active = k.colName && k.colName.toLowerCase().includes('bearb');
         stationsHtml += `
-          <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})' 
-               style="position:absolute; left:${X_LINE-(dotW/2)}px; top:${currentY-22}px; width:${dotW}px; height:44px; border-radius:22px; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--text); cursor:pointer; z-index:1002; position:relative;">
+          <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
+               style="position:absolute; left:${X_LINE-(dotW/2)}px; top:${currentY-22}px; width:${dotW}px; height:44px; border-radius:22px; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--text); cursor:pointer; z-index:1002; position:relative; box-shadow:${active ? `0 0 16px ${color}88` : 'none'};">
             ${esc(k.label)}
+            ${active ? `<div class="ubahn-pulse-ring" style="width:${dotW+16}px;height:60px;border:3px solid ${color};left:-8px;top:-8px;border-radius:30px;"></div>` : ''}
             ${isHigh ? `<span style="position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid var(--surface); z-index:10;"></span>` : ''}
           </div>`;
         stationsHtml += `<div style="position:absolute; left:${X_LINE+50}px; top:${currentY-26}px; width:340px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; z-index:1001;"><div style="font-size:14px; font-weight:700;">${esc(k.titel)}</div>${members.length ? `<div style="margin-top:10px; display:flex; gap:5px;">${members.map(m => `<span style="width:10px; height:10px; border-radius:50%; background:${lineColors[m]}; border:1px solid #fff;" title="${esc(m)}"></span>`).join('')}</div>` : ''}</div>`;
