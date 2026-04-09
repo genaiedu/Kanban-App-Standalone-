@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda)
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - "Harry Beck" Routing Edition mit Halo-Effekt
 import { S } from './state.js';
 
 const PALETTE = [
@@ -7,12 +7,14 @@ const PALETTE = [
   "#f97316","#84cc16","#14b8a6","#6366f1"
 ];
 
-const CELL_W     = 180;
-const CELL_H     = 120;
-const MARGIN_TOP = 100;
+// ── Layout-Konstanten für das gebündelte Design ─────────────
+const TRACK_SPACING = 40;  // Abstand zwischen nebeneinanderliegenden Spuren
+const ROW_HEIGHT    = 140; // Vertikaler Abstand zwischen den Stationen (viel Platz für die S-Kurven)
+const MARGIN_TOP    = 120; // Abstand oben (Start-Buttons)
+const MARGIN_H      = 220; // Seitenabstand (für Tooltips und breite Fächerung)
 
-let _data = null; // vorbereitete Board-Daten
-let _anim = null; // Animationszustand
+let _data = null; 
+let _anim = null; 
 
 // ── XSS-Schutz ───────────────────────────────────────────────
 function esc(text) {
@@ -56,61 +58,123 @@ function prepareBoardData() {
   return { boardData, people, lineColors, allCardsFlat };
 }
 
-// ── 2. GRID MIT TRANSFER-STATIONEN ───────────────────────────
+// ── 2. DYNAMISCHES GRID MIT ROUTING ──────────────────────────
 function calculateGrid(boardData, people) {
-  let grid = [];
   let placedCards = [];
   let transferStations = [];
   let processedLabels = new Set();
-  let maxGlobalRow = 0;
   let phaseBoundaries = [];
 
-  const markGrid = (r, minC, maxC, val) => {
-    if (!grid[r]) grid[r] = new Array(people.length).fill(undefined);
-    for (let c = minC; c <= maxC; c++) grid[r][c] = val;
+  // Routing-State
+  let currentLanes = [...people];
+  let trackPoints = {};
+  people.forEach(p => trackPoints[p] = []);
+
+  let currentRow = 0;
+
+  // Hilfsfunktion: Aktuelle Spurenpositionen speichern
+  const recordTracks = (r) => {
+    currentLanes.forEach((p, i) => {
+      trackPoints[p].push({
+        x: MARGIN_H + i * TRACK_SPACING,
+        y: MARGIN_TOP + r * ROW_HEIGHT
+      });
+    });
   };
 
+  // Startpositionen
+  recordTracks(currentRow);
+
   boardData.forEach(col => {
-    const phaseStartRow = maxGlobalRow;
+    const phaseStartRow = currentRow;
 
     col.karten.forEach(card => {
       if (processedLabels.has(card.label)) return;
 
+      let involvedPeople = [];
+      let groupCards = [];
+
       if (card.gruppe) {
-        const groupCards = col.karten.filter(c => c.gruppe === card.gruppe);
-        const cols = groupCards.map(c => people.indexOf(c.wer)).filter(c => c >= 0);
-        if (!cols.length) return;
-        const minC = Math.min(...cols), maxC = Math.max(...cols);
-        let row = phaseStartRow;
-        while (grid[row] && cols.some(c => grid[row][c] !== undefined)) row++;
-        markGrid(row, minC, maxC, card.gruppe);
+        groupCards = col.karten.filter(c => c.gruppe === card.gruppe);
+        involvedPeople = Array.from(new Set(groupCards.map(c => c.wer)));
+      } else {
+        groupCards = [card];
+        involvedPeople = [card.wer];
+      }
+
+      // Absicherung gegen fehlerhafte Zuweisungen
+      involvedPeople = involvedPeople.filter(p => people.includes(p));
+      if (!involvedPeople.length) return;
+
+      // ── BÜNDELUNG (Spurenwechsel vor der Station) ──
+      const involved = currentLanes.filter(p => involvedPeople.includes(p));
+      const notInvolved = currentLanes.filter(p => !involvedPeople.includes(p));
+      
+      // Nicht Beteiligte aufteilen, Beteiligte in die Mitte setzen
+      const mid = Math.floor(notInvolved.length / 2);
+      currentLanes = [
+        ...notInvolved.slice(0, mid), 
+        ...involved, 
+        ...notInvolved.slice(mid)
+      ];
+
+      // Eine Reihe nach unten rücken und neue Positionen speichern
+      currentRow++;
+      recordTracks(currentRow);
+
+      const minCol = mid;
+      const maxCol = mid + involved.length - 1;
+
+      // Stationen registrieren
+      if (card.gruppe) {
+        transferStations.push({
+          name: card.gruppe,
+          row: currentRow,
+          minCol: minCol,
+          maxCol: maxCol
+        });
         groupCards.forEach(gc => {
-          const colIdx = people.indexOf(gc.wer);
-          if (colIdx < 0) return;
-          placedCards.push({ ...gc, row, col: colIdx });
+          placedCards.push({ ...gc, row: currentRow });
           processedLabels.add(gc.label);
         });
-        transferStations.push({ name: card.gruppe, row, minCol: minC, maxCol: maxC });
-        if (row >= maxGlobalRow) maxGlobalRow = row + 1;
       } else {
-        const cIdx = people.indexOf(card.wer);
-        if (cIdx < 0) return;
-        let row = phaseStartRow;
-        while (grid[row] && grid[row][cIdx] !== undefined) row++;
-        markGrid(row, cIdx, cIdx, card.label);
-        placedCards.push({ ...card, row, col: cIdx });
+        placedCards.push({ ...card, row: currentRow });
         processedLabels.add(card.label);
-        if (row >= maxGlobalRow) maxGlobalRow = row + 1;
       }
     });
 
-    phaseBoundaries.push({ name: col.spalte, start: phaseStartRow, end: maxGlobalRow });
+    if (currentRow === phaseStartRow) currentRow++; // Auch leere Phasen zeigen
+    phaseBoundaries.push({ name: col.spalte, start: phaseStartRow, end: currentRow });
   });
 
-  return { placedCards, transferStations, maxRows: maxGlobalRow, phaseBoundaries };
+  // Nach der letzten Station noch ein Stück weiterfahren
+  currentRow++;
+  recordTracks(currentRow);
+
+  return { placedCards, transferStations, maxRows: currentRow, phaseBoundaries, trackPoints };
 }
 
-// ── 3. GESAMTNETZ RENDERN ────────────────────────────────────
+// ── 3. SVG PFAD GENERATOR (S-Kurven) ─────────────────────────
+function createTrackPath(points) {
+  if (points.length === 0) return '';
+  let d = `M ${points[0].x} ${points[0].y}`;
+  
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i-1];
+    const curr = points[i];
+    
+    // Sanfte S-Kurve, falls sich die Spur (X) ändert
+    if (prev.x !== curr.x) {
+      const midY = (prev.y + curr.y) / 2;
+      d += ` C ${prev.x} ${midY}, ${curr.x} ${midY}, ${curr.x} ${curr.y}`;
+    } else {
+      d += ` L ${curr.x} ${curr.y}`;
+    }
+  }
+  return d;
+}
+
+// ── 4. GESAMTNETZ RENDERN ────────────────────────────────────
 window.renderUBahnMap = function() {
   document.getElementById('ubahn-back-btn').style.display = 'none';
   const container = document.getElementById('ubahn-content');
@@ -132,47 +196,66 @@ window.renderUBahnMap = function() {
     return;
   }
 
-  const { placedCards, transferStations, maxRows, phaseBoundaries } = calculateGrid(boardData, people);
-  const mapW = people.length * CELL_W;
-  const mapH = maxRows * CELL_H + MARGIN_TOP + 100;
+  const { placedCards, transferStations, maxRows, phaseBoundaries, trackPoints } = calculateGrid(boardData, people);
+  
+  const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
+  const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
-  // SVG
+  // SVG Layer
   let svg = `<svg width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;">`;
+  
+  // Phasen-Begrenzungen
   phaseBoundaries.forEach(p => {
-    const y = p.start * CELL_H + MARGIN_TOP;
-    svg += `
-      <line x1="0" y1="${y}" x2="${mapW}" y2="${y}" stroke="var(--border)" stroke-width="3" stroke-dasharray="10 10"/>
-      <text x="20" y="${y+22}" fill="var(--text-muted)" font-size="11" font-weight="900"
-            font-family="Outfit, DM Sans, sans-serif" letter-spacing="5">${esc(p.name.toUpperCase())}</text>
-    `;
+    const y = p.start * ROW_HEIGHT + MARGIN_TOP - (ROW_HEIGHT / 2);
+    if (p.start > 0) {
+      svg += `
+        <line x1="0" y1="${y}" x2="${mapW}" y2="${y}" stroke="var(--border)" stroke-width="3" stroke-dasharray="10 10"/>
+        <text x="20" y="${y+22}" fill="var(--text-muted)" font-size="11" font-weight="900"
+              font-family="Outfit, DM Sans, sans-serif" letter-spacing="5">${esc(p.name.toUpperCase())}</text>
+      `;
+    }
   });
-  people.forEach((p, i) => {
-    const x = i * CELL_W + CELL_W / 2;
-    svg += `<line x1="${x}" y1="0" x2="${x}" y2="${mapH}" stroke="${lineColors[p]}" stroke-width="14" stroke-linecap="round" opacity="0.85"/>`;
+
+  // --- DER HALO-EFFEKT ---
+  // Schritt 1: Breite Hintergrund-Kontur zum Ausradieren der Kreuzungen
+  people.forEach((p) => {
+    const pathData = createTrackPath(trackPoints[p]);
+    svg += `<path d="${pathData}" fill="none" stroke="var(--surface)" stroke-width="22" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
   });
+
+  // Schritt 2: Eigentliche farbige Linien direkt darüber zeichnen
+  people.forEach((p) => {
+    const pathData = createTrackPath(trackPoints[p]);
+    svg += `<path d="${pathData}" fill="none" stroke="${lineColors[p]}" stroke-width="12" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
+  });
+  // ------------------------
+
+  // Kompakte Transfer-Stationen
   transferStations.forEach(s => {
-    const x1 = s.minCol * CELL_W + CELL_W / 2;
-    const x2 = s.maxCol * CELL_W + CELL_W / 2;
-    const y  = s.row * CELL_H + MARGIN_TOP + CELL_H / 2;
+    const x1 = MARGIN_H + s.minCol * TRACK_SPACING;
+    const x2 = MARGIN_H + s.maxCol * TRACK_SPACING;
+    const y  = s.row * ROW_HEIGHT + MARGIN_TOP;
     svg += `
-      <rect x="${x1-35}" y="${y-35}" width="${(x2-x1)+70}" height="70" rx="35"
+      <rect x="${x1-22}" y="${y-22}" width="${(x2-x1)+44}" height="44" rx="22"
             fill="var(--surface)" stroke="var(--border)" stroke-width="6"/>
       <line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"
-            stroke="var(--text-muted)" stroke-width="10" stroke-linecap="round"/>
+            stroke="var(--text-muted)" stroke-width="8" stroke-linecap="round"/>
     `;
   });
   svg += `</svg>`;
 
-  // HTML-Layer
+  // HTML-Layer (Interaktive Elemente)
   let html = ``;
-  people.forEach((p, i) => {
-    const x = i * CELL_W;
+  
+  // Start-Buttons
+  people.forEach((p) => {
+    const startPos = trackPoints[p][0];
     const color = lineColors[p];
     html += `
       <button onclick="renderUBahnPerson(${JSON.stringify(p)})"
-              style="position:absolute;left:${x}px;top:20px;width:${CELL_W}px;text-align:center;background:none;border:none;cursor:pointer;">
-        <div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 20px;
-                    font-family:'Outfit','DM Sans',sans-serif;font-weight:900;font-size:14px;
+              style="position:absolute;left:${startPos.x - 60}px;top:20px;width:120px;text-align:center;background:none;border:none;cursor:pointer;">
+        <div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;
+                    font-family:'Outfit','DM Sans',sans-serif;font-weight:900;font-size:12px;
                     letter-spacing:0.5px;text-transform:uppercase;color:var(--text);
                     box-shadow:0 4px 16px ${color}44;transition:transform 0.15s,box-shadow 0.15s;"
              onmouseover="this.style.transform='scale(1.08)';this.style.boxShadow='0 6px 24px ${color}88'"
@@ -182,14 +265,15 @@ window.renderUBahnMap = function() {
       </button>
     `;
   });
+
+  // Stationen / Karten
   placedCards.forEach(k => {
-    const cx = k.col * CELL_W + CELL_W / 2;
-    const cy = k.row * CELL_H + MARGIN_TOP + CELL_H / 2;
+    const pt = trackPoints[k.wer][k.row];
     const color = lineColors[k.wer];
     const isHigh = k.prio === 'hoch';
     html += `
       <div onclick="showUBahnCardDetail(${JSON.stringify(k.label)})"
-           style="position:absolute;left:${cx-90}px;top:${cy-50}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;" class="ubahn-station">
+           style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;" class="ubahn-station">
         <div style="width:44px;height:44px;border-radius:50%;background:var(--surface);border:4px solid ${color};
                     display:flex;align-items:center;justify-content:center;
                     font-family:'Outfit','DM Sans',sans-serif;font-weight:900;font-size:13px;
@@ -210,7 +294,7 @@ window.renderUBahnMap = function() {
   });
 
   container.innerHTML = `
-    <div style="position:relative;width:${mapW}px;height:${mapH}px;">${svg}${html}</div>
+    <div style="position:relative;width:${mapW}px;height:${mapH}px;margin:0 auto;">${svg}${html}</div>
     <style>
       .ubahn-station:hover .ubahn-tooltip { opacity:1 !important; }
       .ubahn-station:hover > div:first-child { transform:scale(1.2); }
@@ -219,7 +303,7 @@ window.renderUBahnMap = function() {
   if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 50);
 };
 
-// ── 4. EINZELPERSON-ANSICHT ───────────────────────────────────
+// ── 5. EINZELPERSON-ANSICHT ───────────────────────────────────
 window.renderUBahnPerson = function(workerName) {
   document.getElementById('ubahn-back-btn').style.display = 'inline-flex';
   const container = document.getElementById('ubahn-content');
@@ -278,7 +362,7 @@ window.renderUBahnPerson = function(workerName) {
   container.innerHTML = html;
 };
 
-// ── 5. STATIONS-DETAIL-POPUP ─────────────────────────────────
+// ── 6. STATIONS-DETAIL-POPUP ─────────────────────────────────
 window.showUBahnCardDetail = function(label) {
   if (!_data) return;
   const card = _data.allCardsFlat.find(c => c.label === label);
@@ -317,14 +401,12 @@ window.showUBahnCardDetail = function(label) {
   document.body.appendChild(overlay);
 };
 
-// ── 6. BOARD-ANIMATION ────────────────────────────────────────
+// ── 7. BOARD-ANIMATION ────────────────────────────────────────
 window.startBoardAnimation = function() {
-  // Daten sicherstellen
   if (!_data) _data = prepareBoardData();
   closeModal('modal-ubahn');
 
   setTimeout(() => {
-    // Karten in Board-Reihenfolge sammeln (Spalte × Kartenreihenfolge)
     const queue = [];
     S.columns.forEach(col => {
       (S.cards[col.id] || []).forEach(card => {
@@ -337,7 +419,6 @@ window.startBoardAnimation = function() {
 
     if (!queue.length) return;
 
-    // Alle Karten ausblenden
     queue.forEach(({ el }) => {
       el.style.transition = 'none';
       el.style.opacity    = '0';
@@ -360,7 +441,6 @@ function _animStep() {
   const { el, color } = _anim.queue[_anim.index];
   _anim.index++;
 
-  // Karte einblenden mit Farbblitz
   el.style.transition = 'opacity 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease';
   el.style.opacity    = '1';
   el.style.transform  = 'scale(1) translateY(0)';
@@ -370,7 +450,6 @@ function _animStep() {
     if (el) el.style.boxShadow = '';
   }, 500);
 
-  // Fortschritt aktualisieren
   const prog = document.getElementById('anim-progress');
   if (prog) prog.textContent = `${_anim.index} / ${_anim.queue.length}`;
   const bar = document.getElementById('anim-bar-inner');
@@ -439,7 +518,6 @@ window.toggleAnimPause = function() {
 window.cancelBoardAnimation = function() {
   if (_anim) { clearTimeout(_anim.timer); _anim = null; }
   document.getElementById('anim-controls')?.remove();
-  // Alle Animation-Styles entfernen → Browser fällt auf ursprüngliche CSS zurück
   document.querySelectorAll('[id^="card-"]').forEach(el => {
     el.style.transition = '';
     el.style.opacity    = '';
@@ -451,7 +529,6 @@ window.cancelBoardAnimation = function() {
 window.resetBoardAnimation = function() {
   if (_anim) { clearTimeout(_anim.timer); _anim = null; }
   document.getElementById('anim-controls')?.remove();
-  // Alle Karten ausblenden, dann Animation neu starten
   document.querySelectorAll('[id^="card-"]').forEach(el => {
     el.style.transition = 'none';
     el.style.opacity    = '0';
@@ -476,7 +553,7 @@ window.resetBoardAnimation = function() {
   }, 200);
 };
 
-// ── 7. BREIT/SCHMAL TOGGLE ───────────────────────────────────
+// ── 8. BREIT/SCHMAL TOGGLE ───────────────────────────────────
 window.toggleUBahnWide = function() {
   const modal = document.getElementById('modal-ubahn-inner');
   const btn   = document.getElementById('ubahn-wide-btn');
@@ -488,12 +565,11 @@ window.toggleUBahnWide = function() {
   if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 30);
 };
 
-// ── 8. RESIZE-HANDLES ────────────────────────────────────────
+// ── 9. RESIZE-HANDLES ────────────────────────────────────────
 function initModalResize() {
   const modal = document.getElementById('modal-ubahn-inner');
   if (!modal) return;
 
-  // Alte Handles entfernen falls vorhanden
   modal.querySelectorAll('.ubahn-resize-handle').forEach(h => h.remove());
 
   const grip = `
@@ -550,7 +626,7 @@ function initModalResize() {
   });
 }
 
-// ── 8. MODAL ÖFFNEN ──────────────────────────────────────────
+// ── 10. MODAL ÖFFNEN ──────────────────────────────────────────
 window.openUBahnModal = function() {
   document.getElementById('modal-ubahn').style.display = 'flex';
   initModalResize();
