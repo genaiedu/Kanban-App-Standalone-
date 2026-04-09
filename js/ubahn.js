@@ -12,11 +12,12 @@ let   ROW_HEIGHT    = 100;
 const MARGIN_TOP    = 140; 
 const MARGIN_H      = 220; 
 
-let _data = null; 
-let _anim = null; 
-let _currentView = 'map'; 
+let _data = null;
+let _anim = null;
+let _currentView = 'map';
 let _currentPerson = null;
-let _cardSnapshots = []; // Speichert den DOM-Zustand des Boards
+let _cardSnapshots = [];
+let _lastGrid = null; // Grid-Ergebnis für Scroll-to-card // Speichert den DOM-Zustand des Boards
 
 function esc(text) {
   if (typeof window.escHtml === 'function') return window.escHtml(text);
@@ -199,7 +200,8 @@ window.renderUBahnMap = function() {
   _data = prepareBoardData();
   const { boardData, people, lineColors, allCardsFlat } = _data;
   if (!people.length) return;
-  const { placedCards, transferStations, maxRows, trackPoints } = calculateGrid(boardData, people);
+  _lastGrid = calculateGrid(boardData, people);
+  const { placedCards, transferStations, maxRows, trackPoints } = _lastGrid;
   const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2, mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
   let svg = `<svg width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;">`;
@@ -296,18 +298,50 @@ function _resolveCard(labelOrId) {
   return null;
 }
 
+// Navigation zu einer anderen Karte (mit Übergangsanimation)
+window._ubahnNav = function(label) {
+  const overlay = document.getElementById('ubahn-card-overlay');
+  if (overlay) {
+    const inner = overlay.querySelector('[data-ubahn-popup]');
+    if (inner) {
+      inner.style.transition = 'opacity 0.15s, transform 0.15s';
+      inner.style.opacity = '0';
+      inner.style.transform = 'scale(0.95)';
+    }
+    setTimeout(() => {
+      window.showUBahnCardDetail(label);
+      _ubahnScrollToCard(label);
+    }, 150);
+  } else {
+    window.showUBahnCardDetail(label);
+    _ubahnScrollToCard(label);
+  }
+};
+
+// Karte im Hintergrund ins Zentrum scrollen
+function _ubahnScrollToCard(label) {
+  if (!_lastGrid || !_data) return;
+  const placed = _lastGrid.placedCards.find(c => c.label === label);
+  if (!placed) return;
+  const pt = _lastGrid.trackPoints[placed.wer]?.[placed.row];
+  if (!pt) return;
+  const container = document.getElementById('ubahn-content');
+  if (!container) return;
+  container.scrollTo({ left: pt.x - container.clientWidth / 2, top: pt.y - container.clientHeight / 2, behavior: 'smooth' });
+}
+
 // Mini-Karte (anklickbar, navigiert zu dieser Karte)
 function _miniCard(info) {
   const c = _data.lineColors[info.wer] || 'var(--border)';
-  return `<button onclick="window.showUBahnCardDetail(${JSON.stringify(info.label)})"
-    style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface);border:1.5px solid ${c};border-radius:12px;cursor:pointer;text-align:left;width:100%;margin-bottom:6px;transition:opacity .15s;" onmouseenter="this.style.opacity='.75'" onmouseleave="this.style.opacity='1'">
+  return `<div onclick="window._ubahnNav(${JSON.stringify(info.label)})"
+    style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface);border:1.5px solid ${c};border-radius:12px;cursor:pointer;margin-bottom:6px;transition:opacity .15s;user-select:none;" onmouseenter="this.style.opacity='.75'" onmouseleave="this.style.opacity='1'">
     <span style="width:28px;height:28px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">${esc(info.label)}</span>
     <div style="flex:1;min-width:0;">
       <div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(info.titel)}</div>
       <div style="font-size:10px;color:var(--text-muted);">${esc(info.wer)} · ${esc(info.colName)}</div>
     </div>
     <span style="color:var(--text-muted);font-size:14px;">›</span>
-  </button>`;
+  </div>`;
 }
 
 window.showUBahnCardDetail = function(label) {
@@ -350,7 +384,8 @@ window.showUBahnCardDetail = function(label) {
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:20005;display:flex;align-items:center;justify-content:center;';
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
   overlay.innerHTML = `
-    <div style="background:rgba(var(--panel-rgb),1);border-radius:24px;width:92%;max-width:460px;border:1px solid var(--border);padding:28px 28px 24px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,0.5);max-height:88vh;overflow-y:auto;">
+    <style>@keyframes _ubahn_in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}</style>
+    <div data-ubahn-popup style="background:rgba(var(--panel-rgb),1);border-radius:24px;width:92%;max-width:460px;border:1px solid var(--border);padding:28px 28px 24px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,0.5);max-height:88vh;overflow-y:auto;animation:_ubahn_in .18s ease;">
       <button onclick="document.getElementById('ubahn-card-overlay').remove()" style="position:absolute;right:18px;top:18px;background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;">✕</button>
 
       ${prereqs.length ? `
