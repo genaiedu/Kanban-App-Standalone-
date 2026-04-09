@@ -251,8 +251,8 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
           </button>
           
-          <button class="btn-circle" onclick="showExport()" data-tooltip="Export">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <button class="btn-circle" onclick="showExport()" data-tooltip="In Text umwandeln">
+            <i data-lucide="file-text"></i>
           </button>
           
           <button class="btn-circle" onclick="showImport()" data-tooltip="KI Import">
@@ -783,8 +783,8 @@
   <div class="modal" onclick="event.stopPropagation()" style="max-width:700px; max-height:90vh; display:flex; flex-direction:column;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-shrink:0;">
       <div class="modal-title" style="display:flex; align-items:center; gap:10px; margin-bottom:0;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Board-Export
+        <i data-lucide="file-text" style="width:18px;height:18px;"></i>
+        In Text umwandeln
       </div>
       <div style="display:flex; gap:8px;">
         <button id="export-copy-btn" class="btn-sm btn-sm-primary" onclick="copyExportToClipboard()" style="display:flex; align-items:center; gap:6px;">In Zwischenablage kopieren</button>

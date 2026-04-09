@@ -80,9 +80,10 @@ window.showAiPrompt = () => {
       currentBoardStateText += '  (Aktuell leer)\n';
     } else {
       colCards.forEach(c => {
-        const lbl     = c.label ? `[${c.label}] ` : '';
-        const depsStr = (c.dependencies && c.dependencies.length > 0) ? ` (Braucht: ${c.dependencies.map(d => `[${d}]`).join(', ')})` : '';
-        currentBoardStateText += `  - ${lbl}${c.text} [Zuständig: ${c.assignee || 'offen'}]${depsStr}\n`;
+        const lbl      = c.label ? `[${c.label}] ` : '';
+        const depsStr  = (c.dependencies && c.dependencies.length > 0) ? ` (Braucht: ${c.dependencies.map(d => `[${d}]`).join(', ')})` : '';
+        const grpStr   = c.groupId ? ` (Gruppe: ${c.groupId})` : '';
+        currentBoardStateText += `  - ${lbl}${c.text} [Zuständig: ${c.assignee || 'offen'}]${depsStr}${grpStr}\n`;
       });
     }
     if (colWipLimit > 0 && colCards.length >= colWipLimit) {
@@ -98,6 +99,7 @@ WICHTIGSTE REGELN:
 3. FERTIG-SPALTE: Die Spalte für fertige Aufgaben ist TABU.
 4. VORAUSSETZUNGEN (Spalte 1): Plane vorbereitende Aufgaben als separate Spalte "Voraussetzungen" ganz links ein.
 5. ABHÄNGIGKEITEN VERKNÜPFEN: Nutze das Array-Feld "deps", um exakt auf die Labels der benötigten Karten zu verweisen.
+6. VERKETTUNGEN: Karten, die inhaltlich zusammengehören und gemeinsam bearbeitet werden, können durch denselben Wert im Feld "gruppe" vertikal verkettet werden. Vergib dafür einen kurzen Bezeichner (z.B. "G1", "G2"). Nur Karten in derselben Spalte werden verkettet dargestellt.
 
 AKTUELLER STAND:
 ${currentBoardStateText}
@@ -117,7 +119,8 @@ REGELN FÜR DAS JSON-FORMAT:
 - "prio" (hoch, mittel oder niedrig)
 - "deadline" (YYYY-MM-DD oder "")
 - "wer" (Name der zuständigen Person)
-- "deps" (Array der Labels, z.B. ["A", "B"])`;
+- "deps" (Array der Labels, z.B. ["A", "B"])
+- "gruppe" (optionaler Bezeichner für vertikal verkettete Karten, z.B. "G1" — nur bei Karten in derselben Spalte, die zusammen bearbeitet werden)`;
 
   promptEl.textContent = prompt;
 };
@@ -185,6 +188,7 @@ window.showExport = () => {
       if (card.assignee) lines.push(`     Zugewiesen:  ${card.assignee}`);
       if (card.due) lines.push(`     Fällig am:   ${fmtDate(card.due)}${dueStatus(card.due)}`);
       if (card.dependencies && card.dependencies.length > 0) lines.push(`     Voraussetz.: ${card.dependencies.map(d => `[${d}]`).join(', ')}`);
+      if (card.groupId) lines.push(`     Verkettet:   Gruppe ${card.groupId}`);
       if (card.comments && card.comments.length > 0) { lines.push(`     Kommentare:`); card.comments.forEach(c => { const role = c.role === 'teacher' ? 'Tutor' : 'SchülerIn'; lines.push(`       - [${role}] ${c.text}`); }); }
       if (card.createdAt) lines.push(`     Erstellt:    ${fmtDateTime(card.createdAt)}`);
       if (isProgress && card.startedAt) {
@@ -228,7 +232,7 @@ window.showExport = () => {
       cards: (S.cards[col.id] || []).map(c => ({
         text: c.text, priority: c.priority, assignee: c.assignee, due: c.due, label: c.label,
         dependencies: c.dependencies || [], comments: c.comments || [],
-        startedAt: c.startedAt || '', finishedAt: c.finishedAt || '', order: c.order
+        groupId: c.groupId || '', startedAt: c.startedAt || '', finishedAt: c.finishedAt || '', order: c.order
       }))
     }))
   };
@@ -278,6 +282,7 @@ function parseExportText(raw) {
         priority: (card.prio || card.priority || '').toLowerCase(),
         due: card.deadline || card.due || '', assignee: card.wer || card.assignee || '',
         dependencies: Array.isArray(card.deps || card.dependencies) ? (card.deps || card.dependencies) : [],
+        groupId: card.gruppe || card.groupId || '',
         comments: card.comments || [], startedAt: card.startedAt || '', finishedAt: card.finishedAt || ''
       }))
     }));
