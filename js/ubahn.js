@@ -463,8 +463,71 @@ window.resetBoardAnimation = function() {
   }, 200);
 };
 
-// ── 7. MODAL ÖFFNEN ──────────────────────────────────────────
+// ── 7. RESIZE-HANDLES ────────────────────────────────────────
+function initModalResize() {
+  const modal = document.getElementById('modal-ubahn-inner');
+  if (!modal) return;
+
+  // Alte Handles entfernen falls vorhanden
+  modal.querySelectorAll('.ubahn-resize-handle').forEach(h => h.remove());
+
+  const grip = `
+    <svg width="4" height="40" viewBox="0 0 4 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${[6,14,22,30,38].map(y => `<circle cx="2" cy="${y}" r="1.5" fill="currentColor"/>`).join('')}
+    </svg>
+  `;
+
+  ['left', 'right'].forEach(side => {
+    const h = document.createElement('div');
+    h.className = 'ubahn-resize-handle';
+    h.title = 'Breite ändern';
+    h.style.cssText = `
+      position:absolute; top:0; ${side}:-14px;
+      width:14px; height:100%;
+      cursor:ew-resize; z-index:20;
+      display:flex; align-items:center; justify-content:center;
+      color:var(--border); opacity:0.5;
+      transition:opacity 0.15s, color 0.15s;
+      user-select:none;
+    `;
+    h.innerHTML = grip;
+    h.addEventListener('mouseenter', () => { h.style.opacity='1'; h.style.color='var(--accent)'; });
+    h.addEventListener('mouseleave', () => { h.style.opacity='0.5'; h.style.color='var(--border)'; });
+
+    h.addEventListener('mousedown', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startW = modal.offsetWidth;
+
+      const onMove = e => {
+        const dx = side === 'right' ? e.clientX - startX : startX - e.clientX;
+        const newW = Math.min(
+          Math.max(420, startW + dx * 2), // *2 weil beide Seiten spiegeln
+          window.innerWidth - 40
+        );
+        modal.style.width    = newW + 'px';
+        modal.style.maxWidth = '95vw';
+      };
+
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        document.body.style.userSelect = '';
+      };
+
+      document.body.style.userSelect = 'none';
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    modal.appendChild(h);
+  });
+}
+
+// ── 8. MODAL ÖFFNEN ──────────────────────────────────────────
 window.openUBahnModal = function() {
   document.getElementById('modal-ubahn').style.display = 'flex';
+  initModalResize();
   renderUBahnMap();
 };
