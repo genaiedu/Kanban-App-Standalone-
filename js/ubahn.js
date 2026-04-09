@@ -426,10 +426,10 @@ window.toggleAnimPause = function() {
 window.cancelBoardAnimation = function() {
   if (_anim) { clearTimeout(_anim.timer); _anim = null; }
   document.getElementById('anim-controls')?.remove();
-  // Alle Karten wieder sichtbar machen
+  // Alle Animation-Styles entfernen → Browser fällt auf ursprüngliche CSS zurück
   document.querySelectorAll('[id^="card-"]').forEach(el => {
-    el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-    el.style.opacity    = '1';
+    el.style.transition = '';
+    el.style.opacity    = '';
     el.style.transform  = '';
     el.style.boxShadow  = '';
   });
