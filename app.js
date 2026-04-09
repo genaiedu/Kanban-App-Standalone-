@@ -12,6 +12,7 @@ import './js/cards.js';
 import './js/admin.js';
 import './js/grading.js?v=2';
 import './js/tools.js';
+import './js/ubahn.js';
 import './js/ui.js';
 
 console.log('KanbanFluss: Alle Module geladen ✓');
