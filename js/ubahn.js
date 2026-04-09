@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - PRO EDITION
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - PRO Edition mit Snapshot & Rollback
 import { S } from './state.js';
 
 const PALETTE = [
@@ -16,85 +16,37 @@ let _data = null;
 let _anim = null; 
 let _currentView = 'map'; 
 let _currentPerson = null;
-let _cardSnapshots = [];
+let _cardSnapshots = []; // Speichert den DOM-Zustand des Boards
 
-// Hilfsfunktion: XSS Schutz
 function esc(text) {
   if (typeof window.escHtml === 'function') return window.escHtml(text);
   return String(text).replace(/[&<>"']/g, m =>
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));
 }
 
-// ── 0. EXPORT LOGIK (Full-Height Vektor-Druck) ──────────────
+// ── 0. FULL-LENGTH EXPORT ───────────────────────────────────
 window.exportUBahnAsImage = function() {
   const originalContent = document.getElementById('ubahn-content');
   if (!originalContent) return;
-
   const mapWrapper = originalContent.querySelector('div');
   const fullHeight = mapWrapper ? mapWrapper.scrollHeight : 3000;
   const fullWidth  = mapWrapper ? mapWrapper.scrollWidth : 1400;
-
   const printWindow = window.open('', '_blank');
-  const styles = Array.from(document.styleSheets)
-    .map(s => { try { return Array.from(s.cssRules).map(r => r.cssText).join(''); } catch(e) { return ''; }})
-    .join('');
-
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>U-Bahn Plan Export</title>
-        <style>
-          ${styles}
-          body { background: #1a1a1a !important; margin: 0; padding: 40px; overflow: visible !important; width: ${fullWidth}px; }
-          #print-area { width: ${fullWidth}px; height: ${fullHeight}px; position: relative; }
-          .no-print, #ubahn-controls-panel, #anim-controls, #ubahn-back-btn { display: none !important; }
-          svg { overflow: visible !important; }
-          @media print {
-            @page { size: ${fullWidth}px ${fullHeight}px; margin: 0; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          }
-        </style>
-      </head>
-      <body>
-        <div id="print-area">${originalContent.innerHTML}</div>
-        <script>
-          window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 1200); };
-        </script>
-      </body>
-    </html>
-  `);
+  const styles = Array.from(document.styleSheets).map(s => { try { return Array.from(s.cssRules).map(r => r.cssText).join(''); } catch(e) { return ''; }}).join('');
+  printWindow.document.write(`<html><head><title>U-Bahn Plan Export</title><style>${styles}body { background: #1a1a1a !important; margin: 0; padding: 40px; overflow: visible !important; width: ${fullWidth}px; }#print-area { width: ${fullWidth}px; height: ${fullHeight}px; position: relative; }.no-print, #ubahn-controls-panel, #anim-controls, #ubahn-back-btn { display: none !important; }svg { overflow: visible !important; }@media print { @page { size: ${fullWidth}px ${fullHeight}px; margin: 0; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }</style></head><body><div id="print-area">${originalContent.innerHTML}</div><script>window.onload=()=>{setTimeout(()=>{window.print();window.close();},1200);};</script></body></html>`);
   printWindow.document.close();
 };
 
-// ── 1. KONTROLL-PANEL (Slider & Download) ───────────────────
+// ── 1. KONTROLL-PANEL ────────────────────────────────────────
 function ensureControls() {
   if (document.getElementById('ubahn-controls-panel')) return;
   const modal = document.getElementById('modal-ubahn-inner');
   if (!modal) return;
-
   const panel = document.createElement('div');
   panel.id = 'ubahn-controls-panel';
   panel.className = 'no-print';
-  panel.style.cssText = `
-    position: absolute; left: 20px; top: 100px;
-    background: var(--panel); border: 1px solid var(--border);
-    width: 56px; padding: 20px 0; border-radius: 30px; display: flex; flex-direction: column;
-    align-items: center; gap: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); z-index: 10001;
-  `;
-  
-  panel.innerHTML = `
-    <button onclick="window.exportUBahnAsImage()" title="Plan exportieren" 
-            style="background:var(--surface2); border:1px solid var(--border); width:38px; height:38px; border-radius:50%; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center;">
-      <i data-lucide="download" style="width:20px; height:20px;"></i>
-    </button>
-    <div style="height:1px; width:24px; background:var(--border);"></div>
-    <div style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:1px;">Abstand</div>
-    <div style="height: 140px; display: flex; align-items: center;">
-        <input type="range" min="60" max="450" value="${ROW_HEIGHT}" oninput="window.updateUBahnRowHeight(this.value)" 
-               style="width: 130px; transform: rotate(-90deg); cursor: pointer; accent-color: var(--accent); margin: 0;">
-    </div>
-    <div id="val-row" style="font-size:10px; font-weight:900; color:var(--text);">${ROW_HEIGHT}px</div>
-  `;
+  panel.style.cssText = `position: absolute; left: 20px; top: 100px; background: var(--panel); border: 1px solid var(--border); width: 56px; padding: 22px 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; gap: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); z-index: 10001;`;
+  panel.innerHTML = `<button onclick="window.exportUBahnAsImage()" style="background:var(--surface2); border:1px solid var(--border); width:38px; height:38px; border-radius:50%; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center;"><i data-lucide="download" style="width:20px; height:20px;"></i></button><div style="height:1px; width:24px; background:var(--border);"></div><div style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:1px;">Abstand</div><div style="height: 140px; display: flex; align-items: center;"><input type="range" min="60" max="450" value="${ROW_HEIGHT}" oninput="window.updateUBahnRowHeight(this.value)" style="width: 130px; transform: rotate(-90deg); cursor: pointer; accent-color: var(--accent); margin: 0; background:transparent;"></div><div id="val-row" style="font-size:10px; font-weight:900; color:var(--text);">${ROW_HEIGHT}px</div>`;
   modal.appendChild(panel);
   if (typeof reloadIcons === 'function') reloadIcons();
 }
@@ -102,11 +54,10 @@ function ensureControls() {
 window.updateUBahnRowHeight = function(val) {
   ROW_HEIGHT = parseInt(val);
   document.getElementById('val-row').textContent = val + 'px';
-  if (_currentView === 'map') renderUBahnMap();
-  else renderUBahnPerson(_currentPerson);
+  if (_currentView === 'map') renderUBahnMap(); else renderUBahnPerson(_currentPerson);
 };
 
-// ── 2. DATEN LOGIK ──────────────────────────────────────────
+// ── 2. GRID LOGIK ────────────────────────────────────────────
 function prepareBoardData() {
   const peopleSet = new Set(), boardData = [], allCardsFlat = [];
   S.columns.forEach(col => {
@@ -117,35 +68,32 @@ function prepareBoardData() {
     });
     if (colCards.length) boardData.push({ spalte: col.name, karten: colCards.map(c => allCardsFlat.find(f => f.id === c.id)) });
   });
-  const people = Array.from(peopleSet);
-  const lineColors = {};
-  people.forEach((p, i) => { lineColors[p] = i < PALETTE.length ? PALETTE[i] : `hsl(${Math.floor(Math.random() * 360)},70%,55%)`; });
-  return { boardData, people, lineColors, allCardsFlat };
+  const people = Array.from(peopleSet), colors = {};
+  people.forEach((p, i) => { colors[p] = i < PALETTE.length ? PALETTE[i] : `hsl(${Math.floor(Math.random() * 360)},70%,55%)`; });
+  return { boardData, people, lineColors: colors, allCardsFlat };
 }
 
 function calculateGrid(boardData, people) {
-  let placedCards = [], transferStations = [], processedLabels = new Set(), currentLanes = [...people], trackPoints = {};
+  let placedCards = [], transferStations = [], processed = new Set(), lanes = [...people], trackPoints = {};
   people.forEach(p => trackPoints[p] = []);
   let currentRow = 0;
-  const record = (r) => { currentLanes.forEach((p, i) => { trackPoints[p].push({ x: MARGIN_H + i * TRACK_SPACING, y: MARGIN_TOP + r * ROW_HEIGHT }); }); };
+  const record = (r) => { lanes.forEach((p, i) => { trackPoints[p].push({ x: MARGIN_H + i * TRACK_SPACING, y: MARGIN_TOP + r * ROW_HEIGHT }); }); };
   record(currentRow);
   boardData.forEach(col => {
     const pStart = currentRow;
     col.karten.forEach(card => {
-      if (processedLabels.has(card.label)) return;
+      if (processed.has(card.label)) return;
       let inv = card.gruppe ? Array.from(new Set(col.karten.filter(c => c.gruppe === card.gruppe).map(c => c.wer))) : [card.wer];
       inv = inv.filter(p => people.includes(p)); if (!inv.length) return;
-      const involved = currentLanes.filter(p => inv.includes(p)), others = currentLanes.filter(p => !inv.includes(p));
-      involved.sort((a,b) => currentLanes.indexOf(a) - currentLanes.indexOf(b));
-      let avg = involved.reduce((s, p) => s + currentLanes.indexOf(p), 0) / involved.length;
+      const involved = lanes.filter(p => inv.includes(p)), others = lanes.filter(p => !inv.includes(p));
+      involved.sort((a,b) => lanes.indexOf(a) - lanes.indexOf(b));
+      let avg = involved.reduce((s, p) => s + lanes.indexOf(p), 0) / involved.length;
       let target = Math.max(0, Math.min(others.length, Math.round(avg - (involved.length / 2))));
-      currentRow++;
-      currentLanes = [...others.slice(0, target), ...involved, ...others.slice(target)];
-      record(currentRow);
+      currentRow++; lanes = [...others.slice(0, target), ...involved, ...others.slice(target)]; record(currentRow);
       if (card.gruppe) {
         transferStations.push({ name: card.gruppe, row: currentRow, minCol: target, maxCol: target + involved.length - 1 });
-        col.karten.filter(c => c.gruppe === card.gruppe).forEach(gc => { placedCards.push({ ...gc, row: currentRow }); processedLabels.add(gc.label); });
-      } else { placedCards.push({ ...card, row: currentRow }); processedLabels.add(card.label); }
+        col.karten.filter(c => c.gruppe === card.gruppe).forEach(gc => { placedCards.push({ ...gc, row: currentRow }); processed.add(gc.label); });
+      } else { placedCards.push({ ...card, row: currentRow }); processed.add(card.label); }
     });
     if (currentRow === pStart) currentRow++;
   });
@@ -164,7 +112,7 @@ function createTrackPath(pts) {
   return d;
 }
 
-// ── 3. GESAMTNETZ RENDERN ────────────────────────────────────
+// ── 3. RENDERN ───────────────────────────────────────────────
 window.renderUBahnMap = function() {
   _currentView = 'map'; _currentPerson = null;
   ensureControls();
@@ -192,9 +140,17 @@ window.renderUBahnMap = function() {
     html += `<div style="position:absolute;left:${sPt.x-12}px;top:${sPt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
     html += `<div style="position:absolute;left:${ePt.x-12}px;top:${ePt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
   });
+
   placedCards.forEach(k => {
     const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
-    html += `<div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})' style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;z-index:1002;" class="ubahn-station"><div style="width:44px;height:44px;border-radius:50%;background:var(--surface);border:4px solid ${color};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:var(--text);box-shadow:0 4px 14px rgba(0,0,0,0.4);">${esc(k.label)}${isHigh ? `<span style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;background:var(--danger);border-radius:50%;border:2px solid var(--surface);"></span>` : ''}</div></div>`;
+    html += `
+      <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})' 
+           style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;justify-content:center;align-items:center;cursor:pointer;z-index:1002;" class="ubahn-station">
+        <div style="position:relative; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4);">
+          ${esc(k.label)}
+          ${isHigh ? `<span style="position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid var(--surface); z-index:10;"></span>` : ''}
+        </div>
+      </div>`;
   });
   container.innerHTML = `<div style="position:relative;width:${mapW}px;height:${mapH}px;margin:0 auto;">${svg}${html}</div>`;
 };
@@ -216,7 +172,13 @@ window.renderUBahnPerson = function(workerName) {
       colCards.forEach(k => {
         let members = k.gruppe ? Array.from(new Set(allCardsFlat.filter(c => c.gruppe === k.gruppe && c.wer !== workerName).map(c => c.wer))) : [];
         let dotW = members.length ? 64 : 44;
-        stationsHtml += `<div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})' style="position:absolute; left:${X_LINE-(dotW/2)}px; top:${currentY-22}px; width:${dotW}px; height:44px; border-radius:22px; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--text); cursor:pointer; z-index:1002;">${esc(k.label)}</div>`;
+        let isHigh = k.prio === 'hoch';
+        stationsHtml += `
+          <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})' 
+               style="position:absolute; left:${X_LINE-(dotW/2)}px; top:${currentY-22}px; width:${dotW}px; height:44px; border-radius:22px; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--text); cursor:pointer; z-index:1002; position:relative;">
+            ${esc(k.label)}
+            ${isHigh ? `<span style="position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid var(--surface); z-index:10;"></span>` : ''}
+          </div>`;
         stationsHtml += `<div style="position:absolute; left:${X_LINE+50}px; top:${currentY-26}px; width:340px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; z-index:1001;"><div style="font-size:14px; font-weight:700;">${esc(k.titel)}</div>${members.length ? `<div style="margin-top:10px; display:flex; gap:5px;">${members.map(m => `<span style="width:10px; height:10px; border-radius:50%; background:${lineColors[m]}; border:1px solid #fff;" title="${esc(m)}"></span>`).join('')}</div>` : ''}</div>`;
         currentY += ROW_HEIGHT + (members.length ? 40 : 0);
       });
@@ -228,20 +190,31 @@ window.renderUBahnPerson = function(workerName) {
   container.innerHTML = `<div style="position:relative; padding:24px; min-height:${currentY+100}px;">${svg}${stationsHtml}</div>`;
 };
 
-// ── 5. ANIMATION LOGIK (Snapshot-basiert) ───────────────────
+// ── 5. ANIMATION MIT FULL SNAPSHOT & AUTO-HIDE ──────────────
 window.startBoardAnimation = function() {
   if (!_data) _data = prepareBoardData();
   
+  // 1. SNAPSHOT DES BOARDS ERSTELLEN (Für echtes Rollback)
   _cardSnapshots = [];
   S.columns.forEach(col => {
     const parent = document.querySelector(`.column[data-id="${col.id}"] .column-content`);
     if (parent) {
       const cards = Array.from(parent.querySelectorAll('[id^="card-"]'));
-      cards.forEach(el => _cardSnapshots.push({ parent, el }));
+      cards.forEach(el => {
+        _cardSnapshots.push({ 
+          el, 
+          parent, 
+          nextSibling: el.nextSibling, // Sichert die exakte Position in der Liste
+          opacity: el.style.opacity, 
+          transform: el.style.transform, 
+          boxShadow: el.style.boxShadow 
+        });
+      });
     }
   });
 
-  document.getElementById('ubahn-content').style.opacity = '0';
+  // 2. MODAL SCHLIESSEN (Freie Sicht auf das Board)
+  document.getElementById('modal-ubahn').style.display = 'none';
 
   setTimeout(() => {
     const queue = [];
@@ -250,7 +223,7 @@ window.startBoardAnimation = function() {
         const el = document.getElementById('card-' + card.id);
         if (el) {
           el.style.opacity = '0';
-          el.style.transform = 'scale(0.8) translateY(10px)';
+          el.style.transform = 'scale(0.8) translateY(20px)';
           queue.push({ el, color: _data.lineColors[card.assignee] || '#6366f1' });
         }
       });
@@ -265,17 +238,24 @@ window.startBoardAnimation = function() {
 
 function _animStep() {
   if (!_anim || _anim.paused) return;
-  if (_anim.index >= _anim.queue.length) { _animFinished(); return; }
+  
+  // PRÜFUNG: Wenn Index >= Queue, dann fertig
+  if (_anim.index >= _anim.queue.length) { 
+    _animFinished(); 
+    return; 
+  }
   
   const { el, color } = _anim.queue[_anim.index++];
   el.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
   el.style.opacity = '1';
   el.style.transform = 'scale(1) translateY(0)';
   el.style.boxShadow = `0 0 0 3px ${color}, 0 10px 40px ${color}55`;
+  
   setTimeout(() => { if (el) el.style.boxShadow = ''; }, 700);
   
   const bar = document.getElementById('anim-bar-inner');
   if (bar) bar.style.width = `${(_anim.index / _anim.queue.length) * 100}%`;
+  
   _anim.timer = setTimeout(_animStep, _anim.speed);
 }
 
@@ -290,20 +270,25 @@ function _showAnimControls(total) {
 window.cancelBoardAnimation = function() {
   if (_anim) clearTimeout(_anim.timer); _anim = null;
   document.getElementById('anim-controls')?.remove();
-  document.getElementById('ubahn-content').style.opacity = '1';
   
+  // SNAPSHOT WIEDERHERSTELLEN (Original DOM-Struktur & Styles)
   _cardSnapshots.forEach(snap => {
-    snap.el.style.opacity = '';
-    snap.el.style.transform = '';
-    snap.el.style.boxShadow = '';
+    snap.el.style.opacity = snap.opacity;
+    snap.el.style.transform = snap.transform;
+    snap.el.style.boxShadow = snap.boxShadow;
     snap.el.style.transition = '';
-    snap.parent.appendChild(snap.el);
+    // Sicherstellen, dass die Karte wieder am exakt richtigen Platz im Baum landet
+    if (snap.nextSibling) {
+      snap.parent.insertBefore(snap.el, snap.nextSibling);
+    } else {
+      snap.parent.appendChild(snap.el);
+    }
   });
 };
 
 function _animFinished() {
   const panel = document.getElementById('anim-controls'); if (!panel) return;
-  panel.innerHTML = `<span style="font-size:13px;font-weight:900;color:var(--text);">✓ Board vollständig</span><button onclick="window.cancelBoardAnimation()" class="btn-sm btn-sm-primary" style="margin-left:10px;">Fertig</button>`;
+  panel.innerHTML = `<span style="font-size:13px;font-weight:900;color:var(--text);">✓ Board vollständig</span><button onclick="window.cancelBoardAnimation()" class="btn-sm btn-sm-primary" style="margin-left:10px;">Board wiederherstellen</button>`;
 }
 
 window.toggleAnimPause = function() {
@@ -312,7 +297,7 @@ window.toggleAnimPause = function() {
   if (!_anim.paused) _animStep();
 };
 
-// ── 6. DETAIL POPUP ─────────────────────────────────────────
+// ── 6. DETAIL POPUP & ÖFFNEN ────────────────────────────────
 window.showUBahnCardDetail = function(label) {
   const card = _data.allCardsFlat.find(c => c.label === label); if (!card) return;
   document.getElementById('ubahn-card-overlay')?.remove();
