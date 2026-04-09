@@ -463,7 +463,26 @@ window.resetBoardAnimation = function() {
   }, 200);
 };
 
-// ── 7. RESIZE-HANDLES ────────────────────────────────────────
+// ── 7. BREIT/SCHMAL TOGGLE ───────────────────────────────────
+window.toggleUBahnWide = function() {
+  const modal = document.getElementById('modal-ubahn-inner');
+  const btn   = document.getElementById('ubahn-wide-btn');
+  if (!modal) return;
+  const isWide = modal.dataset.wide === '1';
+  if (isWide) {
+    modal.style.width    = 'min(95vw, 1100px)';
+    modal.dataset.wide   = '0';
+    btn.innerHTML = '<i data-lucide="maximize-2" style="width:13px;height:13px;"></i>';
+  } else {
+    modal.style.width    = 'calc(100vw - 32px)';
+    modal.style.maxWidth = '100vw';
+    modal.dataset.wide   = '1';
+    btn.innerHTML = '<i data-lucide="minimize-2" style="width:13px;height:13px;"></i>';
+  }
+  if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 30);
+};
+
+// ── 8. RESIZE-HANDLES ────────────────────────────────────────
 function initModalResize() {
   const modal = document.getElementById('modal-ubahn-inner');
   if (!modal) return;
