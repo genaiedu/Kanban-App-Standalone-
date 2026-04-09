@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Maßgeschneiderte Linien & Gerade Agenden
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Maßgeschneiderte Linien & Transfer-Infos
 import { S } from './state.js';
 
 const PALETTE = [
@@ -10,7 +10,7 @@ const PALETTE = [
 // ── Feste Layout-Konstanten ──────────────────────────────────
 const TRACK_SPACING = 100; // Fester horizontaler Spuren-Abstand
 const ROW_HEIGHT    = 100; // Fester vertikaler Bahnhof-Abstand
-const MARGIN_TOP    = 140; // Etwas mehr Platz für die feste Kopfzeile
+const MARGIN_TOP    = 140; // Platz für die feste Kopfzeile
 const MARGIN_H      = 220; 
 
 let _data = null; 
@@ -188,7 +188,7 @@ window.renderUBahnMap = function() {
   }
 
   _data = prepareBoardData();
-  const { boardData, people, lineColors } = _data;
+  const { boardData, people, lineColors, allCardsFlat } = _data;
 
   if (!people.length) {
     container.innerHTML = `<div class="empty-state" style="text-align:center;padding:40px;">
@@ -229,7 +229,7 @@ window.renderUBahnMap = function() {
     }
   });
 
-  // Halo Effekt (nur für den relevanten Bereich der Linie)
+  // Halo Effekt
   people.forEach((p) => {
     if (!pBounds[p]) return;
     const pathPoints = trackPoints[p].slice(pBounds[p].minRow, pBounds[p].maxRow + 1);
@@ -246,7 +246,7 @@ window.renderUBahnMap = function() {
     }
   });
 
-  // Farbige Linien (nur für den relevanten Bereich)
+  // Farbige Linien
   people.forEach((p) => {
     if (!pBounds[p]) return;
     const pathPoints = trackPoints[p].slice(pBounds[p].minRow, pBounds[p].maxRow + 1);
@@ -280,7 +280,7 @@ window.renderUBahnMap = function() {
 
   let html = ``;
   
-  // Namens-Buttons FEST OBEN verankern (wie in deiner Vorlage)
+  // Namens-Buttons FEST OBEN verankern
   people.forEach((p) => {
     const startX = MARGIN_H + people.indexOf(p) * TRACK_SPACING;
     const color = lineColors[p];
@@ -304,6 +304,15 @@ window.renderUBahnMap = function() {
     const color = lineColors[k.wer];
     const isHigh = k.prio === 'hoch';
     
+    // Ermittle Kollegen für den Umsteige-Tooltip
+    let transferInfo = '';
+    if (k.gruppe) {
+      const groupMembers = Array.from(new Set(allCardsFlat.filter(c => c.gruppe === k.gruppe && c.wer !== k.wer).map(c => c.wer)));
+      if (groupMembers.length > 0) {
+        transferInfo = `<div style="margin-top:6px; padding-top:6px; border-top:1px solid var(--border); font-size:9px; color:var(--text-muted); font-weight:700;">+ Umstieg zu: ${esc(groupMembers.join(', '))}</div>`;
+      }
+    }
+
     html += `
       <div onclick="showUBahnCardDetail(${JSON.stringify(k.label)})"
            style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;" class="ubahn-station">
@@ -315,12 +324,14 @@ window.renderUBahnMap = function() {
           ${esc(k.label)}
           ${isHigh ? `<span style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;background:var(--danger);border-radius:50%;border:2px solid var(--surface);"></span>` : ''}
         </div>
-        <div class="ubahn-tooltip" style="margin-top:8px;text-align:center;padding:4px 10px;
-                    background:var(--surface);border:1px solid var(--border);border-radius:6px;
+        <div class="ubahn-tooltip" style="margin-top:8px;text-align:center;padding:6px 10px;
+                    background:var(--surface);border:1px solid var(--border);border-radius:8px;
                     font-family:'Outfit','DM Sans',sans-serif;font-size:10px;font-weight:600;
-                    letter-spacing:0.3px;color:var(--text);max-width:90%;
-                    opacity:0;transition:opacity 0.15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    letter-spacing:0.3px;color:var(--text);max-width:140%;
+                    opacity:0;transition:opacity 0.15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
           ${esc(k.titel)}
+          ${transferInfo}
         </div>
       </div>
     `;
@@ -329,14 +340,14 @@ window.renderUBahnMap = function() {
   container.innerHTML = `
     <div style="position:relative;width:${mapW}px;height:${mapH}px;margin:0 auto;">${svg}${html}</div>
     <style>
-      .ubahn-station:hover .ubahn-tooltip { opacity:1 !important; }
+      .ubahn-station:hover .ubahn-tooltip { opacity:1 !important; z-index: 50; }
       .ubahn-station:hover > div:first-child { transform:scale(1.2); }
     </style>
   `;
   if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 50);
 };
 
-// ── 5. EINZELPERSON-ANSICHT (Gerade SVG-Linie) ────────────────
+// ── 5. EINZELPERSON-ANSICHT (Gerade Linie mit Umsteige-Stationen) ──
 window.renderUBahnPerson = function(workerName) {
   document.getElementById('ubahn-back-btn').style.display = 'inline-flex';
   const container = document.getElementById('ubahn-content');
@@ -368,11 +379,37 @@ window.renderUBahnPerson = function(workerName) {
       lastY = currentY;
       const isHigh = k.prio === 'hoch';
       
-      // Runde Station auf der Linie
+      // Umsteigebahnhof prüfen
+      let transferHtml = '';
+      let dotWidth = 44; // Standard Breite für Single-Cards
+
+      if (k.gruppe) {
+        const groupMembers = Array.from(new Set(allCardsFlat.filter(c => c.gruppe === k.gruppe && c.wer !== workerName).map(c => c.wer)));
+        if (groupMembers.length > 0) {
+          dotWidth = 64; // Mach die Station optisch zur "Pille"
+          
+          transferHtml = `
+            <div style="margin-top:12px; display:flex; flex-direction:column; gap:6px; padding-top:10px; border-top:1px dashed var(--border);">
+              <div style="font-size:10px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Umstieg zu / Zusammen mit:</div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                ${groupMembers.map(m => `
+                  <span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:12px; font-size:10px; font-weight:800; color:#fff; background:${lineColors[m]}; box-shadow:0 2px 4px rgba(0,0,0,0.2);">
+                    <div style="width:6px; height:6px; border-radius:50%; background:#fff;"></div> ${esc(m)}
+                  </span>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      const dotX = X_LINE - (dotWidth / 2);
+
+      // Station Point
       stationsHtml += `
         <div onclick="showUBahnCardDetail(${JSON.stringify(k.label)})"
-             style="position:absolute; left:${X_LINE - 22}px; top:${currentY - 22}px; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-family:'Outfit','DM Sans',sans-serif; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4); cursor:pointer; z-index:2; transition:transform 0.15s;"
-             onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">
+             style="position:absolute; left:${dotX}px; top:${currentY - 22}px; width:${dotWidth}px; height:44px; border-radius:22px; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-family:'Outfit','DM Sans',sans-serif; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4); cursor:pointer; z-index:2; transition:transform 0.15s;"
+             onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
           ${esc(k.label)}
           ${isHigh ? `<span style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;background:var(--danger);border-radius:50%;border:2px solid var(--surface);"></span>` : ''}
         </div>
@@ -383,11 +420,14 @@ window.renderUBahnPerson = function(workerName) {
         <div style="position:absolute; left:${X_LINE + 50}px; top:${currentY - 26}px; width:340px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; box-shadow:var(--shadow);">
           <div style="font-size:15px; font-weight:700; color:var(--text); line-height:1.3;">${esc(k.titel)}</div>
           ${k.deps.length ? `<div style="margin-top:8px; font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Abhängig von: <span style="color:var(--text);">${esc(k.deps.join(', '))}</span></div>` : ''}
+          ${transferHtml}
         </div>
       `;
-      currentY += 100;
+      
+      // Mehr Abstand wenn Umsteige-Badges angezeigt werden
+      currentY += (transferHtml !== '') ? 160 : 100; 
     });
-    currentY += 40; // Abstand zwischen Spalten
+    currentY += 40; 
   });
 
   // Die durchgehende gerade Linie generieren
@@ -403,6 +443,14 @@ window.renderUBahnPerson = function(workerName) {
 
   container.innerHTML = `
     <div style="max-width:800px; margin:0 auto; padding:24px; position:relative; min-height:${currentY + 50}px;">
+      
+      <button onclick="renderUBahnMap()"
+              style="margin-bottom: 32px; display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); padding: 8px 16px; border-radius: 8px; color: var(--text); font-weight: 700; font-family: 'Outfit', 'DM Sans', sans-serif; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.15s;"
+              onmouseover="this.style.transform='translateY(-2px)'"
+              onmouseout="this.style.transform='translateY(0)'">
+        <i data-lucide="arrow-left" style="width:16px;height:16px;"></i> Gesamtnetz anzeigen
+      </button>
+
       <div style="display:flex; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:24px;">
         <div style="width:52px; height:52px; border-radius:50%; background:${color}; display:flex; align-items:center; justify-content:center; border:4px solid var(--surface); box-shadow:var(--shadow); margin-right:18px; flex-shrink:0;">
           <div style="width:14px; height:14px; background:#fff; border-radius:50%;"></div>
@@ -412,12 +460,15 @@ window.renderUBahnPerson = function(workerName) {
           <div style="font-size:30px; font-weight:900; color:${color}; letter-spacing:-1px;">${esc(workerName.toUpperCase())}</div>
         </div>
       </div>
+      
       <div style="position:relative;">
         ${svg}
         ${stationsHtml}
       </div>
     </div>
   `;
+  
+  if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 50);
 };
 
 // ── 6. STATIONS-DETAIL-POPUP ─────────────────────────────────
@@ -426,6 +477,7 @@ window.showUBahnCardDetail = function(label) {
   const card = _data.allCardsFlat.find(c => c.label === label);
   if (!card) return;
   const color = _data.lineColors[card.wer] || '#6366f1';
+  
   const depsHtml = card.deps.length
     ? `<div style="background:var(--surface);padding:14px;border-radius:12px;border:1px solid var(--border);margin-top:16px;">
         <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;">Wartet auf Signal von:</div>
@@ -433,6 +485,26 @@ window.showUBahnCardDetail = function(label) {
           ${card.deps.map(d => `<span style="background:var(--surface2);color:var(--text);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--border);">${esc(d)}</span>`).join('')}
         </div>
        </div>` : '';
+
+  // NEU: Anzeige aller beteiligten Personen im Popup (Umsteigebahnhof)
+  let groupHtml = '';
+  if (card.gruppe) {
+    const groupMembers = Array.from(new Set(_data.allCardsFlat.filter(c => c.gruppe === card.gruppe).map(c => c.wer)));
+    if (groupMembers.length > 1) {
+      groupHtml = `
+        <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border);">
+          <div style="font-size:10px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:2px; margin-bottom:12px;">Umsteigebahnhof / Zusammenarbeit:</div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            ${groupMembers.map(m => `
+              <span style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:800; color:#fff; background:${_data.lineColors[m]}; box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+                <div style="width:8px; height:8px; border-radius:50%; background:#fff;"></div> ${esc(m)}
+              </span>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+  }
 
   document.getElementById('ubahn-card-overlay')?.remove();
   const overlay = document.createElement('div');
@@ -453,6 +525,7 @@ window.showUBahnCardDetail = function(label) {
         <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Linie ${esc(card.wer)}</div>
         <div style="font-size:20px;font-weight:700;line-height:1.4;color:var(--text);">${esc(card.titel)}</div>
         ${depsHtml}
+        ${groupHtml}
       </div>
     </div>
   `;
