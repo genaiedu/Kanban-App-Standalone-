@@ -105,7 +105,7 @@ function calculateGrid(boardData, people) {
       involved.forEach(p => personNextRow[p] = row + 1);
 
       if (card.gruppe) {
-        transferStations.push({ name: card.gruppe, row, minCol: target, maxCol: target + involved.length - 1 });
+        transferStations.push({ name: card.gruppe, row, involved: [...involved] });
         col.karten.filter(c => c.gruppe === card.gruppe).forEach(gc => { placedCards.push({ ...gc, row }); processed.add(gc.label); });
       } else { placedCards.push({ ...card, row }); processed.add(card.label); }
     });
@@ -156,7 +156,8 @@ window.renderUBahnMap = function() {
   people.forEach(p => svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`);
   people.forEach(p => svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`);
   transferStations.forEach(s => {
-    const x1 = MARGIN_H + s.minCol * TRACK_SPACING, x2 = MARGIN_H + s.maxCol * TRACK_SPACING, y = s.row * ROW_HEIGHT + MARGIN_TOP;
+    const xs = s.involved.map(p => trackPoints[p][s.row].x);
+    const x1 = Math.min(...xs), x2 = Math.max(...xs), y = s.row * ROW_HEIGHT + MARGIN_TOP;
     svg += `<rect x="${x1-24}" y="${y-24}" width="${(x2-x1)+48}" height="48" rx="24" fill="#ffffff15" stroke="var(--border)" stroke-width="3"/><line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="var(--text-muted)" stroke-width="8" stroke-linecap="round" opacity="0.6"/>`;
   });
   svg += `</svg>`;
