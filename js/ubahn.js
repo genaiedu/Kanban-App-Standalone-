@@ -74,31 +74,59 @@ function prepareBoardData() {
 }
 
 function calculateGrid(boardData, people) {
-  let placedCards = [], transferStations = [], processed = new Set(), lanes = [...people], trackPoints = {};
-  people.forEach(p => trackPoints[p] = []);
-  let currentRow = 0;
-  const record = (r) => { lanes.forEach((p, i) => { trackPoints[p].push({ x: MARGIN_H + i * TRACK_SPACING, y: MARGIN_TOP + r * ROW_HEIGHT }); }); };
-  record(currentRow);
+  let placedCards = [], transferStations = [], processed = new Set(), lanes = [...people];
+  // rowLanes[r] stores the lanes order recorded at row r
+  const rowLanes = { 0: [...people] };
+  let maxRow = 0;
+
   boardData.forEach(col => {
-    const pStart = currentRow;
+    const phaseStartRow = maxRow;
+    // Each track starts free at phaseStartRow+1 within this phase
+    const personNextRow = {};
+    people.forEach(p => personNextRow[p] = phaseStartRow + 1);
+
     col.karten.forEach(card => {
       if (processed.has(card.label)) return;
-      let inv = card.gruppe ? Array.from(new Set(col.karten.filter(c => c.gruppe === card.gruppe).map(c => c.wer))) : [card.wer];
+      let inv = card.gruppe
+        ? Array.from(new Set(col.karten.filter(c => c.gruppe === card.gruppe).map(c => c.wer)))
+        : [card.wer];
       inv = inv.filter(p => people.includes(p)); if (!inv.length) return;
       const involved = lanes.filter(p => inv.includes(p)), others = lanes.filter(p => !inv.includes(p));
       involved.sort((a,b) => lanes.indexOf(a) - lanes.indexOf(b));
       let avg = involved.reduce((s, p) => s + lanes.indexOf(p), 0) / involved.length;
       let target = Math.max(0, Math.min(others.length, Math.round(avg - (involved.length / 2))));
-      currentRow++; lanes = [...others.slice(0, target), ...involved, ...others.slice(target)]; record(currentRow);
+
+      // Assign row: use the earliest row where all involved tracks are free
+      const row = Math.max(...involved.map(p => personNextRow[p]));
+      if (row > maxRow) maxRow = row;
+
+      lanes = [...others.slice(0, target), ...involved, ...others.slice(target)];
+      rowLanes[row] = [...lanes]; // record lanes state at this row
+      involved.forEach(p => personNextRow[p] = row + 1);
+
       if (card.gruppe) {
-        transferStations.push({ name: card.gruppe, row: currentRow, minCol: target, maxCol: target + involved.length - 1 });
-        col.karten.filter(c => c.gruppe === card.gruppe).forEach(gc => { placedCards.push({ ...gc, row: currentRow }); processed.add(gc.label); });
-      } else { placedCards.push({ ...card, row: currentRow }); processed.add(card.label); }
+        transferStations.push({ name: card.gruppe, row, minCol: target, maxCol: target + involved.length - 1 });
+        col.karten.filter(c => c.gruppe === card.gruppe).forEach(gc => { placedCards.push({ ...gc, row }); processed.add(gc.label); });
+      } else { placedCards.push({ ...card, row }); processed.add(card.label); }
     });
-    if (currentRow === pStart) currentRow++;
+    if (maxRow === phaseStartRow) maxRow++;
   });
-  currentRow++; record(currentRow);
-  return { placedCards, transferStations, maxRows: currentRow, trackPoints };
+
+  maxRow++;
+  rowLanes[maxRow] = [...lanes];
+
+  // Build trackPoints: fill every row 0..maxRow, inheriting lanes from previous row if not recorded
+  const trackPoints = {};
+  people.forEach(p => trackPoints[p] = []);
+  let lastLanes = [...people];
+  for (let r = 0; r <= maxRow; r++) {
+    if (rowLanes[r]) lastLanes = rowLanes[r];
+    lastLanes.forEach((p, i) => {
+      trackPoints[p].push({ x: MARGIN_H + i * TRACK_SPACING, y: MARGIN_TOP + r * ROW_HEIGHT });
+    });
+  }
+
+  return { placedCards, transferStations, maxRows: maxRow, trackPoints };
 }
 
 function createTrackPath(pts) {
