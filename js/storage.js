@@ -199,6 +199,7 @@ export function createCard(boardId, colId, fields) {
     startedAt: fields.startedAt || '',
     finishedAt: fields.finishedAt || '',
     dependencies: fields.dependencies || [],
+    groupId: fields.groupId || '',
     comments: fields.comments || [],
     createdAt: new Date().toISOString(),
   };
