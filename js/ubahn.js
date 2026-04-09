@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Weitläufiges Routing
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Live-Tuning Edition
 import { S } from './state.js';
 
 const PALETTE = [
@@ -7,11 +7,11 @@ const PALETTE = [
   "#f97316","#84cc16","#14b8a6","#6366f1"
 ];
 
-// ── Layout-Konstanten massiv erhöht ─────────────────────────
-const TRACK_SPACING = 80;  // Spuren liegen weiter auseinander
-const ROW_HEIGHT    = 600; // Zieht die Kurven extrem in die Länge
-const MARGIN_TOP    = 150; 
-const MARGIN_H      = 250; 
+// ── Layout-Variablen (durch Schieberegler manipulierbar) ──
+let TRACK_SPACING = 50;  // Horizontaler Spuren-Abstand
+let ROW_HEIGHT    = 200; // Vertikaler Bahnhof-Abstand
+const MARGIN_TOP  = 120; 
+const MARGIN_H    = 220; 
 
 let _data = null; 
 let _anim = null; 
@@ -22,6 +22,44 @@ function esc(text) {
   return String(text).replace(/[&<>"']/g, m =>
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));
 }
+
+// ── 0. SCHIEBEREGLER UI ──────────────────────────────────────
+function ensureSliders() {
+  if (document.getElementById('ubahn-sliders-panel')) return;
+  const modal = document.getElementById('modal-ubahn-inner');
+  if (!modal) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'ubahn-sliders-panel';
+  panel.style.cssText = `
+    position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 10px 24px; border-radius: 100px; display: flex; gap: 32px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4); z-index: 1000; align-items: center;
+  `;
+  panel.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span style="font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; font-family:'Outfit', 'DM Sans', sans-serif;">Spur <span id="val-track" style="color:var(--text);">${TRACK_SPACING}</span>px</span>
+      <input type="range" min="30" max="150" value="${TRACK_SPACING}" oninput="window.updateUBahnParams('track', this.value)" style="width:100px; cursor:pointer;">
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span style="font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; font-family:'Outfit', 'DM Sans', sans-serif;">Reihe <span id="val-row" style="color:var(--text);">${ROW_HEIGHT}</span>px</span>
+      <input type="range" min="80" max="500" value="${ROW_HEIGHT}" oninput="window.updateUBahnParams('row', this.value)" style="width:100px; cursor:pointer;">
+    </div>
+  `;
+  modal.appendChild(panel);
+}
+
+window.updateUBahnParams = function(type, val) {
+  if (type === 'track') {
+    TRACK_SPACING = parseInt(val);
+    document.getElementById('val-track').textContent = val;
+  } else {
+    ROW_HEIGHT = parseInt(val);
+    document.getElementById('val-row').textContent = val;
+  }
+  renderUBahnMap(); // Board in Echtzeit neu zeichnen
+};
 
 // ── 1. DATEN AUFBEREITEN ─────────────────────────────────────
 function prepareBoardData() {
@@ -158,7 +196,7 @@ function calculateGrid(boardData, people) {
   return { placedCards, transferStations, maxRows: currentRow, phaseBoundaries, trackPoints };
 }
 
-// ── 3. SVG PFAD GENERATOR (Weichere S-Kurven) ────────────────
+// ── 3. SVG PFAD GENERATOR ────────────────────────────────────
 function createTrackPath(points) {
   if (points.length === 0) return '';
   let d = `M ${points[0].x} ${points[0].y}`;
@@ -168,10 +206,8 @@ function createTrackPath(points) {
     const curr = points[i];
     
     if (prev.x !== curr.x) {
-      // Anpassung für organischere, fließendere Kurven bei großem Abstand
-      const cp1Y = prev.y + (curr.y - prev.y) * 0.4;
-      const cp2Y = prev.y + (curr.y - prev.y) * 0.6;
-      d += ` C ${prev.x} ${cp1Y}, ${curr.x} ${cp2Y}, ${curr.x} ${curr.y}`;
+      const midY = (prev.y + curr.y) / 2;
+      d += ` C ${prev.x} ${midY}, ${curr.x} ${midY}, ${curr.x} ${curr.y}`;
     } else {
       d += ` L ${curr.x} ${curr.y}`;
     }
@@ -183,6 +219,7 @@ function createTrackPath(points) {
 window.renderUBahnMap = function() {
   document.getElementById('ubahn-back-btn').style.display = 'none';
   const container = document.getElementById('ubahn-content');
+  ensureSliders();
 
   if (!S.columns?.length) {
     container.innerHTML = `<div class="empty-state">Kein aktives Board geladen.</div>`;
@@ -219,25 +256,30 @@ window.renderUBahnMap = function() {
     }
   });
 
+  // Halo Effekt für das Radieren der Kreuzungen
   people.forEach((p) => {
     const pathData = createTrackPath(trackPoints[p]);
     svg += `<path d="${pathData}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
   });
 
+  // Farbige Linien
   people.forEach((p) => {
     const pathData = createTrackPath(trackPoints[p]);
     svg += `<path d="${pathData}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
   });
 
+  // Korrigierte Transfer-Pillen (halbtransparent gefüllt)
   transferStations.forEach(s => {
     const x1 = MARGIN_H + s.minCol * TRACK_SPACING;
     const x2 = MARGIN_H + s.maxCol * TRACK_SPACING;
     const y  = s.row * ROW_HEIGHT + MARGIN_TOP;
+    
+    // fill-opacity erzeugt den milchigen Glas-Effekt
     svg += `
       <rect x="${x1-24}" y="${y-24}" width="${(x2-x1)+48}" height="48" rx="24"
-            fill="var(--surface)" stroke="var(--border)" stroke-width="6"/>
+            fill="var(--surface)" fill-opacity="0.8" stroke="var(--border)" stroke-width="4"/>
       <line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"
-            stroke="var(--text-muted)" stroke-width="10" stroke-linecap="round"/>
+            stroke="var(--text-muted)" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
     `;
   });
   svg += `</svg>`;
@@ -266,9 +308,11 @@ window.renderUBahnMap = function() {
     const pt = trackPoints[k.wer][k.row];
     const color = lineColors[k.wer];
     const isHigh = k.prio === 'hoch';
+    
+    // Korrektur: pt.y - 22 zentriert den 44px Kreis PERFEKT auf der Linie
     html += `
       <div onclick="showUBahnCardDetail(${JSON.stringify(k.label)})"
-           style="position:absolute;left:${pt.x-90}px;top:${pt.y-32}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;" class="ubahn-station">
+           style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;" class="ubahn-station">
         <div style="width:44px;height:44px;border-radius:50%;background:var(--surface);border:4px solid ${color};
                     display:flex;align-items:center;justify-content:center;
                     font-family:'Outfit','DM Sans',sans-serif;font-weight:900;font-size:13px;
@@ -396,7 +440,7 @@ window.showUBahnCardDetail = function(label) {
   document.body.appendChild(overlay);
 };
 
-// ── 7. BOARD-ANIMATION ────────────────────────────────────────
+// ── 7. BOARD-ANIMATION (Unverändert) ──────────────────────────
 window.startBoardAnimation = function() {
   if (!_data) _data = prepareBoardData();
   closeModal('modal-ubahn');
