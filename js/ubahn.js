@@ -1,5 +1,5 @@
 // js/ubahn.js — U-Bahn Streckennetz (Agenda) - PRO Edition mit Snapshot & Rollback
-import { S } from './state.js';
+import { S, moveCard, getCards, updateCard } from './state.js';
 
 const PALETTE = [
   "#ef4444","#3b82f6","#10b981","#f59e0b",
@@ -288,13 +288,136 @@ window.renderUBahnPerson = function(workerName) {
 // ── 6. DETAIL POPUP & ÖFFNEN ────────────────────────────────
 window.showUBahnCardDetail = function(label) {
   const card = _data.allCardsFlat.find(c => c.label === label); if (!card) return;
+  const color = _data.lineColors[card.wer];
+
+  // Aktuelle Spalten-ID ermitteln
+  const currentColId = Object.entries(S.cards).find(([, cards]) => cards.some(c => c.id === card.id))?.[0];
+  const currentCol = S.columns.find(c => c.id === currentColId);
+  const isLocked = currentCol && window.isFinishedColumn ? window.isFinishedColumn(currentCol) : false;
+
+  // Abhängigkeiten auflösen
+  const depCards = (card.deps || []).map(depId => {
+    for (const [colId, cards] of Object.entries(S.cards)) {
+      const found = cards.find(c => c.id === depId);
+      if (found) {
+        const col = S.columns.find(c => c.id === colId);
+        return { label: found.label, titel: found.text, colName: col?.name || '', wer: found.assignee };
+      }
+    }
+    return null;
+  }).filter(Boolean);
+
+  // Gruppenpartner
+  const groupPartners = card.gruppe
+    ? _data.allCardsFlat.filter(c => c.gruppe === card.gruppe && c.wer !== card.wer)
+    : [];
+
+  // Priorität-Badge
+  const prioBadge = {
+    hoch:   `<span style="background:#ef444422;color:#ef4444;border:1px solid #ef444466;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">▲ Hoch</span>`,
+    niedrig:`<span style="background:#22c55e22;color:#22c55e;border:1px solid #22c55e66;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">▼ Niedrig</span>`,
+  }[card.prio] || `<span style="background:var(--surface);color:var(--text-muted);border:1px solid var(--border);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">● Mittel</span>`;
+
+  // Spalten-Selector
+  const colOptions = S.columns.map(col =>
+    `<option value="${col.id}" ${col.id === currentColId ? 'selected' : ''}>${esc(col.name)}</option>`
+  ).join('');
+  const colSelector = `
+    <div style="margin-top:18px;">
+      <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Phase</div>
+      <select id="ubahn-col-select" onchange="window.ubahn_moveCard('${card.id}','${currentColId}',this.value)"
+        ${isLocked ? 'disabled title="Fertig-Spalte – kann nicht mehr verschoben werden"' : ''}
+        style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid ${isLocked ? 'var(--border)' : color};background:rgba(var(--panel-rgb),1);color:${isLocked ? 'var(--text-muted)' : 'var(--text)'};font-size:13px;font-weight:600;cursor:${isLocked ? 'not-allowed' : 'pointer'};outline:none;">
+        ${colOptions}
+      </select>
+      ${isLocked ? `<div style="font-size:11px;color:var(--text-muted);margin-top:5px;">🔒 Fertig-Spalte – kein Zurück</div>` : ''}
+    </div>`;
+
+  // Abhängigkeiten-Block
+  const depsBlock = depCards.length ? `
+    <div style="margin-top:18px;">
+      <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Benötigt</div>
+      ${depCards.map(d => `
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface);border-radius:10px;margin-bottom:5px;">
+          <span style="width:26px;height:26px;border-radius:50%;background:${_data.lineColors[d.wer]||'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;flex-shrink:0;">${esc(d.label)}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.titel)}</div>
+            <div style="font-size:10px;color:var(--text-muted);">${esc(d.colName)} · ${esc(d.wer)}</div>
+          </div>
+        </div>`).join('')}
+    </div>` : '';
+
+  // Gruppenpartner-Block
+  const groupBlock = groupPartners.length ? `
+    <div style="margin-top:18px;">
+      <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Gruppenarbeit mit</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;">
+        ${groupPartners.map(p => `
+          <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--surface);border-radius:20px;border:2px solid ${_data.lineColors[p.wer]||'var(--border)'};">
+            <span style="width:18px;height:18px;border-radius:50%;background:${_data.lineColors[p.wer]||'var(--border)'}"></span>
+            <span style="font-size:12px;font-weight:700;">${esc(p.wer)}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
   document.getElementById('ubahn-card-overlay')?.remove();
   const overlay = document.createElement('div');
   overlay.id = 'ubahn-card-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:20005;display:flex;align-items:center;justify-content:center;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:20005;display:flex;align-items:center;justify-content:center;';
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
-  overlay.innerHTML = `<div style="background:rgba(var(--panel-rgb),1);border-radius:24px;width:92%;max-width:420px;border:1px solid var(--border);padding:35px;position:relative;box-shadow: 0 30px 90px rgba(0,0,0,0.5);"><button onclick="this.parentElement.parentElement.remove()" style="position:absolute;right:25px;top:25px;background:none;border:none;color:var(--text-muted);font-size:24px;cursor:pointer;">✕</button><div style="width:54px;height:54px;border-radius:50%;background:${_data.lineColors[card.wer]};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;margin-bottom:25px;color:#fff;border:3px solid var(--surface);">${esc(card.label)}</div><div style="font-size:11px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Linie ${esc(card.wer)}</div><div style="font-size:22px;font-weight:700;line-height:1.4;">${esc(card.titel)}</div></div>`;
+  overlay.innerHTML = `
+    <div style="background:rgba(var(--panel-rgb),1);border-radius:24px;width:92%;max-width:440px;border:1px solid var(--border);padding:30px 30px 28px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,0.5);max-height:88vh;overflow-y:auto;">
+      <button onclick="document.getElementById('ubahn-card-overlay').remove()" style="position:absolute;right:20px;top:20px;background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;">✕</button>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+        <div style="width:50px;height:50px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:#fff;flex-shrink:0;box-shadow:0 4px 12px ${color}66;">${esc(card.label)}</div>
+        <div>
+          <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;">Linie ${esc(card.wer)}</div>
+          <div style="margin-top:3px;">${prioBadge}</div>
+        </div>
+      </div>
+      <div style="font-size:20px;font-weight:700;line-height:1.4;margin-bottom:4px;">${esc(card.titel)}</div>
+      ${colSelector}
+      ${depsBlock}
+      ${groupBlock}
+    </div>`;
   document.body.appendChild(overlay);
+};
+
+// Karte in neue Spalte verschieben (aus U-Bahn-Popup heraus)
+window.ubahn_moveCard = async function(cardId, fromColId, toColId) {
+  if (fromColId === toColId) return;
+  const fromCol = S.columns.find(c => c.id === fromColId);
+  const toCol   = S.columns.find(c => c.id === toColId);
+  if (!fromCol || !toCol) return;
+  if (window.isFinishedColumn && window.isFinishedColumn(fromCol)) {
+    document.getElementById('ubahn-col-select').value = fromColId;
+    return;
+  }
+  const isNowFinished = window.isFinishedColumn ? window.isFinishedColumn(toCol) : false;
+  if (isNowFinished) {
+    if (!await window.showConfirm('Karte in die Fertig-Spalte verschieben?\n\nDies kann nicht rückgängig gemacht werden.', 'Verschieben', 'Abbrechen')) {
+      document.getElementById('ubahn-col-select').value = fromColId; return;
+    }
+  }
+  if (typeof window.pushUndo === 'function') window.pushUndo('Karte verschoben (U-Bahn)');
+  const now = new Date().toISOString();
+
+  // Alle Karten der Gruppe mitverschieben
+  const srcCard = (S.cards[fromColId]||[]).find(c => c.id === cardId);
+  const toMove = srcCard?.groupId
+    ? (S.cards[fromColId]||[]).filter(c => c.groupId === srcCard.groupId)
+    : (srcCard ? [srcCard] : []);
+  let orderBase = (S.cards[toColId]||[]).length;
+  for (const c of toMove) {
+    moveCard(S.currentBoard.id, fromColId, toColId, c.id, orderBase++);
+    if (isNowFinished) updateCard(S.currentBoard.id, toColId, c.id, { finishedAt: now });
+    else               updateCard(S.currentBoard.id, toColId, c.id, { startedAt: c.startedAt || now });
+  }
+  if (typeof window.loadCards === 'function') { window.loadCards(fromColId); window.loadCards(toColId); }
+  document.getElementById('ubahn-card-overlay')?.remove();
+  if (typeof window.renderBoard === 'function') window.renderBoard();
+  // U-Bahn neu rendern
+  if (_currentView === 'map') window.renderUBahnMap(); else window.renderUBahnPerson(_currentPerson);
 };
 
 window.toggleUBahnWide = function() {
