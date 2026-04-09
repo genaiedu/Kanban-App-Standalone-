@@ -333,7 +333,7 @@ function _ubahnScrollToCard(label) {
 // Mini-Karte (anklickbar, navigiert zu dieser Karte)
 function _miniCard(info) {
   const c = _data.lineColors[info.wer] || 'var(--border)';
-  return `<div onclick="window._ubahnNav(${JSON.stringify(info.label)})"
+  return `<div onclick='window._ubahnNav(${JSON.stringify(info.label)})'
     style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface);border:1.5px solid ${c};border-radius:12px;cursor:pointer;margin-bottom:6px;transition:opacity .15s;user-select:none;" onmouseenter="this.style.opacity='.75'" onmouseleave="this.style.opacity='1'">
     <span style="width:28px;height:28px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">${esc(info.label)}</span>
     <div style="flex:1;min-width:0;">
