@@ -148,14 +148,30 @@ function calculateGrid(boardData, people) {
   maxRow++;
   rowLanes[maxRow] = [...lanes];
 
-  // Build trackPoints: fill every row 0..maxRow, inheriting lanes from previous row if not recorded
+  // Welche Zeilen hat jede Person wirklich eine Station?
+  const personActiveRows = {};
+  people.forEach(p => personActiveRows[p] = new Set());
+  placedCards.forEach(k => personActiveRows[k.wer].add(k.row));
+  transferStations.forEach(s => s.involved.forEach(p => personActiveRows[p].add(s.row)));
+
+  // trackPoints aufbauen: x nur an eigenen Stationen aktualisieren,
+  // dazwischen gerade Strecke (D-Zug-Effekt)
   const trackPoints = {};
   people.forEach(p => trackPoints[p] = []);
-  let lastLanes = [...people];
+  const personCurrentX = {};
+  people.forEach((p, i) => personCurrentX[p] = MARGIN_H + i * TRACK_SPACING);
+
   for (let r = 0; r <= maxRow; r++) {
-    if (rowLanes[r]) lastLanes = rowLanes[r];
-    lastLanes.forEach((p, i) => {
-      trackPoints[p].push({ x: MARGIN_H + i * TRACK_SPACING, y: MARGIN_TOP + r * ROW_HEIGHT });
+    const lanesAtR = rowLanes[r];
+    if (lanesAtR) {
+      lanesAtR.forEach((p, i) => {
+        if (personActiveRows[p].has(r)) {
+          personCurrentX[p] = MARGIN_H + i * TRACK_SPACING;
+        }
+      });
+    }
+    people.forEach(p => {
+      trackPoints[p].push({ x: personCurrentX[p], y: MARGIN_TOP + r * ROW_HEIGHT });
     });
   }
 
