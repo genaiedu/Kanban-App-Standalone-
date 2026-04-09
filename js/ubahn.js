@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Maßgeschneiderte Linien
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Maßgeschneiderte Linien & Gerade Agenden
 import { S } from './state.js';
 
 const PALETTE = [
@@ -10,7 +10,7 @@ const PALETTE = [
 // ── Feste Layout-Konstanten ──────────────────────────────────
 const TRACK_SPACING = 100; // Fester horizontaler Spuren-Abstand
 const ROW_HEIGHT    = 100; // Fester vertikaler Bahnhof-Abstand
-const MARGIN_TOP    = 120; 
+const MARGIN_TOP    = 140; // Etwas mehr Platz für die feste Kopfzeile
 const MARGIN_H      = 220; 
 
 let _data = null; 
@@ -201,7 +201,7 @@ window.renderUBahnMap = function() {
 
   const { placedCards, transferStations, maxRows, phaseBoundaries, trackPoints } = calculateGrid(boardData, people);
   
-  // Start- und Endpunkte für jede Person ermitteln (damit die Linien nicht leer ins Nichts laufen)
+  // Start- und Endpunkte für jede Person ermitteln
   const pBounds = {};
   people.forEach(p => {
     const pCards = placedCards.filter(c => c.wer === p);
@@ -229,15 +229,13 @@ window.renderUBahnMap = function() {
     }
   });
 
-  // Halo Effekt
+  // Halo Effekt (nur für den relevanten Bereich der Linie)
   people.forEach((p) => {
     if (!pBounds[p]) return;
     const pathPoints = trackPoints[p].slice(pBounds[p].minRow, pBounds[p].maxRow + 1);
-    
     if (pathPoints.length > 0) {
       const firstPt = pathPoints[0];
       const lastPt = pathPoints[pathPoints.length - 1];
-      // Pfad leicht über die Start/End-Bahnhöfe hinausziehen, um die runden Enden/Buttons bündig abzuschließen
       const extendedPoints = [
         { x: firstPt.x, y: firstPt.y - 35 },
         ...pathPoints,
@@ -248,11 +246,10 @@ window.renderUBahnMap = function() {
     }
   });
 
-  // Farbige Linien
+  // Farbige Linien (nur für den relevanten Bereich)
   people.forEach((p) => {
     if (!pBounds[p]) return;
     const pathPoints = trackPoints[p].slice(pBounds[p].minRow, pBounds[p].maxRow + 1);
-    
     if (pathPoints.length > 0) {
       const firstPt = pathPoints[0];
       const lastPt = pathPoints[pathPoints.length - 1];
@@ -283,14 +280,13 @@ window.renderUBahnMap = function() {
 
   let html = ``;
   
-  // Start-Buttons am tatsächlichen Beginn der jeweiligen Linie platzieren
+  // Namens-Buttons FEST OBEN verankern (wie in deiner Vorlage)
   people.forEach((p) => {
-    if (!pBounds[p]) return;
-    const startPos = trackPoints[p][pBounds[p].minRow];
+    const startX = MARGIN_H + people.indexOf(p) * TRACK_SPACING;
     const color = lineColors[p];
     html += `
       <button onclick="renderUBahnPerson(${JSON.stringify(p)})"
-              style="position:absolute;left:${startPos.x - 60}px;top:${startPos.y - 75}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:10;">
+              style="position:absolute;left:${startX - 60}px;top:30px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:10;">
         <div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;
                     font-family:'Outfit','DM Sans',sans-serif;font-weight:900;font-size:12px;
                     letter-spacing:0.5px;text-transform:uppercase;color:var(--text);
@@ -340,7 +336,7 @@ window.renderUBahnMap = function() {
   if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 50);
 };
 
-// ── 5. EINZELPERSON-ANSICHT ───────────────────────────────────
+// ── 5. EINZELPERSON-ANSICHT (Gerade SVG-Linie) ────────────────
 window.renderUBahnPerson = function(workerName) {
   document.getElementById('ubahn-back-btn').style.display = 'inline-flex';
   const container = document.getElementById('ubahn-content');
@@ -350,53 +346,78 @@ window.renderUBahnPerson = function(workerName) {
   const color = lineColors[workerName] || '#6366f1';
   const myCards = allCardsFlat.filter(c => c.wer === workerName);
 
-  let html = `
-    <div style="max-width:800px;margin:0 auto;padding:24px;">
-      <div style="display:flex;align-items:center;margin-bottom:32px;border-bottom:1px solid var(--border);padding-bottom:24px;">
-        <div style="width:52px;height:52px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;border:4px solid var(--surface);box-shadow:var(--shadow);margin-right:18px;flex-shrink:0;">
-          <div style="width:14px;height:14px;background:#fff;border-radius:50%;"></div>
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:var(--text-muted);">Fahrplan / Linie</div>
-          <div style="font-size:30px;font-weight:900;color:${color};letter-spacing:-1px;">${esc(workerName.toUpperCase())}</div>
-        </div>
-      </div>
-      <div style="position:relative;padding-left:32px;border-left:6px solid ${color};border-radius:3px;">
-  `;
+  let stationsHtml = ``;
+  let currentY = 160; 
+  const X_LINE = 120; // X-Position der geraden SVG-Linie
+  let firstY = null;
+  let lastY = null;
 
   boardData.forEach(col => {
     const colCards = myCards.filter(c => col.karten.some(kc => kc.id === c.id));
     if (!colCards.length) return;
-    html += `
-      <div style="margin-bottom:28px;">
-        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:3px;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:18px;margin-left:20px;">
-          ${esc(col.spalte)}
-        </div>
-        <div style="display:flex;flex-direction:column;gap:18px;">
+
+    // Spalten-Titel (Phasen)
+    stationsHtml += `
+      <div style="position:absolute; left:${X_LINE + 60}px; top:${currentY - 20}px; font-size:10px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:3px;">
+        ${esc(col.spalte)}
+      </div>
     `;
+
     colCards.forEach(k => {
-      const depsHtml = k.deps.length
-        ? `<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px;">
-            ${k.deps.map(d => `<span style="font-size:10px;font-weight:700;background:var(--surface2);color:var(--text-muted);padding:2px 8px;border-radius:4px;border:1px solid var(--border);">Abhängig von: ${esc(d)}</span>`).join('')}
-           </div>` : '';
-      html += `
-        <div style="position:relative;margin-left:20px;">
-          <div style="position:absolute;left:-44px;top:14px;width:18px;height:18px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>
-          <div class="card" style="cursor:default;">
-            <div style="margin-bottom:8px;">
-              <span style="font-size:10px;font-weight:900;background:var(--surface2);color:var(--text-muted);padding:2px 8px;border-radius:4px;border:1px solid var(--border);">Station ${esc(k.label)}</span>
-            </div>
-            <div style="font-size:15px;font-weight:600;line-height:1.4;">${esc(k.titel)}</div>
-            ${depsHtml}
-          </div>
+      if (firstY === null) firstY = currentY;
+      lastY = currentY;
+      const isHigh = k.prio === 'hoch';
+      
+      // Runde Station auf der Linie
+      stationsHtml += `
+        <div onclick="showUBahnCardDetail(${JSON.stringify(k.label)})"
+             style="position:absolute; left:${X_LINE - 22}px; top:${currentY - 22}px; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-family:'Outfit','DM Sans',sans-serif; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4); cursor:pointer; z-index:2; transition:transform 0.15s;"
+             onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">
+          ${esc(k.label)}
+          ${isHigh ? `<span style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;background:var(--danger);border-radius:50%;border:2px solid var(--surface);"></span>` : ''}
         </div>
       `;
+
+      // Karte neben der Station
+      stationsHtml += `
+        <div style="position:absolute; left:${X_LINE + 50}px; top:${currentY - 26}px; width:340px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; box-shadow:var(--shadow);">
+          <div style="font-size:15px; font-weight:700; color:var(--text); line-height:1.3;">${esc(k.titel)}</div>
+          ${k.deps.length ? `<div style="margin-top:8px; font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Abhängig von: <span style="color:var(--text);">${esc(k.deps.join(', '))}</span></div>` : ''}
+        </div>
+      `;
+      currentY += 100;
     });
-    html += `</div></div>`;
+    currentY += 40; // Abstand zwischen Spalten
   });
 
-  html += `</div></div>`;
-  container.innerHTML = html;
+  // Die durchgehende gerade Linie generieren
+  let svg = ``;
+  if (firstY !== null && lastY !== null) {
+    svg = `
+      <svg width="100%" height="${currentY + 50}" style="position:absolute;inset:0;pointer-events:none;">
+        <path d="M ${X_LINE} ${firstY - 35} L ${X_LINE} ${lastY + 35}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linecap="round"/>
+        <path d="M ${X_LINE} ${firstY - 35} L ${X_LINE} ${lastY + 35}" fill="none" stroke="${color}" stroke-width="14" stroke-linecap="round" opacity="0.85"/>
+      </svg>
+    `;
+  }
+
+  container.innerHTML = `
+    <div style="max-width:800px; margin:0 auto; padding:24px; position:relative; min-height:${currentY + 50}px;">
+      <div style="display:flex; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:24px;">
+        <div style="width:52px; height:52px; border-radius:50%; background:${color}; display:flex; align-items:center; justify-content:center; border:4px solid var(--surface); box-shadow:var(--shadow); margin-right:18px; flex-shrink:0;">
+          <div style="width:14px; height:14px; background:#fff; border-radius:50%;"></div>
+        </div>
+        <div>
+          <div style="font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:2px; color:var(--text-muted);">Direktverbindung / Linie</div>
+          <div style="font-size:30px; font-weight:900; color:${color}; letter-spacing:-1px;">${esc(workerName.toUpperCase())}</div>
+        </div>
+      </div>
+      <div style="position:relative;">
+        ${svg}
+        ${stationsHtml}
+      </div>
+    </div>
+  `;
 };
 
 // ── 6. STATIONS-DETAIL-POPUP ─────────────────────────────────
