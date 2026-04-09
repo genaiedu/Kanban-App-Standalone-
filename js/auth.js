@@ -200,10 +200,12 @@ window.resetTutorProfile = async function() {
     'Ja, neu anmelden', 'Abbrechen'
   );
   if (!ok) return;
-  saveUser({ displayName: '', groupId: 'default' });
+  saveUser({ displayName: '', groupId: '' });
   document.getElementById('app-screen').classList.remove('visible');
   const nameEl = document.getElementById('profile-name');
+  const groupEl = document.getElementById('profile-group');
   if (nameEl) nameEl.value = '';
+  if (groupEl) groupEl.value = '';
   // "Zurück"-Hinweis anzeigen damit man zurückkommt
   const hint = document.getElementById('tutor-relogin-hint');
   if (hint) hint.style.display = 'block';
@@ -222,9 +224,10 @@ window.resumeTutorSession = function() {
 
 // ── TUTOR: PROFIL SPEICHERN ──────────────────────────────
 window.saveProfile = function() {
-  const name = document.getElementById('profile-name')?.value.trim() || '';
+  const name  = document.getElementById('profile-name')?.value.trim()  || '';
+  const group = document.getElementById('profile-group')?.value.trim() || '';
   if (!name) { showError('profile-error', 'Bitte gib deinen Namen ein.'); return; }
-  const user = { displayName: name, groupId: 'default' };
+  const user = { displayName: name, groupId: group || 'default' };
   saveUser(user);
   enterApp(user, false);
 };
@@ -238,8 +241,10 @@ function enterApp(user, isStudent) {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').classList.add('visible');
 
-  const nameDisplay = document.getElementById('user-name-display');
-  if (nameDisplay) nameDisplay.textContent = user.displayName || 'Nutzer';
+  const nameDisplay  = document.getElementById('user-name-display');
+  const groupDisplay = document.getElementById('sidebar-user-group');
+  if (nameDisplay)  nameDisplay.textContent  = user.displayName || 'Nutzer';
+  if (groupDisplay) groupDisplay.textContent = user.groupId || '';
 
   const adminBtn     = document.getElementById('sidebar-admin-btn');
   const iniBtn       = document.getElementById('sidebar-ini-btn');
@@ -295,18 +300,22 @@ window.openProfileEdit = function() {
   const user  = getUser();
   const modal = document.getElementById('modal-profile-edit');
   if (!modal) return;
-  document.getElementById('edit-profile-name').value = user.displayName || '';
+  document.getElementById('edit-profile-name').value  = user.displayName || '';
+  document.getElementById('edit-profile-group').value = user.groupId || '';
   modal.style.display = 'flex';
 };
 
 window.saveProfileEdit = function() {
-  const name = document.getElementById('edit-profile-name')?.value.trim() || '';
+  const name  = document.getElementById('edit-profile-name')?.value.trim()  || '';
+  const group = document.getElementById('edit-profile-group')?.value.trim() || '';
   if (!name) return;
-  const user = { displayName: name, groupId: 'default' };
+  const user = { displayName: name, groupId: group || 'default' };
   saveUser(user);
   S.currentUser = user;
   const nd = document.getElementById('user-name-display');
+  const gd = document.getElementById('sidebar-user-group');
   if (nd) nd.textContent = name;
+  if (gd) gd.textContent = group;
   closeModal('modal-profile-edit');
   showToast('Profil gespeichert');
 };
