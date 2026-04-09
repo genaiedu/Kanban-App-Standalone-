@@ -131,13 +131,14 @@ function calculateGrid(boardData, people) {
       involved.forEach(p => personNextRow[p] = row + 1);
 
       if (card.gruppe) {
-        // Alle Karten der Gruppe bekommen denselben row-Eintrag
         const groupCards = col.karten.filter(c => c.gruppe === card.gruppe);
-        groupCards.forEach(gc => { cardRowById[gc.id] = row; });
+        // nach ID UND Label indexieren (deps werden als Labels gespeichert)
+        groupCards.forEach(gc => { cardRowById[gc.id] = row; cardRowById[gc.label] = row; });
         transferStations.push({ name: card.gruppe, row, involved: [...involved] });
         groupCards.forEach(gc => { placedCards.push({ ...gc, row }); processed.add(gc.label); });
       } else {
         cardRowById[card.id] = row;
+        cardRowById[card.label] = row;
         placedCards.push({ ...card, row });
         processed.add(card.label);
       }
@@ -286,10 +287,10 @@ window.renderUBahnPerson = function(workerName) {
 
 
 // ── 6. DETAIL POPUP & ÖFFNEN ────────────────────────────────
-// Hilfsfunktion: Karten-Info aus S.cards nachschlagen
-function _resolveCard(id) {
+// Hilfsfunktion: Karten-Info aus S.cards nachschlagen (per Label, so wie deps gespeichert sind)
+function _resolveCard(labelOrId) {
   for (const [colId, cards] of Object.entries(S.cards)) {
-    const c = cards.find(x => x.id === id);
+    const c = cards.find(x => x.label === labelOrId || x.id === labelOrId);
     if (c) return { id: c.id, label: c.label, titel: c.text, wer: c.assignee, colName: S.columns.find(col => col.id === colId)?.name || '' };
   }
   return null;
@@ -321,8 +322,8 @@ window.showUBahnCardDetail = function(label) {
   // Voraussetzungen (diese Karte braucht …)
   const prereqs = (card.deps || []).map(_resolveCard).filter(Boolean);
 
-  // Gibt frei (… braucht diese Karte)
-  const enables = _data.allCardsFlat.filter(c => (c.deps || []).includes(card.id)).map(c => _resolveCard(c.id)).filter(Boolean);
+  // Gibt frei (… braucht diese Karte) — deps sind Labels
+  const enables = _data.allCardsFlat.filter(c => (c.deps || []).includes(card.label)).map(c => _resolveCard(c.label)).filter(Boolean);
 
   // Gruppenpartner
   const groupPartners = card.gruppe
