@@ -142,7 +142,8 @@ window.renderUBahnMap = function() {
     const y = p.start * CELL_H + MARGIN_TOP;
     svg += `
       <line x1="0" y1="${y}" x2="${mapW}" y2="${y}" stroke="var(--border)" stroke-width="3" stroke-dasharray="10 10"/>
-      <text x="20" y="${y+22}" fill="var(--text-muted)" font-size="10" font-weight="900" letter-spacing="4">${esc(p.name.toUpperCase())}</text>
+      <text x="20" y="${y+22}" fill="var(--text-muted)" font-size="11" font-weight="900"
+            font-family="Outfit, DM Sans, sans-serif" letter-spacing="5">${esc(p.name.toUpperCase())}</text>
     `;
   });
   people.forEach((p, i) => {
@@ -170,8 +171,12 @@ window.renderUBahnMap = function() {
     html += `
       <button onclick="renderUBahnPerson(${JSON.stringify(p)})"
               style="position:absolute;left:${x}px;top:20px;width:${CELL_W}px;text-align:center;background:none;border:none;cursor:pointer;">
-        <div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:6px 18px;font-weight:900;color:var(--text);font-size:13px;letter-spacing:-0.5px;transition:transform 0.15s;"
-             onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+        <div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 20px;
+                    font-family:'Outfit','DM Sans',sans-serif;font-weight:900;font-size:14px;
+                    letter-spacing:0.5px;text-transform:uppercase;color:var(--text);
+                    box-shadow:0 4px 16px ${color}44;transition:transform 0.15s,box-shadow 0.15s;"
+             onmouseover="this.style.transform='scale(1.08)';this.style.boxShadow='0 6px 24px ${color}88'"
+             onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 16px ${color}44'">
           ${esc(p)}
         </div>
       </button>
@@ -185,11 +190,19 @@ window.renderUBahnMap = function() {
     html += `
       <div onclick="showUBahnCardDetail(${JSON.stringify(k.label)})"
            style="position:absolute;left:${cx-90}px;top:${cy-50}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;" class="ubahn-station">
-        <div style="width:40px;height:40px;border-radius:50%;background:var(--surface);border:4px solid ${color};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px;color:var(--text);box-shadow:0 4px 12px rgba(0,0,0,0.4);position:relative;z-index:2;transition:transform 0.15s;">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--surface);border:4px solid ${color};
+                    display:flex;align-items:center;justify-content:center;
+                    font-family:'Outfit','DM Sans',sans-serif;font-weight:900;font-size:13px;
+                    color:var(--text);box-shadow:0 4px 14px rgba(0,0,0,0.4);
+                    position:relative;z-index:2;transition:transform 0.15s;">
           ${esc(k.label)}
           ${isHigh ? `<span style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;background:var(--danger);border-radius:50%;border:2px solid var(--surface);"></span>` : ''}
         </div>
-        <div class="ubahn-tooltip" style="margin-top:8px;text-align:center;padding:4px 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:10px;color:var(--text);max-width:90%;opacity:0;transition:opacity 0.15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        <div class="ubahn-tooltip" style="margin-top:8px;text-align:center;padding:4px 10px;
+                    background:var(--surface);border:1px solid var(--border);border-radius:6px;
+                    font-family:'Outfit','DM Sans',sans-serif;font-size:10px;font-weight:600;
+                    letter-spacing:0.3px;color:var(--text);max-width:90%;
+                    opacity:0;transition:opacity 0.15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
           ${esc(k.titel)}
         </div>
       </div>
