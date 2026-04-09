@@ -73,19 +73,36 @@ function prepareBoardData() {
   return { boardData, people, lineColors: colors, allCardsFlat };
 }
 
+// Topologische Sortierung: Abhängigkeiten zuerst
+function topoSortCards(cards) {
+  const byId = new Map(cards.map(c => [c.id, c]));
+  const visited = new Set(), result = [];
+  function visit(card) {
+    if (visited.has(card.id)) return;
+    visited.add(card.id);
+    (card.deps || []).forEach(depId => { const d = byId.get(depId); if (d) visit(d); });
+    result.push(card);
+  }
+  cards.forEach(c => visit(c));
+  return result;
+}
+
 function calculateGrid(boardData, people) {
   let placedCards = [], transferStations = [], processed = new Set(), lanes = [...people];
-  // rowLanes[r] stores the lanes order recorded at row r
   const rowLanes = { 0: [...people] };
   let maxRow = 0;
+  // Zeilenindex je card.id — für spaltenübergreifende Abhängigkeiten
+  const cardRowById = {};
 
   boardData.forEach(col => {
     const phaseStartRow = maxRow;
-    // Each track starts free at phaseStartRow+1 within this phase
     const personNextRow = {};
     people.forEach(p => personNextRow[p] = phaseStartRow + 1);
 
-    col.karten.forEach(card => {
+    // Karten innerhalb der Phase nach Abhängigkeiten sortieren
+    const sortedCards = topoSortCards(col.karten);
+
+    sortedCards.forEach(card => {
       if (processed.has(card.label)) return;
       let inv = card.gruppe
         ? Array.from(new Set(col.karten.filter(c => c.gruppe === card.gruppe).map(c => c.wer)))
@@ -96,18 +113,34 @@ function calculateGrid(boardData, people) {
       let avg = involved.reduce((s, p) => s + lanes.indexOf(p), 0) / involved.length;
       let target = Math.max(0, Math.min(others.length, Math.round(avg - (involved.length / 2))));
 
-      // Assign row: use the earliest row where all involved tracks are free
-      const row = Math.max(...involved.map(p => personNextRow[p]));
+      // Alle deps dieser Karte (inkl. Gruppe) berücksichtigen
+      const allDeps = card.gruppe
+        ? col.karten.filter(c => c.gruppe === card.gruppe).flatMap(c => c.deps || [])
+        : (card.deps || []);
+      const depMinRow = allDeps.reduce((m, depId) => {
+        const r = cardRowById[depId];
+        return r !== undefined ? Math.max(m, r + 1) : m;
+      }, phaseStartRow + 1);
+
+      // Zeile: frühestens nach allen Abhängigkeiten UND nach Track-Verfügbarkeit
+      const row = Math.max(depMinRow, ...involved.map(p => personNextRow[p]));
       if (row > maxRow) maxRow = row;
 
       lanes = [...others.slice(0, target), ...involved, ...others.slice(target)];
-      rowLanes[row] = [...lanes]; // record lanes state at this row
+      rowLanes[row] = [...lanes];
       involved.forEach(p => personNextRow[p] = row + 1);
 
       if (card.gruppe) {
+        // Alle Karten der Gruppe bekommen denselben row-Eintrag
+        const groupCards = col.karten.filter(c => c.gruppe === card.gruppe);
+        groupCards.forEach(gc => { cardRowById[gc.id] = row; });
         transferStations.push({ name: card.gruppe, row, involved: [...involved] });
-        col.karten.filter(c => c.gruppe === card.gruppe).forEach(gc => { placedCards.push({ ...gc, row }); processed.add(gc.label); });
-      } else { placedCards.push({ ...card, row }); processed.add(card.label); }
+        groupCards.forEach(gc => { placedCards.push({ ...gc, row }); processed.add(gc.label); });
+      } else {
+        cardRowById[card.id] = row;
+        placedCards.push({ ...card, row });
+        processed.add(card.label);
+      }
     });
     if (maxRow === phaseStartRow) maxRow++;
   });
