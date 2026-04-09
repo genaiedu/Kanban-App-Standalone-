@@ -203,6 +203,17 @@ window.showUBahnCardDetail = function(label) {
   document.body.appendChild(overlay);
 };
 
+window.toggleUBahnWide = function() {
+  const modal = document.getElementById('modal-ubahn-inner');
+  const btn   = document.getElementById('ubahn-wide-btn');
+  if (!modal) return;
+  const isWide = modal.classList.toggle('ubahn-wide');
+  btn.innerHTML = isWide
+    ? '<i data-lucide="minimize-2" style="width:13px;height:13px;"></i>'
+    : '<i data-lucide="arrow-left-right" style="width:13px;height:13px;"></i>';
+  if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 30);
+};
+
 window.openUBahnModal = function() {
   document.getElementById('modal-ubahn').style.display = 'flex';
   ensureControls();
