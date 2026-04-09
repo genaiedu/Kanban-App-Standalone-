@@ -292,7 +292,7 @@ function enterApp(user, isStudent) {
   if (typeof loadSavedTheme   === 'function') loadSavedTheme();
   if (typeof loadImageCount   === 'function') loadImageCount();
   if (typeof loadAgingUnit    === 'function') loadAgingUnit();
-  if (typeof loadBoards       === 'function') loadBoards(false);
+  if (typeof loadBoards       === 'function') loadBoards(true);
 }
 
 // ── PROFIL BEARBEITEN (Tutor) ────────────────────────────
