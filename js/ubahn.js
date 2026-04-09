@@ -1,23 +1,23 @@
-// js/ubahn.js — Dynamisches U-Bahn Streckennetz (Agenda)
+// js/ubahn.js — U-Bahn Streckennetz (Agenda), portiert aus React-Prototyp
 import { S } from './state.js';
 
 const PALETTE = [
-  "#ef4444", "#3b82f6", "#10b981", "#f59e0b",
-  "#a855f7", "#06b6d4", "#d946ef", "#ec4899",
-  "#f97316", "#84cc16", "#14b8a6", "#6366f1"
+  "#ef4444","#3b82f6","#10b981","#f59e0b",
+  "#a855f7","#06b6d4","#d946ef","#ec4899",
+  "#f97316","#84cc16","#14b8a6","#6366f1"
 ];
 
-const CELL_W = 180;
-const CELL_H = 120;
-const MARGIN_TOP = 60;
+const CELL_W    = 180;
+const CELL_H    = 120;
+const MARGIN_TOP = 100;
 
-let currentUBahnData = null;
+let _data = null; // { boardData, people, lineColors, allCardsFlat }
 
-// ── Hilfsfunktion: XSS-Schutz ────────────────────────────────
-function escapeHtml(text) {
+// ── XSS-Schutz ───────────────────────────────────────────────
+function esc(text) {
   if (typeof window.escHtml === 'function') return window.escHtml(text);
-  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-  return String(text).replace(/[&<>"']/g, (m) => map[m]);
+  return String(text).replace(/[&<>"']/g, m =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));
 }
 
 // ── 1. DATEN AUFBEREITEN ─────────────────────────────────────
@@ -25,190 +25,224 @@ function prepareBoardData() {
   const peopleSet = new Set();
   const boardData = [];
   const allCardsFlat = [];
-  let labelCounter = 0;
 
   S.columns.forEach(col => {
     const colData = { spalte: col.name, karten: [] };
-    const cardsInCol = S.cards[col.id] || [];
-
-    cardsInCol.forEach(card => {
+    (S.cards[col.id] || []).forEach(card => {
       if (!card.assignee) return;
       peopleSet.add(card.assignee);
-
-      const stationLabel = typeof window.numberToLabel === 'function'
-                           ? window.numberToLabel(labelCounter++)
-                           : `S${labelCounter++}`;
-
-      const mappedCard = {
-        id: card.id,
-        label: stationLabel,
-        titel: card.text,
-        wer: card.assignee,
+      const mapped = {
+        id: card.id, label: card.label || '?',
+        titel: card.text, wer: card.assignee,
         prio: card.priority || 'mittel',
         deps: card.dependencies || [],
-        gruppe: card.groupId || null   // fix: war card.group
+        gruppe: card.groupId || null
       };
-
-      colData.karten.push(mappedCard);
-      allCardsFlat.push(mappedCard);
+      colData.karten.push(mapped);
+      allCardsFlat.push(mapped);
     });
-
-    if (colData.karten.length > 0) boardData.push(colData);
+    if (colData.karten.length) boardData.push(colData);
   });
 
   const people = Array.from(peopleSet);
   const lineColors = {};
-  people.forEach((p, idx) => {
-    lineColors[p] = idx < PALETTE.length
-      ? PALETTE[idx]
-      : `hsl(${Math.floor(Math.random() * 360)}, 70%, 55%)`;
+  people.forEach((p, i) => {
+    lineColors[p] = i < PALETTE.length
+      ? PALETTE[i]
+      : `hsl(${Math.floor(Math.random()*360)},70%,55%)`;
   });
 
   return { boardData, people, lineColors, allCardsFlat };
 }
 
-// ── 2. GRID BERECHNEN ────────────────────────────────────────
+// ── 2. GRID MIT TRANSFER-STATIONEN ───────────────────────────
 function calculateGrid(boardData, people) {
   let grid = [];
   let placedCards = [];
+  let transferStations = [];
+  let processedLabels = new Set();
   let maxGlobalRow = 0;
   let phaseBoundaries = [];
 
-  const getFreeRow = (colIdx, startRow = 0) => {
-    let r = startRow;
-    while (grid[r] && grid[r][colIdx] !== undefined) r++;
-    return r;
-  };
-
-  const markGrid = (r, colIdx, value) => {
+  const markGrid = (r, minC, maxC, val) => {
     if (!grid[r]) grid[r] = new Array(people.length).fill(undefined);
-    grid[r][colIdx] = value;
+    for (let c = minC; c <= maxC; c++) grid[r][c] = val;
   };
 
   boardData.forEach(col => {
-    let phaseStartRow = maxGlobalRow;
+    const phaseStartRow = maxGlobalRow;
 
     col.karten.forEach(card => {
-      const colIdx = people.indexOf(card.wer);
-      const row = getFreeRow(colIdx, phaseStartRow);
-      markGrid(row, colIdx, card.label);
-      placedCards.push({ ...card, row, col: colIdx });
-      if (row >= maxGlobalRow) maxGlobalRow = row + 1;
+      if (processedLabels.has(card.label)) return;
+
+      if (card.gruppe) {
+        // Alle Karten dieser Gruppe in dieser Spalte
+        const groupCards = col.karten.filter(c => c.gruppe === card.gruppe);
+        const cols = groupCards.map(c => people.indexOf(c.wer)).filter(c => c >= 0);
+        if (!cols.length) return;
+        const minC = Math.min(...cols), maxC = Math.max(...cols);
+
+        let row = phaseStartRow;
+        while (grid[row] && cols.some(c => grid[row][c] !== undefined)) row++;
+        markGrid(row, minC, maxC, card.gruppe);
+
+        groupCards.forEach(gc => {
+          const colIdx = people.indexOf(gc.wer);
+          if (colIdx < 0) return;
+          placedCards.push({ ...gc, row, col: colIdx });
+          processedLabels.add(gc.label);
+        });
+        transferStations.push({ name: card.gruppe, row, minCol: minC, maxCol: maxC });
+        if (row >= maxGlobalRow) maxGlobalRow = row + 1;
+
+      } else {
+        const cIdx = people.indexOf(card.wer);
+        if (cIdx < 0) return;
+        let row = phaseStartRow;
+        while (grid[row] && grid[row][cIdx] !== undefined) row++;
+        markGrid(row, cIdx, cIdx, card.label);
+        placedCards.push({ ...card, row, col: cIdx });
+        processedLabels.add(card.label);
+        if (row >= maxGlobalRow) maxGlobalRow = row + 1;
+      }
     });
 
     phaseBoundaries.push({ name: col.spalte, start: phaseStartRow, end: maxGlobalRow });
   });
 
-  return { placedCards, maxRows: maxGlobalRow, phaseBoundaries };
+  return { placedCards, transferStations, maxRows: maxGlobalRow, phaseBoundaries };
 }
 
-// ── 3. RENDERING: GESAMTES NETZ ──────────────────────────────
+// ── 3. GESAMTNETZ RENDERN ────────────────────────────────────
 window.renderUBahnMap = function() {
   document.getElementById('ubahn-back-btn').style.display = 'none';
   const container = document.getElementById('ubahn-content');
 
-  if (!S.columns || S.columns.length === 0) {
+  if (!S.columns?.length) {
     container.innerHTML = `<div class="empty-state">Kein aktives Board geladen.</div>`;
     return;
   }
 
-  currentUBahnData = prepareBoardData();
-  const { boardData, people, lineColors } = currentUBahnData;
+  _data = prepareBoardData();
+  const { boardData, people, lineColors } = _data;
 
-  if (people.length === 0) {
-    container.innerHTML = `<div class="empty-state" style="text-align:center; padding:40px;">
+  if (!people.length) {
+    container.innerHTML = `<div class="empty-state" style="text-align:center;padding:40px;">
       <i data-lucide="users" style="width:48px;height:48px;opacity:0.5;margin-bottom:16px;"></i><br>
-      Das Streckennetz braucht Fahrgäste!<br>
-      Bitte weise zunächst Personen zu deinen Karten zu.
+      Das Streckennetz braucht Fahrgäste!<br>Bitte weise zunächst Personen zu Karten zu.
     </div>`;
     if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 50);
     return;
   }
 
-  const gridData = calculateGrid(boardData, people);
+  const { placedCards, transferStations, maxRows, phaseBoundaries } = calculateGrid(boardData, people);
+  const mapW = people.length * CELL_W;
+  const mapH = maxRows * CELL_H + MARGIN_TOP + 100;
 
-  const mapWidth  = Math.max(people.length * CELL_W + 100, 600);
-  const mapHeight = gridData.maxRows * CELL_H + MARGIN_TOP + 100;
+  // ── SVG ──
+  let svg = `<svg width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;">`;
 
-  // SVG Layer
-  let svgHtml = `<svg width="${mapWidth}" height="${mapHeight}" style="position:absolute;inset:0;pointer-events:none;">`;
-
-  gridData.phaseBoundaries.forEach(phase => {
-    if (phase.start >= phase.end) return;
-    const startY = phase.start * CELL_H + MARGIN_TOP;
-    svgHtml += `
-      <line x1="0" y1="${startY}" x2="${mapWidth}" y2="${startY}" stroke="var(--border)" stroke-width="2" stroke-dasharray="6 6"/>
-      <text x="20" y="${startY + 20}" fill="var(--text-muted)" font-size="12" font-weight="bold" letter-spacing="2">${escapeHtml(phase.name)}</text>
+  // Phasen-Trenner
+  phaseBoundaries.forEach(p => {
+    const y = p.start * CELL_H + MARGIN_TOP;
+    svg += `
+      <line x1="0" y1="${y}" x2="${mapW}" y2="${y}" stroke="var(--border)" stroke-width="3" stroke-dasharray="10 10"/>
+      <text x="20" y="${y+22}" fill="var(--text-muted)" font-size="10" font-weight="900" letter-spacing="4">${esc(p.name.toUpperCase())}</text>
     `;
   });
 
-  people.forEach((person, idx) => {
-    const x = idx * CELL_W + (CELL_W / 2) + 50;
-    svgHtml += `<line x1="${x}" y1="0" x2="${x}" y2="${mapHeight}" stroke="${lineColors[person]}" stroke-width="8" stroke-linecap="round" opacity="0.8"/>`;
+  // Linien
+  people.forEach((p, i) => {
+    const x = i * CELL_W + CELL_W / 2;
+    svg += `<line x1="${x}" y1="0" x2="${x}" y2="${mapH}" stroke="${lineColors[p]}" stroke-width="14" stroke-linecap="round" opacity="0.85"/>`;
   });
-  svgHtml += `</svg>`;
 
-  // HTML Layer
-  let htmlLayer = ``;
+  // Transfer-Kapseln für Gruppen
+  transferStations.forEach(s => {
+    const x1 = s.minCol * CELL_W + CELL_W / 2;
+    const x2 = s.maxCol * CELL_W + CELL_W / 2;
+    const y  = s.row * CELL_H + MARGIN_TOP + CELL_H / 2;
+    svg += `
+      <rect x="${x1-35}" y="${y-35}" width="${(x2-x1)+70}" height="70" rx="35"
+            fill="var(--surface)" stroke="var(--border)" stroke-width="6"/>
+      <line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"
+            stroke="var(--text-muted)" stroke-width="10" stroke-linecap="round"/>
+    `;
+  });
 
-  people.forEach((person, idx) => {
-    const x = idx * CELL_W + 50;
-    const color = lineColors[person];
-    htmlLayer += `
-      <div style="position:absolute;left:${x}px;top:10px;width:${CELL_W}px;text-align:center;cursor:pointer;" onclick="renderUBahnPerson(${JSON.stringify(person)})">
-        <div style="display:inline-block;background:var(--surface);border:3px solid ${color};border-radius:12px;padding:6px 16px;font-weight:bold;color:var(--text);box-shadow:var(--card-3d);transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-          ${escapeHtml(person)}
+  svg += `</svg>`;
+
+  // ── HTML-Layer ──
+  let html = ``;
+
+  // Linien-Köpfe (klickbar → Einzelansicht)
+  people.forEach((p, i) => {
+    const x = i * CELL_W;
+    const color = lineColors[p];
+    html += `
+      <button onclick="renderUBahnPerson(${JSON.stringify(p)})"
+              style="position:absolute;left:${x}px;top:20px;width:${CELL_W}px;text-align:center;background:none;border:none;cursor:pointer;">
+        <div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:6px 18px;font-weight:900;color:var(--text);font-size:13px;letter-spacing:-0.5px;transition:transform 0.15s;"
+             onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+          ${esc(p)}
+        </div>
+      </button>
+    `;
+  });
+
+  // Stationen
+  placedCards.forEach(k => {
+    const cx = k.col * CELL_W + CELL_W / 2;
+    const cy = k.row * CELL_H + MARGIN_TOP + CELL_H / 2;
+    const color = lineColors[k.wer];
+    const isHigh = k.prio === 'hoch';
+
+    html += `
+      <div onclick="showUBahnCardDetail(${JSON.stringify(k.label)})"
+           style="position:absolute;left:${cx-90}px;top:${cy-50}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;" class="ubahn-station">
+        <div style="width:40px;height:40px;border-radius:50%;background:var(--surface);border:4px solid ${color};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px;color:var(--text);box-shadow:0 4px 12px rgba(0,0,0,0.4);position:relative;z-index:2;transition:transform 0.15s;">
+          ${esc(k.label)}
+          ${isHigh ? `<span style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;background:var(--danger);border-radius:50%;border:2px solid var(--surface);"></span>` : ''}
+        </div>
+        <div class="ubahn-tooltip" style="margin-top:8px;text-align:center;padding:4px 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:10px;color:var(--text);max-width:90%;opacity:0;transition:opacity 0.15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${esc(k.titel)}
         </div>
       </div>
     `;
   });
 
-  gridData.placedCards.forEach(card => {
-    const cx = card.col * CELL_W + (CELL_W / 2) + 50;
-    const cy = card.row * CELL_H + MARGIN_TOP + (CELL_H / 2);
-    const color = lineColors[card.wer];
-    const isHighPrio = card.prio === 'hoch';
-
-    htmlLayer += `
-      <div style="position:absolute;left:${cx - CELL_W/2}px;top:${cy - CELL_H/2}px;width:${CELL_W}px;height:${CELL_H}px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:20px;">
-        <div style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:4px solid ${color};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:var(--text);box-shadow:0 4px 10px rgba(0,0,0,0.3);position:relative;z-index:2;">
-          ${card.label}
-          ${isHighPrio ? `<span style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;background:var(--danger);border-radius:50%;border:2px solid var(--surface);"></span>` : ''}
-        </div>
-        <div style="margin-top:8px;text-align:center;padding:4px 8px;background:rgba(var(--panel-rgb),0.8);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          ${escapeHtml(card.titel)}
-        </div>
-      </div>
-    `;
-  });
-
-  container.innerHTML = `<div style="position:relative;width:${mapWidth}px;height:${mapHeight}px;">${svgHtml}${htmlLayer}</div>`;
+  container.innerHTML = `
+    <div style="position:relative;width:${mapW}px;height:${mapH}px;">${svg}${html}</div>
+    <style>
+      .ubahn-station:hover .ubahn-tooltip { opacity:1 !important; }
+      .ubahn-station:hover > div:first-child { transform:scale(1.2); }
+    </style>
+  `;
   if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 50);
 };
 
-// ── 4. RENDERING: EINZELPERSON ───────────────────────────────
+// ── 4. EINZELPERSON-ANSICHT ───────────────────────────────────
 window.renderUBahnPerson = function(workerName) {
   document.getElementById('ubahn-back-btn').style.display = 'inline-flex';
   const container = document.getElementById('ubahn-content');
+  if (!_data) return;
 
-  if (!currentUBahnData) return;
-  const { boardData, allCardsFlat, lineColors } = currentUBahnData;
+  const { boardData, allCardsFlat, lineColors } = _data;
   const color = lineColors[workerName] || '#6366f1';
   const myCards = allCardsFlat.filter(c => c.wer === workerName);
 
   let html = `
-    <div style="max-width:800px;margin:0 auto;padding:20px;">
-      <div style="display:flex;align-items:center;margin-bottom:30px;">
-        <div style="width:48px;height:48px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;border:4px solid var(--surface);box-shadow:var(--shadow);margin-right:16px;">
-          <div style="width:16px;height:16px;background:#fff;border-radius:50%;"></div>
+    <div style="max-width:800px;margin:0 auto;padding:24px;">
+      <div style="display:flex;align-items:center;margin-bottom:32px;border-bottom:1px solid var(--border);padding-bottom:24px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;border:4px solid var(--surface);box-shadow:var(--shadow);margin-right:18px;flex-shrink:0;">
+          <div style="width:14px;height:14px;background:#fff;border-radius:50%;"></div>
         </div>
         <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Fahrplan / Linie</div>
-          <h2 style="margin:0;font-size:28px;color:${color};">${escapeHtml(workerName)}</h2>
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:var(--text-muted);">Fahrplan / Linie</div>
+          <div style="font-size:30px;font-weight:900;color:${color};letter-spacing:-1px;">${esc(workerName.toUpperCase())}</div>
         </div>
       </div>
-      <div style="position:relative;padding-left:30px;">
-        <div style="position:absolute;left:12px;top:0;bottom:0;width:6px;border-radius:3px;background:${color};"></div>
+      <div style="position:relative;padding-left:32px;border-left:6px solid ${color};border-radius:3px;">
   `;
 
   boardData.forEach(col => {
@@ -216,24 +250,28 @@ window.renderUBahnPerson = function(workerName) {
     if (!colCards.length) return;
 
     html += `
-      <div style="margin-bottom:30px;">
-        <h3 style="font-size:14px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:16px;margin-left:20px;">
-          ${escapeHtml(col.spalte)}
-        </h3>
-        <div style="display:flex;flex-direction:column;gap:20px;">
+      <div style="margin-bottom:28px;">
+        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:3px;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:18px;margin-left:20px;">
+          ${esc(col.spalte)}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px;">
     `;
 
-    colCards.forEach(karte => {
+    colCards.forEach(k => {
+      const depsHtml = k.deps.length
+        ? `<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px;">
+            ${k.deps.map(d => `<span style="font-size:10px;font-weight:700;background:var(--surface2);color:var(--text-muted);padding:2px 8px;border-radius:4px;border:1px solid var(--border);">Abhängig von: ${esc(d)}</span>`).join('')}
+           </div>` : '';
+
       html += `
         <div style="position:relative;margin-left:20px;">
-          <div style="position:absolute;left:-42px;top:12px;width:18px;height:18px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>
+          <div style="position:absolute;left:-44px;top:14px;width:18px;height:18px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>
           <div class="card" style="cursor:default;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-              <span style="font-size:11px;font-weight:800;background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:4px;">
-                Station ${karte.label}
-              </span>
+            <div style="margin-bottom:8px;">
+              <span style="font-size:10px;font-weight:900;background:var(--surface2);color:var(--text-muted);padding:2px 8px;border-radius:4px;border:1px solid var(--border);">Station ${esc(k.label)}</span>
             </div>
-            <div style="font-size:15px;font-weight:500;">${escapeHtml(karte.titel)}</div>
+            <div style="font-size:15px;font-weight:600;line-height:1.4;">${esc(k.titel)}</div>
+            ${depsHtml}
           </div>
         </div>
       `;
@@ -246,7 +284,47 @@ window.renderUBahnPerson = function(workerName) {
   container.innerHTML = html;
 };
 
-// ── 5. MODAL ÖFFNEN ──────────────────────────────────────────
+// ── 5. STATIONS-DETAIL-POPUP ─────────────────────────────────
+window.showUBahnCardDetail = function(label) {
+  if (!_data) return;
+  const card = _data.allCardsFlat.find(c => c.label === label);
+  if (!card) return;
+  const color = _data.lineColors[card.wer] || '#6366f1';
+
+  const depsHtml = card.deps.length
+    ? `<div style="background:var(--surface);padding:14px;border-radius:12px;border:1px solid var(--border);margin-top:16px;">
+        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;">Wartet auf Signal von:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${card.deps.map(d => `<span style="background:var(--surface2);color:var(--text);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--border);">${esc(d)}</span>`).join('')}
+        </div>
+       </div>` : '';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'ubahn-card-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px;';
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+
+  overlay.innerHTML = `
+    <div style="background:var(--panel);border-radius:20px;max-width:480px;width:100%;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,0.6);overflow:hidden;">
+      <div style="height:5px;background:${color};"></div>
+      <div style="padding:28px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <div style="width:48px;height:48px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:#fff;border:3px solid var(--surface);">
+            ${esc(card.label)}
+          </div>
+          <button onclick="document.getElementById('ubahn-card-overlay').remove()"
+                  style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;line-height:1;">✕</button>
+        </div>
+        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Linie ${esc(card.wer)}</div>
+        <div style="font-size:20px;font-weight:700;line-height:1.4;color:var(--text);">${esc(card.titel)}</div>
+        ${depsHtml}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+};
+
+// ── 6. MODAL ÖFFNEN ──────────────────────────────────────────
 window.openUBahnModal = function() {
   document.getElementById('modal-ubahn').style.display = 'flex';
   renderUBahnMap();
