@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Clean Edition (No Animation)
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - PRO Clean Edition
 import { S } from './state.js';
 
 const PALETTE = [
@@ -22,7 +22,7 @@ function esc(text) {
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));
 }
 
-// ── 0. FULL-LENGTH EXPORT ───────────────────────────────────
+// ── 0. FULL-LENGTH EXPORT (Druckt den kompletten Plan) ──────
 window.exportUBahnAsImage = function() {
   const originalContent = document.getElementById('ubahn-content');
   if (!originalContent) return;
@@ -55,7 +55,7 @@ window.exportUBahnAsImage = function() {
       <body>
         <div id="print-area">${originalContent.innerHTML}</div>
         <script>
-          window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 1000); };
+          window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 1200); };
         </script>
       </body>
     </html>
@@ -63,7 +63,7 @@ window.exportUBahnAsImage = function() {
   printWindow.document.close();
 };
 
-// ── 1. SEITEN-SLIDER (Nur Abstand) ──────────────────────────
+// ── 1. SEITEN-SLIDER (Nur für Abstand) ──────────────────────
 function ensureControls() {
   if (document.getElementById('ubahn-controls-panel')) return;
   const modal = document.getElementById('modal-ubahn-inner');
@@ -73,26 +73,27 @@ function ensureControls() {
   panel.id = 'ubahn-controls-panel';
   panel.className = 'no-print';
   panel.style.cssText = `
-    position: absolute; left: 20px; top: 100px;
+    position: absolute; left: 20px; top: 110px;
     background: var(--panel); border: 1px solid var(--border);
-    width: 56px; padding: 22px 0; border-radius: 30px; display: flex; flex-direction: column;
-    align-items: center; gap: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); z-index: 10001;
+    width: 52px; padding: 20px 0; border-radius: 30px; display: flex; flex-direction: column;
+    align-items: center; box-shadow: 0 10px 40px rgba(0,0,0,0.4); z-index: 10001;
   `;
   
   panel.innerHTML = `
-    <div style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:1px; margin-bottom:5px;">Abstand</div>
-    <div style="height: 140px; display: flex; align-items: center;">
+    <div style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:1px; margin-bottom:10px;">Abstand</div>
+    <div style="height: 150px; display: flex; align-items: center; justify-content: center;">
         <input type="range" min="60" max="450" value="${ROW_HEIGHT}" oninput="window.updateUBahnRowHeight(this.value)" 
-               style="width: 130px; transform: rotate(-90deg); cursor: pointer; accent-color: var(--accent); margin: 0; background:transparent;">
+               style="width: 130px; transform: rotate(-90deg); cursor: pointer; accent-color: var(--accent); background:transparent; margin: 0;">
     </div>
-    <div id="val-row" style="font-size:10px; font-weight:900; color:var(--text);">${ROW_HEIGHT}px</div>
+    <div id="val-row" style="font-size:10px; font-weight:900; color:var(--text); margin-top:10px;">${ROW_HEIGHT}px</div>
   `;
   modal.appendChild(panel);
 }
 
 window.updateUBahnRowHeight = function(val) {
   ROW_HEIGHT = parseInt(val);
-  document.getElementById('val-row').textContent = val + 'px';
+  const v = document.getElementById('val-row');
+  if(v) v.textContent = val + 'px';
   if (_currentView === 'map') renderUBahnMap();
   else renderUBahnPerson(_currentPerson);
 };
@@ -193,6 +194,7 @@ window.renderUBahnMap = function() {
       </div>`;
   });
   container.innerHTML = `<div style="position:relative;width:${mapW}px;height:${mapH}px;margin:0 auto;">${svg}${html}</div>`;
+  if (typeof reloadIcons === 'function') reloadIcons();
 };
 
 // ── 4. PERSONEN ANSICHT ──────────────────────────────────────
@@ -228,6 +230,7 @@ window.renderUBahnPerson = function(workerName) {
   stationsHtml += `<div style="position:absolute;left:${X_LINE-12}px;top:${firstY-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div><div style="position:absolute;left:${X_LINE-12}px;top:${currentY-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
   const svg = `<svg width="100%" height="${currentY+50}" style="position:absolute;inset:0;pointer-events:none;z-index:1;"><path d="M ${X_LINE} ${firstY} L ${X_LINE} ${currentY}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linecap="round"/><path d="M ${X_LINE} ${firstY} L ${X_LINE} ${currentY}" fill="none" stroke="${color}" stroke-width="14" stroke-linecap="round" opacity="0.85"/></svg>`;
   container.innerHTML = `<div style="position:relative; padding:24px; min-height:${currentY+100}px;">${svg}${stationsHtml}</div>`;
+  if (typeof reloadIcons === 'function') reloadIcons();
 };
 
 // ── 5. DETAIL POPUP ─────────────────────────────────────────
@@ -246,14 +249,14 @@ window.showUBahnCardDetail = function(label) {
 window.openUBahnModal = function() {
   document.getElementById('modal-ubahn').style.display = 'flex';
   
-  // DOWNLOAD-BUTTON IM HEADER PLATZIEREN
+  // DOWNLOAD-BUTTON IM HEADER SICHERSTELLEN
   const headerBtns = document.querySelector('#modal-ubahn .modal-header-btns');
   if (headerBtns && !document.getElementById('download-header-btn')) {
     const btn = document.createElement('button');
     btn.id = 'download-header-btn';
     btn.className = 'btn-sm btn-sm-primary no-print';
-    btn.style.marginRight = '10px';
-    btn.innerHTML = '<i data-lucide="download" style="width:14px;height:14px;margin-right:6px;"></i> Download';
+    btn.style.marginRight = '12px';
+    btn.innerHTML = '<i data-lucide="download" style="width:14px;height:14px;margin-right:8px;"></i> Download';
     btn.onclick = window.exportUBahnAsImage;
     headerBtns.prepend(btn);
   }
