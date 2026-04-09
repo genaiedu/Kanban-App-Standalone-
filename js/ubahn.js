@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Durchgehende Linien & Terminus (Bugfix)
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Mit vertikalem Slider
 import { S } from './state.js';
 
 const PALETTE = [
@@ -7,14 +7,18 @@ const PALETTE = [
   "#f97316","#84cc16","#14b8a6","#6366f1"
 ];
 
-// ── Feste Layout-Konstanten ──────────────────────────────────
-const TRACK_SPACING = 100; 
-const ROW_HEIGHT    = 100; 
-const MARGIN_TOP    = 160; 
+// ── Layout-Konstanten ────────────────────────────────────────
+const TRACK_SPACING = 100; // Fester horizontaler Spuren-Abstand
+let   ROW_HEIGHT    = 100; // Variabler vertikaler Bahnhof-Abstand (durch Slider)
+const MARGIN_TOP    = 140; 
 const MARGIN_H      = 220; 
 
 let _data = null; 
 let _anim = null; 
+
+// View-State für den Slider-Refresh
+let _currentView = 'map'; 
+let _currentPerson = null;
 
 // ── XSS-Schutz ───────────────────────────────────────────────
 function esc(text) {
@@ -22,6 +26,45 @@ function esc(text) {
   return String(text).replace(/[&<>"']/g, m =>
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));
 }
+
+// ── 0. VERTIKALER SCHIEBEREGLER ──────────────────────────────
+function ensureVerticalSlider() {
+  if (document.getElementById('ubahn-vertical-slider')) return;
+  const modal = document.getElementById('modal-ubahn-inner');
+  if (!modal) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'ubahn-vertical-slider';
+  panel.style.cssText = `
+    position: absolute; left: 24px; top: 140px;
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 20px 10px; border-radius: 20px; display: flex; flex-direction: column;
+    align-items: center; box-shadow: 0 8px 32px rgba(0,0,0,0.15); z-index: 1000;
+  `;
+  
+  // Wir nutzen transform: rotate, das ist browserübergreifend am stabilsten
+  panel.innerHTML = `
+    <div style="font-size:10px; font-weight:900; color:var(--text-muted); text-transform:uppercase; writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:2px; margin-bottom:8px;">Abstand</div>
+    <div style="height: 180px; display: flex; align-items: center; justify-content: center;">
+        <input type="range" min="60" max="350" value="${ROW_HEIGHT}" oninput="window.updateUBahnRowHeight(this.value)" style="width: 180px; transform: rotate(-90deg); cursor: pointer; accent-color: var(--accent);">
+    </div>
+    <div id="val-row" style="font-size:12px; font-weight:900; color:var(--text); font-family:'Outfit', 'DM Sans', sans-serif; margin-top:8px;">${ROW_HEIGHT}px</div>
+  `;
+  modal.appendChild(panel);
+}
+
+window.updateUBahnRowHeight = function(val) {
+  ROW_HEIGHT = parseInt(val);
+  const valLabel = document.getElementById('val-row');
+  if (valLabel) valLabel.textContent = val + 'px';
+  
+  // Aktualisiere exakt die Ansicht, die gerade offen ist
+  if (_currentView === 'map') {
+    renderUBahnMap();
+  } else if (_currentView === 'person' && _currentPerson) {
+    renderUBahnPerson(_currentPerson);
+  }
+};
 
 // ── 1. DATEN AUFBEREITEN ─────────────────────────────────────
 function prepareBoardData() {
@@ -80,7 +123,6 @@ function calculateGrid(boardData, people) {
     });
   };
 
-  // Start-Terminus (Row 0)
   recordTracks(currentRow);
 
   boardData.forEach(col => {
@@ -153,7 +195,6 @@ function calculateGrid(boardData, people) {
     phaseBoundaries.push({ name: col.spalte, start: phaseStartRow, end: currentRow });
   });
 
-  // End-Terminus
   currentRow++;
   recordTracks(currentRow);
 
@@ -181,6 +222,10 @@ function createTrackPath(points) {
 
 // ── 4. GESAMTNETZ RENDERN ────────────────────────────────────
 window.renderUBahnMap = function() {
+  _currentView = 'map';
+  _currentPerson = null;
+  ensureVerticalSlider();
+  
   document.getElementById('ubahn-back-btn').style.display = 'none';
   const container = document.getElementById('ubahn-content');
 
@@ -256,7 +301,6 @@ window.renderUBahnMap = function() {
     const endPt = trackPoints[p][maxRows];
     const color = lineColors[p];
 
-    // FIX: Einfache Anführungszeichen für onclick -> 'window.renderUBahnPerson(...)'
     html += `
       <button onclick='window.renderUBahnPerson(${JSON.stringify(p)})'
               style="position:absolute;left:${startPt.x - 60}px;top:${startPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:10;">
@@ -271,12 +315,10 @@ window.renderUBahnMap = function() {
       </button>
     `;
 
-    // Start-Bahnhof (Terminus)
     html += `
       <div style="position:absolute;left:${startPt.x - 12}px;top:${startPt.y - 12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:1;"></div>
     `;
 
-    // End-Bahnhof (Terminus)
     html += `
       <div style="position:absolute;left:${endPt.x - 12}px;top:${endPt.y - 12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:1;"></div>
     `;
@@ -295,7 +337,6 @@ window.renderUBahnMap = function() {
       }
     }
 
-    // FIX: Einfache Anführungszeichen für onclick -> 'window.showUBahnCardDetail(...)'
     html += `
       <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
            style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;" class="ubahn-station">
@@ -332,6 +373,10 @@ window.renderUBahnMap = function() {
 
 // ── 5. EINZELPERSON-ANSICHT (Durchgehende gerade Linie) ──────
 window.renderUBahnPerson = function(workerName) {
+  _currentView = 'person';
+  _currentPerson = workerName;
+  ensureVerticalSlider();
+
   document.getElementById('ubahn-back-btn').style.display = 'inline-flex';
   const container = document.getElementById('ubahn-content');
   if (!_data) return;
@@ -343,7 +388,7 @@ window.renderUBahnPerson = function(workerName) {
   let stationsHtml = ``;
   const X_LINE = 120; 
   
-  let currentY = 160; 
+  let currentY = MARGIN_TOP; 
   const firstY = currentY; 
 
   boardData.forEach(col => {
@@ -382,7 +427,6 @@ window.renderUBahnPerson = function(workerName) {
 
         const dotX = X_LINE - (dotWidth / 2);
 
-        // FIX: Einfache Anführungszeichen für onclick
         stationsHtml += `
           <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
                style="position:absolute; left:${dotX}px; top:${currentY - 22}px; width:${dotWidth}px; height:44px; border-radius:22px; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-family:'Outfit','DM Sans',sans-serif; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4); cursor:pointer; z-index:2; transition:transform 0.15s;"
@@ -400,7 +444,8 @@ window.renderUBahnPerson = function(workerName) {
           </div>
         `;
         
-        currentY += (transferHtml !== '') ? 160 : 100; 
+        // Dynamischer Y-Abstand je nach Slider
+        currentY += ROW_HEIGHT + (transferHtml !== '' ? 60 : 0); 
       });
       currentY += 40; 
     }
@@ -408,7 +453,6 @@ window.renderUBahnPerson = function(workerName) {
 
   const lastY = currentY;
 
-  // Start und End Terminus für die Einzelansicht
   stationsHtml += `
     <div style="position:absolute;left:${X_LINE - 12}px;top:${firstY - 12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:1;"></div>
     <div style="position:absolute;left:${X_LINE - 12}px;top:${lastY - 12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:1;"></div>
@@ -424,7 +468,7 @@ window.renderUBahnPerson = function(workerName) {
   container.innerHTML = `
     <div style="max-width:800px; margin:0 auto; padding:24px; position:relative; min-height:${lastY + 50}px;">
       
-      <button onclick="window.renderUBahnMap()"
+      <button onclick="renderUBahnMap()"
               style="margin-bottom: 32px; display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); padding: 8px 16px; border-radius: 8px; color: var(--text); font-weight: 700; font-family: 'Outfit', 'DM Sans', sans-serif; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.15s;"
               onmouseover="this.style.transform='translateY(-2px)'"
               onmouseout="this.style.transform='translateY(0)'">
