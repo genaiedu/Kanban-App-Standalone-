@@ -286,26 +286,43 @@ window.renderUBahnPerson = function(workerName) {
 
 
 // ── 6. DETAIL POPUP & ÖFFNEN ────────────────────────────────
+// Hilfsfunktion: Karten-Info aus S.cards nachschlagen
+function _resolveCard(id) {
+  for (const [colId, cards] of Object.entries(S.cards)) {
+    const c = cards.find(x => x.id === id);
+    if (c) return { id: c.id, label: c.label, titel: c.text, wer: c.assignee, colName: S.columns.find(col => col.id === colId)?.name || '' };
+  }
+  return null;
+}
+
+// Mini-Karte (anklickbar, navigiert zu dieser Karte)
+function _miniCard(info) {
+  const c = _data.lineColors[info.wer] || 'var(--border)';
+  return `<button onclick="window.showUBahnCardDetail(${JSON.stringify(info.label)})"
+    style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface);border:1.5px solid ${c};border-radius:12px;cursor:pointer;text-align:left;width:100%;margin-bottom:6px;transition:opacity .15s;" onmouseenter="this.style.opacity='.75'" onmouseleave="this.style.opacity='1'">
+    <span style="width:28px;height:28px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">${esc(info.label)}</span>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(info.titel)}</div>
+      <div style="font-size:10px;color:var(--text-muted);">${esc(info.wer)} · ${esc(info.colName)}</div>
+    </div>
+    <span style="color:var(--text-muted);font-size:14px;">›</span>
+  </button>`;
+}
+
 window.showUBahnCardDetail = function(label) {
   const card = _data.allCardsFlat.find(c => c.label === label); if (!card) return;
   const color = _data.lineColors[card.wer];
 
-  // Aktuelle Spalten-ID ermitteln
+  // Aktuelle Spalten-ID
   const currentColId = Object.entries(S.cards).find(([, cards]) => cards.some(c => c.id === card.id))?.[0];
-  const currentCol = S.columns.find(c => c.id === currentColId);
-  const isLocked = currentCol && window.isFinishedColumn ? window.isFinishedColumn(currentCol) : false;
+  const currentCol   = S.columns.find(c => c.id === currentColId);
+  const isLocked     = currentCol && window.isFinishedColumn ? window.isFinishedColumn(currentCol) : false;
 
-  // Abhängigkeiten auflösen
-  const depCards = (card.deps || []).map(depId => {
-    for (const [colId, cards] of Object.entries(S.cards)) {
-      const found = cards.find(c => c.id === depId);
-      if (found) {
-        const col = S.columns.find(c => c.id === colId);
-        return { label: found.label, titel: found.text, colName: col?.name || '', wer: found.assignee };
-      }
-    }
-    return null;
-  }).filter(Boolean);
+  // Voraussetzungen (diese Karte braucht …)
+  const prereqs = (card.deps || []).map(_resolveCard).filter(Boolean);
+
+  // Gibt frei (… braucht diese Karte)
+  const enables = _data.allCardsFlat.filter(c => (c.deps || []).includes(card.id)).map(c => _resolveCard(c.id)).filter(Boolean);
 
   // Gruppenpartner
   const groupPartners = card.gruppe
@@ -314,51 +331,17 @@ window.showUBahnCardDetail = function(label) {
 
   // Priorität-Badge
   const prioBadge = {
-    hoch:   `<span style="background:#ef444422;color:#ef4444;border:1px solid #ef444466;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">▲ Hoch</span>`,
-    niedrig:`<span style="background:#22c55e22;color:#22c55e;border:1px solid #22c55e66;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">▼ Niedrig</span>`,
+    hoch:    `<span style="background:#ef444422;color:#ef4444;border:1px solid #ef444466;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">▲ Hoch</span>`,
+    niedrig: `<span style="background:#22c55e22;color:#22c55e;border:1px solid #22c55e66;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">▼ Niedrig</span>`,
   }[card.prio] || `<span style="background:var(--surface);color:var(--text-muted);border:1px solid var(--border);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">● Mittel</span>`;
 
   // Spalten-Selector
   const colOptions = S.columns.map(col =>
     `<option value="${col.id}" ${col.id === currentColId ? 'selected' : ''}>${esc(col.name)}</option>`
   ).join('');
-  const colSelector = `
-    <div style="margin-top:18px;">
-      <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Phase</div>
-      <select id="ubahn-col-select" onchange="window.ubahn_moveCard('${card.id}','${currentColId}',this.value)"
-        ${isLocked ? 'disabled title="Fertig-Spalte – kann nicht mehr verschoben werden"' : ''}
-        style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid ${isLocked ? 'var(--border)' : color};background:rgba(var(--panel-rgb),1);color:${isLocked ? 'var(--text-muted)' : 'var(--text)'};font-size:13px;font-weight:600;cursor:${isLocked ? 'not-allowed' : 'pointer'};outline:none;">
-        ${colOptions}
-      </select>
-      ${isLocked ? `<div style="font-size:11px;color:var(--text-muted);margin-top:5px;">🔒 Fertig-Spalte – kein Zurück</div>` : ''}
-    </div>`;
 
-  // Abhängigkeiten-Block
-  const depsBlock = depCards.length ? `
-    <div style="margin-top:18px;">
-      <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Benötigt</div>
-      ${depCards.map(d => `
-        <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface);border-radius:10px;margin-bottom:5px;">
-          <span style="width:26px;height:26px;border-radius:50%;background:${_data.lineColors[d.wer]||'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;flex-shrink:0;">${esc(d.label)}</span>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.titel)}</div>
-            <div style="font-size:10px;color:var(--text-muted);">${esc(d.colName)} · ${esc(d.wer)}</div>
-          </div>
-        </div>`).join('')}
-    </div>` : '';
-
-  // Gruppenpartner-Block
-  const groupBlock = groupPartners.length ? `
-    <div style="margin-top:18px;">
-      <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Gruppenarbeit mit</div>
-      <div style="display:flex;flex-wrap:wrap;gap:7px;">
-        ${groupPartners.map(p => `
-          <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--surface);border-radius:20px;border:2px solid ${_data.lineColors[p.wer]||'var(--border)'};">
-            <span style="width:18px;height:18px;border-radius:50%;background:${_data.lineColors[p.wer]||'var(--border)'}"></span>
-            <span style="font-size:12px;font-weight:700;">${esc(p.wer)}</span>
-          </div>`).join('')}
-      </div>
-    </div>` : '';
+  // Trenner-Linie
+  const hr = `<div style="border:none;border-top:1px solid var(--border);margin:16px 0;"></div>`;
 
   document.getElementById('ubahn-card-overlay')?.remove();
   const overlay = document.createElement('div');
@@ -366,19 +349,44 @@ window.showUBahnCardDetail = function(label) {
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:20005;display:flex;align-items:center;justify-content:center;';
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
   overlay.innerHTML = `
-    <div style="background:rgba(var(--panel-rgb),1);border-radius:24px;width:92%;max-width:440px;border:1px solid var(--border);padding:30px 30px 28px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,0.5);max-height:88vh;overflow-y:auto;">
-      <button onclick="document.getElementById('ubahn-card-overlay').remove()" style="position:absolute;right:20px;top:20px;background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;">✕</button>
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
-        <div style="width:50px;height:50px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:#fff;flex-shrink:0;box-shadow:0 4px 12px ${color}66;">${esc(card.label)}</div>
+    <div style="background:rgba(var(--panel-rgb),1);border-radius:24px;width:92%;max-width:460px;border:1px solid var(--border);padding:28px 28px 24px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,0.5);max-height:88vh;overflow-y:auto;">
+      <button onclick="document.getElementById('ubahn-card-overlay').remove()" style="position:absolute;right:18px;top:18px;background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;">✕</button>
+
+      ${prereqs.length ? `
+        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">⬆ Muss vorher fertig sein</div>
+        ${prereqs.map(_miniCard).join('')}
+        ${hr}` : ''}
+
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+        <div style="width:50px;height:50px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:#fff;flex-shrink:0;box-shadow:0 4px 14px ${color}66;">${esc(card.label)}</div>
         <div>
           <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;">Linie ${esc(card.wer)}</div>
-          <div style="margin-top:3px;">${prioBadge}</div>
+          <div style="margin-top:4px;">${prioBadge}</div>
         </div>
       </div>
-      <div style="font-size:20px;font-weight:700;line-height:1.4;margin-bottom:4px;">${esc(card.titel)}</div>
-      ${colSelector}
-      ${depsBlock}
-      ${groupBlock}
+      <div style="font-size:19px;font-weight:700;line-height:1.4;margin-bottom:16px;">${esc(card.titel)}</div>
+
+      ${groupPartners.length ? `
+        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Gruppenarbeit mit</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
+          ${groupPartners.map(p => `<div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface);border-radius:20px;border:2px solid ${_data.lineColors[p.wer]||'var(--border)'};">
+            <span style="width:14px;height:14px;border-radius:50%;background:${_data.lineColors[p.wer]||'var(--border)'}"></span>
+            <span style="font-size:12px;font-weight:700;">${esc(p.wer)}</span>
+          </div>`).join('')}
+        </div>` : ''}
+
+      <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Phase</div>
+      <select id="ubahn-col-select" onchange="window.ubahn_moveCard('${card.id}','${currentColId}',this.value)"
+        ${isLocked ? 'disabled' : ''}
+        style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid ${isLocked ? 'var(--border)' : color};background:rgba(var(--panel-rgb),1);color:${isLocked ? 'var(--text-muted)' : 'var(--text)'};font-size:13px;font-weight:600;cursor:${isLocked ? 'not-allowed' : 'pointer'};outline:none;">
+        ${colOptions}
+      </select>
+      ${isLocked ? `<div style="font-size:11px;color:var(--text-muted);margin-top:5px;">🔒 Fertig-Spalte – kein Zurück</div>` : ''}
+
+      ${enables.length ? `
+        ${hr}
+        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">⬇ Gibt frei</div>
+        ${enables.map(_miniCard).join('')}` : ''}
     </div>`;
   document.body.appendChild(overlay);
 };
