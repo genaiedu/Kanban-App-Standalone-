@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Durchgehende Linien & Terminus
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Durchgehende Linien & Terminus (Bugfix)
 import { S } from './state.js';
 
 const PALETTE = [
@@ -7,10 +7,10 @@ const PALETTE = [
   "#f97316","#84cc16","#14b8a6","#6366f1"
 ];
 
-// ── Feste Layout-Konstanten (auf 100 festgelegt) ─────────────
+// ── Feste Layout-Konstanten ──────────────────────────────────
 const TRACK_SPACING = 100; 
 const ROW_HEIGHT    = 100; 
-const MARGIN_TOP    = 160; // Etwas mehr Platz für die Terminus-Stationen oben
+const MARGIN_TOP    = 160; 
 const MARGIN_H      = 220; 
 
 let _data = null; 
@@ -219,7 +219,7 @@ window.renderUBahnMap = function() {
     }
   });
 
-  // Halo Effekt (Die Linie geht jetzt durchgehend von Row 0 bis maxRows)
+  // Halo Effekt
   people.forEach((p) => {
     const pathPoints = trackPoints[p];
     const pathData = createTrackPath(pathPoints);
@@ -256,9 +256,9 @@ window.renderUBahnMap = function() {
     const endPt = trackPoints[p][maxRows];
     const color = lineColors[p];
 
-    // Namens-Button oben über dem Terminus
+    // FIX: Einfache Anführungszeichen für onclick -> 'window.renderUBahnPerson(...)'
     html += `
-      <button onclick="renderUBahnPerson(${JSON.stringify(p)})"
+      <button onclick='window.renderUBahnPerson(${JSON.stringify(p)})'
               style="position:absolute;left:${startPt.x - 60}px;top:${startPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:10;">
         <div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;
                     font-family:'Outfit','DM Sans',sans-serif;font-weight:900;font-size:12px;
@@ -287,7 +287,6 @@ window.renderUBahnMap = function() {
     const color = lineColors[k.wer];
     const isHigh = k.prio === 'hoch';
     
-    // Ermittle Kollegen für den Umsteige-Tooltip
     let transferInfo = '';
     if (k.gruppe) {
       const groupMembers = Array.from(new Set(allCardsFlat.filter(c => c.gruppe === k.gruppe && c.wer !== k.wer).map(c => c.wer)));
@@ -296,8 +295,9 @@ window.renderUBahnMap = function() {
       }
     }
 
+    // FIX: Einfache Anführungszeichen für onclick -> 'window.showUBahnCardDetail(...)'
     html += `
-      <div onclick="showUBahnCardDetail(${JSON.stringify(k.label)})"
+      <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
            style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;" class="ubahn-station">
         <div style="width:44px;height:44px;border-radius:50%;background:var(--surface);border:4px solid ${color};
                     display:flex;align-items:center;justify-content:center;
@@ -341,17 +341,15 @@ window.renderUBahnPerson = function(workerName) {
   const myCards = allCardsFlat.filter(c => c.wer === workerName);
 
   let stationsHtml = ``;
-  const X_LINE = 120; // X-Position der geraden SVG-Linie
+  const X_LINE = 120; 
   
-  // Wir beginnen die erste Reihe bei currentY = 160
   let currentY = 160; 
-  const firstY = currentY; // Start-Terminus Y
+  const firstY = currentY; 
 
   boardData.forEach(col => {
     const colCards = myCards.filter(c => col.karten.some(kc => kc.id === c.id));
     
     if (colCards.length > 0) {
-      // Phasen-Bezeichner nur anzeigen, wenn es auch Aufgaben in dieser Phase gibt
       stationsHtml += `
         <div style="position:absolute; left:${X_LINE + 60}px; top:${currentY - 20}px; font-size:10px; font-weight:900; color:var(--text-muted); text-transform:uppercase; letter-spacing:3px;">
           ${esc(col.spalte)}
@@ -384,8 +382,9 @@ window.renderUBahnPerson = function(workerName) {
 
         const dotX = X_LINE - (dotWidth / 2);
 
+        // FIX: Einfache Anführungszeichen für onclick
         stationsHtml += `
-          <div onclick="showUBahnCardDetail(${JSON.stringify(k.label)})"
+          <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
                style="position:absolute; left:${dotX}px; top:${currentY - 22}px; width:${dotWidth}px; height:44px; border-radius:22px; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-family:'Outfit','DM Sans',sans-serif; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4); cursor:pointer; z-index:2; transition:transform 0.15s;"
                onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
             ${esc(k.label)}
@@ -407,7 +406,7 @@ window.renderUBahnPerson = function(workerName) {
     }
   });
 
-  const lastY = currentY; // End-Terminus Y
+  const lastY = currentY;
 
   // Start und End Terminus für die Einzelansicht
   stationsHtml += `
@@ -425,7 +424,7 @@ window.renderUBahnPerson = function(workerName) {
   container.innerHTML = `
     <div style="max-width:800px; margin:0 auto; padding:24px; position:relative; min-height:${lastY + 50}px;">
       
-      <button onclick="renderUBahnMap()"
+      <button onclick="window.renderUBahnMap()"
               style="margin-bottom: 32px; display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); padding: 8px 16px; border-radius: 8px; color: var(--text); font-weight: 700; font-family: 'Outfit', 'DM Sans', sans-serif; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.15s;"
               onmouseover="this.style.transform='translateY(-2px)'"
               onmouseout="this.style.transform='translateY(0)'">
