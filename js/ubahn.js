@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda), portiert aus React-Prototyp
+// js/ubahn.js — U-Bahn Streckennetz (Agenda)
 import { S } from './state.js';
 
 const PALETTE = [
@@ -7,11 +7,12 @@ const PALETTE = [
   "#f97316","#84cc16","#14b8a6","#6366f1"
 ];
 
-const CELL_W    = 180;
-const CELL_H    = 120;
+const CELL_W     = 180;
+const CELL_H     = 120;
 const MARGIN_TOP = 100;
 
-let _data = null; // { boardData, people, lineColors, allCardsFlat }
+let _data = null; // vorbereitete Board-Daten
+let _anim = null; // Animationszustand
 
 // ── XSS-Schutz ───────────────────────────────────────────────
 function esc(text) {
@@ -22,8 +23,8 @@ function esc(text) {
 
 // ── 1. DATEN AUFBEREITEN ─────────────────────────────────────
 function prepareBoardData() {
-  const peopleSet = new Set();
-  const boardData = [];
+  const peopleSet   = new Set();
+  const boardData   = [];
   const allCardsFlat = [];
 
   S.columns.forEach(col => {
@@ -49,7 +50,7 @@ function prepareBoardData() {
   people.forEach((p, i) => {
     lineColors[p] = i < PALETTE.length
       ? PALETTE[i]
-      : `hsl(${Math.floor(Math.random()*360)},70%,55%)`;
+      : `hsl(${Math.floor(Math.random() * 360)},70%,55%)`;
   });
 
   return { boardData, people, lineColors, allCardsFlat };
@@ -76,16 +77,13 @@ function calculateGrid(boardData, people) {
       if (processedLabels.has(card.label)) return;
 
       if (card.gruppe) {
-        // Alle Karten dieser Gruppe in dieser Spalte
         const groupCards = col.karten.filter(c => c.gruppe === card.gruppe);
         const cols = groupCards.map(c => people.indexOf(c.wer)).filter(c => c >= 0);
         if (!cols.length) return;
         const minC = Math.min(...cols), maxC = Math.max(...cols);
-
         let row = phaseStartRow;
         while (grid[row] && cols.some(c => grid[row][c] !== undefined)) row++;
         markGrid(row, minC, maxC, card.gruppe);
-
         groupCards.forEach(gc => {
           const colIdx = people.indexOf(gc.wer);
           if (colIdx < 0) return;
@@ -94,7 +92,6 @@ function calculateGrid(boardData, people) {
         });
         transferStations.push({ name: card.gruppe, row, minCol: minC, maxCol: maxC });
         if (row >= maxGlobalRow) maxGlobalRow = row + 1;
-
       } else {
         const cIdx = people.indexOf(card.wer);
         if (cIdx < 0) return;
@@ -139,10 +136,8 @@ window.renderUBahnMap = function() {
   const mapW = people.length * CELL_W;
   const mapH = maxRows * CELL_H + MARGIN_TOP + 100;
 
-  // ── SVG ──
+  // SVG
   let svg = `<svg width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;">`;
-
-  // Phasen-Trenner
   phaseBoundaries.forEach(p => {
     const y = p.start * CELL_H + MARGIN_TOP;
     svg += `
@@ -150,14 +145,10 @@ window.renderUBahnMap = function() {
       <text x="20" y="${y+22}" fill="var(--text-muted)" font-size="10" font-weight="900" letter-spacing="4">${esc(p.name.toUpperCase())}</text>
     `;
   });
-
-  // Linien
   people.forEach((p, i) => {
     const x = i * CELL_W + CELL_W / 2;
     svg += `<line x1="${x}" y1="0" x2="${x}" y2="${mapH}" stroke="${lineColors[p]}" stroke-width="14" stroke-linecap="round" opacity="0.85"/>`;
   });
-
-  // Transfer-Kapseln für Gruppen
   transferStations.forEach(s => {
     const x1 = s.minCol * CELL_W + CELL_W / 2;
     const x2 = s.maxCol * CELL_W + CELL_W / 2;
@@ -169,13 +160,10 @@ window.renderUBahnMap = function() {
             stroke="var(--text-muted)" stroke-width="10" stroke-linecap="round"/>
     `;
   });
-
   svg += `</svg>`;
 
-  // ── HTML-Layer ──
+  // HTML-Layer
   let html = ``;
-
-  // Linien-Köpfe (klickbar → Einzelansicht)
   people.forEach((p, i) => {
     const x = i * CELL_W;
     const color = lineColors[p];
@@ -189,14 +177,11 @@ window.renderUBahnMap = function() {
       </button>
     `;
   });
-
-  // Stationen
   placedCards.forEach(k => {
     const cx = k.col * CELL_W + CELL_W / 2;
     const cy = k.row * CELL_H + MARGIN_TOP + CELL_H / 2;
     const color = lineColors[k.wer];
     const isHigh = k.prio === 'hoch';
-
     html += `
       <div onclick="showUBahnCardDetail(${JSON.stringify(k.label)})"
            style="position:absolute;left:${cx-90}px;top:${cy-50}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;" class="ubahn-station">
@@ -248,7 +233,6 @@ window.renderUBahnPerson = function(workerName) {
   boardData.forEach(col => {
     const colCards = myCards.filter(c => col.karten.some(kc => kc.id === c.id));
     if (!colCards.length) return;
-
     html += `
       <div style="margin-bottom:28px;">
         <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:3px;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:18px;margin-left:20px;">
@@ -256,13 +240,11 @@ window.renderUBahnPerson = function(workerName) {
         </div>
         <div style="display:flex;flex-direction:column;gap:18px;">
     `;
-
     colCards.forEach(k => {
       const depsHtml = k.deps.length
         ? `<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px;">
             ${k.deps.map(d => `<span style="font-size:10px;font-weight:700;background:var(--surface2);color:var(--text-muted);padding:2px 8px;border-radius:4px;border:1px solid var(--border);">Abhängig von: ${esc(d)}</span>`).join('')}
            </div>` : '';
-
       html += `
         <div style="position:relative;margin-left:20px;">
           <div style="position:absolute;left:-44px;top:14px;width:18px;height:18px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>
@@ -276,7 +258,6 @@ window.renderUBahnPerson = function(workerName) {
         </div>
       `;
     });
-
     html += `</div></div>`;
   });
 
@@ -290,7 +271,6 @@ window.showUBahnCardDetail = function(label) {
   const card = _data.allCardsFlat.find(c => c.label === label);
   if (!card) return;
   const color = _data.lineColors[card.wer] || '#6366f1';
-
   const depsHtml = card.deps.length
     ? `<div style="background:var(--surface);padding:14px;border-radius:12px;border:1px solid var(--border);margin-top:16px;">
         <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;">Wartet auf Signal von:</div>
@@ -299,11 +279,11 @@ window.showUBahnCardDetail = function(label) {
         </div>
        </div>` : '';
 
+  document.getElementById('ubahn-card-overlay')?.remove();
   const overlay = document.createElement('div');
   overlay.id = 'ubahn-card-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px;';
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
-
   overlay.innerHTML = `
     <div style="background:var(--panel);border-radius:20px;max-width:480px;width:100%;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,0.6);overflow:hidden;">
       <div style="height:5px;background:${color};"></div>
@@ -313,7 +293,7 @@ window.showUBahnCardDetail = function(label) {
             ${esc(card.label)}
           </div>
           <button onclick="document.getElementById('ubahn-card-overlay').remove()"
-                  style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;line-height:1;">✕</button>
+                  style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;line-height:1;padding:4px;">✕</button>
         </div>
         <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Linie ${esc(card.wer)}</div>
         <div style="font-size:20px;font-weight:700;line-height:1.4;color:var(--text);">${esc(card.titel)}</div>
@@ -324,7 +304,166 @@ window.showUBahnCardDetail = function(label) {
   document.body.appendChild(overlay);
 };
 
-// ── 6. MODAL ÖFFNEN ──────────────────────────────────────────
+// ── 6. BOARD-ANIMATION ────────────────────────────────────────
+window.startBoardAnimation = function() {
+  // Daten sicherstellen
+  if (!_data) _data = prepareBoardData();
+  closeModal('modal-ubahn');
+
+  setTimeout(() => {
+    // Karten in Board-Reihenfolge sammeln (Spalte × Kartenreihenfolge)
+    const queue = [];
+    S.columns.forEach(col => {
+      (S.cards[col.id] || []).forEach(card => {
+        const el = document.getElementById('card-' + card.id);
+        if (!el) return;
+        const color = _data.lineColors[card.assignee] || '#6366f1';
+        queue.push({ el, color });
+      });
+    });
+
+    if (!queue.length) return;
+
+    // Alle Karten ausblenden
+    queue.forEach(({ el }) => {
+      el.style.transition = 'none';
+      el.style.opacity    = '0';
+      el.style.transform  = 'scale(0.6) translateY(-8px)';
+    });
+
+    _anim = { queue, index: 0, paused: false, timer: null, speed: 400 };
+    _showAnimControls(queue.length);
+    _animStep();
+  }, 350);
+};
+
+function _animStep() {
+  if (!_anim || _anim.paused) return;
+  if (_anim.index >= _anim.queue.length) {
+    _animFinished();
+    return;
+  }
+
+  const { el, color } = _anim.queue[_anim.index];
+  _anim.index++;
+
+  // Karte einblenden mit Farbblitz
+  el.style.transition = 'opacity 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease';
+  el.style.opacity    = '1';
+  el.style.transform  = 'scale(1) translateY(0)';
+  el.style.boxShadow  = `0 0 0 3px ${color}, 0 0 20px ${color}88`;
+
+  setTimeout(() => {
+    if (el) el.style.boxShadow = '';
+  }, 500);
+
+  // Fortschritt aktualisieren
+  const prog = document.getElementById('anim-progress');
+  if (prog) prog.textContent = `${_anim.index} / ${_anim.queue.length}`;
+  const bar = document.getElementById('anim-bar-inner');
+  if (bar) bar.style.width = `${(_anim.index / _anim.queue.length) * 100}%`;
+
+  _anim.timer = setTimeout(_animStep, _anim.speed);
+}
+
+function _showAnimControls(total) {
+  document.getElementById('anim-controls')?.remove();
+  const panel = document.createElement('div');
+  panel.id = 'anim-controls';
+  panel.style.cssText = `
+    position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+    background:var(--panel);border:1px solid var(--border);border-radius:16px;
+    padding:14px 20px;display:flex;align-items:center;gap:14px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.5);z-index:9000;min-width:320px;flex-wrap:wrap;
+  `;
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:160px;">
+      <div style="flex:1;height:6px;background:var(--surface);border-radius:3px;overflow:hidden;">
+        <div id="anim-bar-inner" style="height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width 0.3s;"></div>
+      </div>
+      <span id="anim-progress" style="font-size:12px;font-weight:700;color:var(--text-muted);white-space:nowrap;">0 / ${total}</span>
+    </div>
+    <button id="anim-pause-btn" onclick="window.toggleAnimPause()"
+            class="btn-sm btn-sm-primary" style="display:flex;align-items:center;gap:6px;">
+      <i data-lucide="pause" style="width:13px;height:13px;"></i> Pause
+    </button>
+    <button onclick="window.cancelBoardAnimation()"
+            class="btn-sm btn-sm-ghost">✕ Abbrechen</button>
+  `;
+  document.body.appendChild(panel);
+  if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 50);
+}
+
+function _animFinished() {
+  clearTimeout(_anim?.timer);
+  const panel = document.getElementById('anim-controls');
+  if (!panel) return;
+  panel.innerHTML = `
+    <span style="font-size:13px;font-weight:700;color:var(--text);">✓ Alle Karten platziert</span>
+    <button onclick="window.resetBoardAnimation()" class="btn-sm btn-sm-primary" style="display:flex;align-items:center;gap:6px;">
+      <i data-lucide="rotate-ccw" style="width:13px;height:13px;"></i> Board zurücksetzen
+    </button>
+    <button onclick="document.getElementById('anim-controls').remove()" class="btn-sm btn-sm-ghost">✕</button>
+  `;
+  if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 50);
+}
+
+window.toggleAnimPause = function() {
+  if (!_anim) return;
+  _anim.paused = !_anim.paused;
+  const btn = document.getElementById('anim-pause-btn');
+  if (!btn) return;
+  if (_anim.paused) {
+    btn.innerHTML = '<i data-lucide="play" style="width:13px;height:13px;"></i> Weiter';
+    if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 30);
+  } else {
+    btn.innerHTML = '<i data-lucide="pause" style="width:13px;height:13px;"></i> Pause';
+    if (typeof reloadIcons === 'function') setTimeout(reloadIcons, 30);
+    _animStep();
+  }
+};
+
+window.cancelBoardAnimation = function() {
+  if (_anim) { clearTimeout(_anim.timer); _anim = null; }
+  document.getElementById('anim-controls')?.remove();
+  // Alle Karten wieder sichtbar machen
+  document.querySelectorAll('[id^="card-"]').forEach(el => {
+    el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    el.style.opacity    = '1';
+    el.style.transform  = '';
+    el.style.boxShadow  = '';
+  });
+};
+
+window.resetBoardAnimation = function() {
+  if (_anim) { clearTimeout(_anim.timer); _anim = null; }
+  document.getElementById('anim-controls')?.remove();
+  // Alle Karten ausblenden, dann Animation neu starten
+  document.querySelectorAll('[id^="card-"]').forEach(el => {
+    el.style.transition = 'none';
+    el.style.opacity    = '0';
+    el.style.transform  = 'scale(0.6) translateY(-8px)';
+    el.style.boxShadow  = '';
+  });
+  setTimeout(() => {
+    if (!_data) _data = prepareBoardData();
+    const queue = [];
+    S.columns.forEach(col => {
+      (S.cards[col.id] || []).forEach(card => {
+        const el = document.getElementById('card-' + card.id);
+        if (!el) return;
+        const color = _data.lineColors[card.assignee] || '#6366f1';
+        queue.push({ el, color });
+      });
+    });
+    if (!queue.length) return;
+    _anim = { queue, index: 0, paused: false, timer: null, speed: 400 };
+    _showAnimControls(queue.length);
+    _animStep();
+  }, 200);
+};
+
+// ── 7. MODAL ÖFFNEN ──────────────────────────────────────────
 window.openUBahnModal = function() {
   document.getElementById('modal-ubahn').style.display = 'flex';
   renderUBahnMap();
