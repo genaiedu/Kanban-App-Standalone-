@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - "Harry Beck" Routing Edition mit Halo-Effekt
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Weitläufiges Routing
 import { S } from './state.js';
 
 const PALETTE = [
@@ -7,11 +7,11 @@ const PALETTE = [
   "#f97316","#84cc16","#14b8a6","#6366f1"
 ];
 
-// ── Layout-Konstanten für das gebündelte Design ─────────────
-const TRACK_SPACING = 40;  // Abstand zwischen nebeneinanderliegenden Spuren
-const ROW_HEIGHT    = 140; // Vertikaler Abstand zwischen den Stationen (viel Platz für die S-Kurven)
-const MARGIN_TOP    = 120; // Abstand oben (Start-Buttons)
-const MARGIN_H      = 220; // Seitenabstand (für Tooltips und breite Fächerung)
+// ── Layout-Konstanten massiv erhöht ─────────────────────────
+const TRACK_SPACING = 80;  // Spuren liegen weiter auseinander
+const ROW_HEIGHT    = 600; // Zieht die Kurven extrem in die Länge
+const MARGIN_TOP    = 150; 
+const MARGIN_H      = 250; 
 
 let _data = null; 
 let _anim = null; 
@@ -58,21 +58,19 @@ function prepareBoardData() {
   return { boardData, people, lineColors, allCardsFlat };
 }
 
-// ── 2. DYNAMISCHES GRID MIT ROUTING ──────────────────────────
+// ── 2. DYNAMISCHES GRID MIT ROUTING & KREUZUNGSMINIMIERUNG ───
 function calculateGrid(boardData, people) {
   let placedCards = [];
   let transferStations = [];
   let processedLabels = new Set();
   let phaseBoundaries = [];
 
-  // Routing-State
   let currentLanes = [...people];
   let trackPoints = {};
   people.forEach(p => trackPoints[p] = []);
 
   let currentRow = 0;
 
-  // Hilfsfunktion: Aktuelle Spurenpositionen speichern
   const recordTracks = (r) => {
     currentLanes.forEach((p, i) => {
       trackPoints[p].push({
@@ -82,7 +80,6 @@ function calculateGrid(boardData, people) {
     });
   };
 
-  // Startpositionen
   recordTracks(currentRow);
 
   boardData.forEach(col => {
@@ -102,30 +99,38 @@ function calculateGrid(boardData, people) {
         involvedPeople = [card.wer];
       }
 
-      // Absicherung gegen fehlerhafte Zuweisungen
       involvedPeople = involvedPeople.filter(p => people.includes(p));
       if (!involvedPeople.length) return;
 
-      // ── BÜNDELUNG (Spurenwechsel vor der Station) ──
       const involved = currentLanes.filter(p => involvedPeople.includes(p));
       const notInvolved = currentLanes.filter(p => !involvedPeople.includes(p));
       
-      // Nicht Beteiligte aufteilen, Beteiligte in die Mitte setzen
-      const mid = Math.floor(notInvolved.length / 2);
+      involved.sort((a, b) => currentLanes.indexOf(a) - currentLanes.indexOf(b));
+      notInvolved.sort((a, b) => currentLanes.indexOf(a) - currentLanes.indexOf(b));
+
+      let avgPos = 0;
+      if (involved.length > 0) {
+        avgPos = involved.reduce((sum, p) => sum + currentLanes.indexOf(p), 0) / involved.length;
+      } else {
+        avgPos = currentLanes.length / 2;
+      }
+
+      let targetIndex = Math.round(avgPos - (involved.length / 2));
+      targetIndex = Math.max(0, Math.min(notInvolved.length, targetIndex));
+
+      currentRow++;
+
       currentLanes = [
-        ...notInvolved.slice(0, mid), 
+        ...notInvolved.slice(0, targetIndex), 
         ...involved, 
-        ...notInvolved.slice(mid)
+        ...notInvolved.slice(targetIndex)
       ];
 
-      // Eine Reihe nach unten rücken und neue Positionen speichern
-      currentRow++;
       recordTracks(currentRow);
 
-      const minCol = mid;
-      const maxCol = mid + involved.length - 1;
+      const minCol = targetIndex;
+      const maxCol = targetIndex + involved.length - 1;
 
-      // Stationen registrieren
       if (card.gruppe) {
         transferStations.push({
           name: card.gruppe,
@@ -143,18 +148,17 @@ function calculateGrid(boardData, people) {
       }
     });
 
-    if (currentRow === phaseStartRow) currentRow++; // Auch leere Phasen zeigen
+    if (currentRow === phaseStartRow) currentRow++; 
     phaseBoundaries.push({ name: col.spalte, start: phaseStartRow, end: currentRow });
   });
 
-  // Nach der letzten Station noch ein Stück weiterfahren
   currentRow++;
   recordTracks(currentRow);
 
   return { placedCards, transferStations, maxRows: currentRow, phaseBoundaries, trackPoints };
 }
 
-// ── 3. SVG PFAD GENERATOR (S-Kurven) ─────────────────────────
+// ── 3. SVG PFAD GENERATOR (Weichere S-Kurven) ────────────────
 function createTrackPath(points) {
   if (points.length === 0) return '';
   let d = `M ${points[0].x} ${points[0].y}`;
@@ -163,10 +167,11 @@ function createTrackPath(points) {
     const prev = points[i-1];
     const curr = points[i];
     
-    // Sanfte S-Kurve, falls sich die Spur (X) ändert
     if (prev.x !== curr.x) {
-      const midY = (prev.y + curr.y) / 2;
-      d += ` C ${prev.x} ${midY}, ${curr.x} ${midY}, ${curr.x} ${curr.y}`;
+      // Anpassung für organischere, fließendere Kurven bei großem Abstand
+      const cp1Y = prev.y + (curr.y - prev.y) * 0.4;
+      const cp2Y = prev.y + (curr.y - prev.y) * 0.6;
+      d += ` C ${prev.x} ${cp1Y}, ${curr.x} ${cp2Y}, ${curr.x} ${curr.y}`;
     } else {
       d += ` L ${curr.x} ${curr.y}`;
     }
@@ -201,10 +206,8 @@ window.renderUBahnMap = function() {
   const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
   const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
-  // SVG Layer
   let svg = `<svg width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;">`;
   
-  // Phasen-Begrenzungen
   phaseBoundaries.forEach(p => {
     const y = p.start * ROW_HEIGHT + MARGIN_TOP - (ROW_HEIGHT / 2);
     if (p.start > 0) {
@@ -216,38 +219,31 @@ window.renderUBahnMap = function() {
     }
   });
 
-  // --- DER HALO-EFFEKT ---
-  // Schritt 1: Breite Hintergrund-Kontur zum Ausradieren der Kreuzungen
   people.forEach((p) => {
     const pathData = createTrackPath(trackPoints[p]);
-    svg += `<path d="${pathData}" fill="none" stroke="var(--surface)" stroke-width="22" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
+    svg += `<path d="${pathData}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
   });
 
-  // Schritt 2: Eigentliche farbige Linien direkt darüber zeichnen
   people.forEach((p) => {
     const pathData = createTrackPath(trackPoints[p]);
-    svg += `<path d="${pathData}" fill="none" stroke="${lineColors[p]}" stroke-width="12" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
+    svg += `<path d="${pathData}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
   });
-  // ------------------------
 
-  // Kompakte Transfer-Stationen
   transferStations.forEach(s => {
     const x1 = MARGIN_H + s.minCol * TRACK_SPACING;
     const x2 = MARGIN_H + s.maxCol * TRACK_SPACING;
     const y  = s.row * ROW_HEIGHT + MARGIN_TOP;
     svg += `
-      <rect x="${x1-22}" y="${y-22}" width="${(x2-x1)+44}" height="44" rx="22"
+      <rect x="${x1-24}" y="${y-24}" width="${(x2-x1)+48}" height="48" rx="24"
             fill="var(--surface)" stroke="var(--border)" stroke-width="6"/>
       <line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"
-            stroke="var(--text-muted)" stroke-width="8" stroke-linecap="round"/>
+            stroke="var(--text-muted)" stroke-width="10" stroke-linecap="round"/>
     `;
   });
   svg += `</svg>`;
 
-  // HTML-Layer (Interaktive Elemente)
   let html = ``;
   
-  // Start-Buttons
   people.forEach((p) => {
     const startPos = trackPoints[p][0];
     const color = lineColors[p];
@@ -266,14 +262,13 @@ window.renderUBahnMap = function() {
     `;
   });
 
-  // Stationen / Karten
   placedCards.forEach(k => {
     const pt = trackPoints[k.wer][k.row];
     const color = lineColors[k.wer];
     const isHigh = k.prio === 'hoch';
     html += `
       <div onclick="showUBahnCardDetail(${JSON.stringify(k.label)})"
-           style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;" class="ubahn-station">
+           style="position:absolute;left:${pt.x-90}px;top:${pt.y-32}px;width:180px;display:flex;flex-direction:column;align-items:center;cursor:pointer;" class="ubahn-station">
         <div style="width:44px;height:44px;border-radius:50%;background:var(--surface);border:4px solid ${color};
                     display:flex;align-items:center;justify-content:center;
                     font-family:'Outfit','DM Sans',sans-serif;font-weight:900;font-size:13px;
@@ -604,7 +599,7 @@ function initModalResize() {
       const onMove = e => {
         const dx = side === 'right' ? e.clientX - startX : startX - e.clientX;
         const newW = Math.min(
-          Math.max(420, startW + dx * 2), // *2 weil beide Seiten spiegeln
+          Math.max(420, startW + dx * 2), 
           window.innerWidth - 40
         );
         modal.style.width    = newW + 'px';
