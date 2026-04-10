@@ -74,16 +74,65 @@ function prepareBoardData() {
   return { boardData, people, lineColors: colors, allCardsFlat };
 }
 
-// Topologische Sortierung: Abhängigkeiten zuerst
+// Topologische Sortierung: Abhängigkeiten strikt auflösen (mit Pfad-Tracking für Warnungen)
 function topoSortCards(cards) {
-  const byId = new Map(cards.map(c => [c.id, c]));
-  const visited = new Set(), result = [];
-  function visit(card) {
+  // Map aufbauen: Erlaubt Suche nach ID UND Label!
+  const byKey = new Map();
+  cards.forEach(c => {
+    if (c.id) byKey.set(c.id, c);
+    if (c.label) byKey.set(c.label, c);
+  });
+
+  const visited = new Set();
+  const visiting = new Set(); 
+  const result = [];
+
+  // Rekursive Suchfunktion (gibt den aktuellen "Pfad" mit, um Zirkel zu protokollieren)
+  function visit(card, path = []) {
+    // Wenn schon final verarbeitet, überspringen
     if (visited.has(card.id)) return;
+    
+    // Zirkuläre Abhängigkeit entdeckt (A -> B -> A)! 
+    if (visiting.has(card.id)) {
+      // Den kompletten Kreis-Pfad als Text zusammenbauen
+      const cyclePath = [...path, card.label || card.id].join(' ➔ ');
+      
+      console.warn("Zirkuläre Abhängigkeit ignoriert:", cyclePath);
+      // Rotes Toast-Popup auf dem Bildschirm für den Nutzer
+      if (typeof window.showToast === 'function') {
+        window.showToast(`⚠️ Logik-Fehler: Zirkel ignoriert (${cyclePath})`, 'error');
+      }
+      return; 
+    }
+    
+    visiting.add(card.id); // Karte wird gerade untersucht
+    
+    // Aktuelle Karte an den Pfad anhängen für die nächste Ebene
+    const currentPath = [...path, card.label || card.id];
+
+    // 1. Abhängigkeiten der Karte sammeln
+    let allDeps = [...(card.deps || [])];
+
+    // 2. Gruppen-Partner prüfen: Die Karte muss auch auf die Abhängigkeiten der Gruppe warten
+    if (card.gruppe) {
+      const groupPartners = cards.filter(c => c.gruppe === card.gruppe && c.id !== card.id);
+      groupPartners.forEach(partner => {
+        if (partner.deps) allDeps.push(...partner.deps);
+      });
+    }
+
+    // Abhängigkeiten besuchen und den Pfad weiterreichen
+    allDeps.forEach(depKey => { 
+      const d = byKey.get(depKey); 
+      if (d) visit(d, currentPath); 
+    });
+
+    visiting.delete(card.id);
     visited.add(card.id);
-    (card.deps || []).forEach(depId => { const d = byId.get(depId); if (d) visit(d); });
     result.push(card);
   }
+
+  // Rekursion für alle Karten starten
   cards.forEach(c => visit(c));
   return result;
 }
