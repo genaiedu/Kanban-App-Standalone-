@@ -609,19 +609,15 @@ window.ubahnHoverCard = function(label) {
   const hoveredCard = allCards.find(c => c.label === label);
   if (!hoveredCard) return;
 
-  // Hilfsfunktion: Sucht den kompletten Baum ab und berechnet die "Generation" (Tiefe)
+  // ... (getGenerations Hilfsfunktion bleibt identisch) ...
   function getGenerations(startLabel, direction) {
     const generations = new Map();
     const queue = [{ label: startLabel, depth: 0 }];
     const visited = new Set([startLabel]);
-
     while(queue.length > 0) {
       const { label: currLabel, depth } = queue.shift();
-
       if (depth > 0) generations.set(currLabel, depth);
-
       if (direction === 'up') { 
-        // Rückwärts: Voraussetzungen (Ancestors)
         const card = allCards.find(c => c.label === currLabel);
         if (card && card.deps) {
           card.deps.forEach(depLabel => {
@@ -632,7 +628,6 @@ window.ubahnHoverCard = function(label) {
           });
         }
       } else { 
-        // Vorwärts: Gibt folgendes frei (Descendants)
         const successors = allCards.filter(c => (c.deps || []).includes(currLabel));
         successors.forEach(succ => {
           if (!visited.has(succ.label)) {
@@ -645,13 +640,21 @@ window.ubahnHoverCard = function(label) {
     return generations;
   }
 
-  // Komplette Stammbäume berechnen
   const preGens = getGenerations(label, 'up');
   const succGens = getGenerations(label, 'down');
 
-  // Hintergrund-Linien stark abdunkeln
+  // 1. Hintergrund-Linien abdunkeln
   const svgLayer = document.getElementById('ubahn-svg-layer');
   if (svgLayer) svgLayer.style.opacity = '0.15';
+
+  // 2. NEU: Alle Pillen (Gruppen-Kapseln) abdunkeln
+  const allPills = document.querySelectorAll('.ubahn-pill');
+  allPills.forEach(p => {
+    // Extrahiere die Reihe aus der ID (ubahn-pill-REIHE)
+    const pillRow = parseInt(p.id.split('-').pop());
+    // Die Pille bleibt nur hell, wenn die gehoverte Karte genau in dieser Reihe liegt
+    p.style.opacity = (pillRow === hoveredCard.row) ? '1' : '0.15';
+  });
 
   allCards.forEach(c => {
     const node = document.getElementById(`ubahn-node-${c.label}`);
@@ -659,35 +662,26 @@ window.ubahnHoverCard = function(label) {
     if (!node || !ring) return;
 
     if (c.label === label) {
-      // 0. Die aktuell anvisierte Karte (Zentrum)
       node.style.opacity = '1';
       ring.style.boxShadow = '0 0 25px rgba(255,255,255,0.7)';
       ring.style.transform = 'scale(1.15)';
-      
     } else if (preGens.has(c.label)) {
-      // 1. Voraussetzungen (ORANGE) - Je weiter weg, desto schwächer
       const depth = preGens.get(c.label);
-      const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3); // Gen1: 1.0, Gen2: 0.7, Gen3: 0.4...
-      
+      const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3);
       node.style.opacity = intensity.toString();
       ring.style.borderColor = '#f59e0b';
       ring.style.color = '#f59e0b';
       ring.style.boxShadow = `0 0 ${20 * intensity}px rgba(245, 158, 11, ${intensity})`;
       ring.style.transform = depth === 1 ? 'scale(1.05)' : 'scale(1)';
-      
     } else if (succGens.has(c.label)) {
-      // 2. Freigegebene Karten (GRÜN) - Je weiter weg, desto schwächer
       const depth = succGens.get(c.label);
       const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3); 
-      
       node.style.opacity = intensity.toString();
       ring.style.borderColor = '#10b981';
       ring.style.color = '#10b981';
       ring.style.boxShadow = `0 0 ${20 * intensity}px rgba(16, 185, 129, ${intensity})`;
       ring.style.transform = depth === 1 ? 'scale(1.05)' : 'scale(1)';
-      
     } else {
-      // 3. Völlig unbeteiligte Karten stark abdunkeln
       node.style.opacity = '0.15';
     }
   });
@@ -696,19 +690,18 @@ window.ubahnHoverCard = function(label) {
 window.ubahnLeaveCard = function() {
   if (!_data || !_data.allCardsFlat) return;
   
-  // Hintergrund-Linien wiederherstellen
   const svgLayer = document.getElementById('ubahn-svg-layer');
   if (svgLayer) svgLayer.style.opacity = '1';
 
-  // Alle Karten auf Normalzustand zurücksetzen
+  // NEU: Alle Pillen wieder auf volle Sichtbarkeit setzen
+  document.querySelectorAll('.ubahn-pill').forEach(p => p.style.opacity = '1');
+
   _data.allCardsFlat.forEach(c => {
     const node = document.getElementById(`ubahn-node-${c.label}`);
     const ring = document.getElementById(`ubahn-ring-${c.label}`);
     if (!node || !ring) return;
-
     const originalColor = ring.getAttribute('data-color');
     const isActive = ring.getAttribute('data-active') === 'true';
-
     node.style.opacity = '1';
     ring.style.transform = 'scale(1)';
     ring.style.borderColor = originalColor;
