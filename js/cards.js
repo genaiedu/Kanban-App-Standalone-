@@ -10,7 +10,11 @@ window.pushUndo = function(label) {
   if (!S.undoStack) S.undoStack = [];
   const snapshot = { label, boardId: S.currentBoard.id, timestamp: Date.now(), columns: {} };
   for (const col of S.columns) {
-    snapshot.columns[col.id] = (S.cards[col.id] || []).map(c => ({ ...c, dependencies: c.dependencies ? [...c.dependencies] : [], comments: c.comments ? [...c.comments] : [] }));
+    snapshot.columns[col.id] = (S.cards[col.id] || []).map(c => ({ 
+      ...c, 
+      dependencies: c.dependencies ? [...c.dependencies] : [], 
+      comments: c.comments ? [...c.comments] : [] 
+    }));
   }
   S.undoStack.push(snapshot);
   if (S.undoStack.length > MAX_UNDO) S.undoStack.shift();
@@ -62,7 +66,6 @@ window.loadCards = function(colId) {
   if (!S.cards) S.cards = {};
   S.cards[colId] = getCards(S.currentBoard.id, colId);
   window.renderCards(colId);
-  // WIP-Status aller Spalten aktualisieren
   S.columns.forEach(c => {
     if (c.id !== colId && document.getElementById('cards-' + c.id)) window.renderCards(c.id);
   });
@@ -242,7 +245,10 @@ window.renderCards = function(colId) {
     const agingDays  = getAgingDays(card);
     const agingHtml  = aging ? `<div class="aging-badge"><i data-lucide="clock" style="width:11px;height:11px;margin-right:4px;"></i> Seit ${agingDays} in Bearbeitung</div>` : '';
     const assigneeHtml = card.assignee ? `<div class="card-assignee"><div class="assignee-avatar">${card.assignee.slice(0,2).toUpperCase()}</div><span>${safeEscHtml(card.assignee)}</span></div>` : '';
+    
+    // Zeitelemente wie im Original (Start/Ende)
     const tsHtml     = (card.startedAt || card.finishedAt) ? `<div class="card-timestamps">${card.startedAt ? `<span class="ts-item">▶ ${safeFormatDate(card.startedAt)}</span>` : ''}${card.finishedAt ? `<span class="ts-item">✓ ${safeFormatDate(card.finishedAt)}</span>` : ''}</div>` : '';
+    
     const agingClass = aging ? 'aging-warn' : '';
     const labelHtml  = card.label ? `<div class="card-label">${card.label}</div>` : '';
 
@@ -295,16 +301,28 @@ window.renderCards = function(colId) {
 
     const lockHtml   = isFinished ? '<span style="font-size:10px; color:var(--text-muted); opacity:0.6; display:flex; align-items:center; gap:3px;"><i data-lucide="lock" style="width:10px;height:10px;pointer-events:none;"></i></span>' : '';
     const deleteBtn  = isFinished ? '' : `<button class="card-btn delete" onclick="event.stopPropagation(); window.deleteCardLocal('${card.id}','${colId}')" title="Löschen"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>`;
-    const editBtn    = `<button class="card-btn" onclick="event.stopPropagation(); window.openCardDetail('${card.id}','${colId}')" title="Bearbeiten"><i data-lucide="edit-2" style="width:12px;height:12px;"></i></button>`;
+    
+    // ZURÜCK AUF window.openEditCard
+    const editBtn    = `<button class="card-btn" onclick="event.stopPropagation(); window.openEditCard('${card.id}','${colId}')" title="Bearbeiten"><i data-lucide="edit-2" style="width:12px;height:12px;"></i></button>`;
+
+    // Beschreibung rendern (anklickbar)
+    const descHtml = card.description 
+      ? `<div class="card-description" onclick="event.stopPropagation(); window.openEditCard('${card.id}','${colId}')" style="cursor:pointer; font-size: 0.9em; color: var(--text-muted); margin-top: 6px; border-left: 2px solid var(--border); padding-left: 8px;">
+          ${safeLinkify(safeEscHtml(card.description))}
+         </div>` 
+      : '';
 
     return `
-    <div class="card ${myCard?'my-card':''} ${agingClass} ${groupClasses}" id="card-${card.id}" ${isLockedCol ? '' : `draggable="true" ondragstart="window.onDragStart(event,'${card.id}','${colId}')" ondragend="window.onDragEnd(event)"`} ondblclick="window.openCardDetail('${card.id}','${colId}')">
+    <div class="card ${myCard?'my-card':''} ${agingClass} ${groupClasses}" id="card-${card.id}" ${isLockedCol ? '' : `draggable="true" ondragstart="window.onDragStart(event,'${card.id}','${colId}')" ondragend="window.onDragEnd(event)"`} ondblclick="window.openEditCard('${card.id}','${colId}')">
       ${flagsHtml}
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:14px; margin-bottom:6px; min-height:20px;">
         <div style="flex:1;">${labelHtml}</div>
         <div style="display:flex; gap:6px; flex-shrink:0;">${editBtn}${deleteBtn}</div>
       </div>
       <div class="card-text">${safeLinkify(safeEscHtml(card.text))}</div>
+      
+      ${descHtml}
+      
       ${assigneeHtml}${agingHtml}${tsHtml}
       <div class="card-footer">
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
@@ -403,7 +421,6 @@ window.moveCardStep = async (cardId, fromColId, direction) => {
     const startedAt  = c.startedAt || (!window.isFinishedColumn(fromColObj||{}) ? now : '');
     const finishedAt = isNowFinished ? now : '';
     moveCard(S.currentBoard.id, fromColId, toCol.id, c.id, orderBase++);
-    // startedAt / finishedAt nachträglich setzen
     const movedCard = (getCards(S.currentBoard.id, toCol.id)).find(x => x.id === c.id);
     if (movedCard) {
       updateCard(S.currentBoard.id, toCol.id, c.id, { startedAt, finishedAt });
@@ -416,8 +433,14 @@ window.moveCardStep = async (cardId, fromColId, direction) => {
 };
 
 // ── KARTEN CRUD ───────────────────────────────────────
-window.showAddCard = (colId) => { document.getElementById('add-form-' + colId).style.display = 'block'; document.getElementById('card-text-' + colId).focus(); };
-window.hideAddCard = (colId) => { document.getElementById('add-form-' + colId).style.display = 'none'; document.getElementById('card-text-' + colId).value = ''; };
+window.showAddCard = (colId) => { 
+  document.getElementById('add-form-' + colId).style.display = 'block'; 
+  document.getElementById('card-text-' + colId).focus(); 
+};
+window.hideAddCard = (colId) => { 
+  document.getElementById('add-form-' + colId).style.display = 'none'; 
+  document.getElementById('card-text-' + colId).value = ''; 
+};
 
 window.addCard = (colId) => {
   const text = document.getElementById('card-text-' + colId).value.trim();
@@ -425,16 +448,17 @@ window.addCard = (colId) => {
   if (!text) return;
   window.pushUndo('Karte hinzugefügt: ' + text.slice(0, 30));
 
-  // Kartenlabel (A, B, C …) über cardCounter im Board
   const board = getBoards().find(b => b.id === S.currentBoard.id);
   const currentCounter = board?.cardCounter ?? 0;
   const cardLabel = typeof window.numberToLabel === 'function' ? window.numberToLabel(currentCounter) : `K${currentCounter}`;
   updateBoard(S.currentBoard.id, { cardCounter: currentCounter + 1 });
-  // S.currentBoard aktualisieren
   S.currentBoard.cardCounter = currentCounter + 1;
 
   const colCards = S.cards[colId] || [];
-  createCard(S.currentBoard.id, colId, { text, priority: prio, order: colCards.length, label: cardLabel, dependencies: [], comments: [] });
+  createCard(S.currentBoard.id, colId, { 
+    text, priority: prio, order: colCards.length, 
+    label: cardLabel, dependencies: [], comments: [] 
+  });
   window.hideAddCard(colId);
   window.loadCards(colId);
   showToast('Karte hinzugefügt!');
@@ -453,7 +477,6 @@ window.deleteCardLocal = async (cardId, colId) => {
   showToast('Karte gelöscht');
 };
 
-// Alias für alten Aufruf (z.B. aus tools.js)
 window.deleteCard = window.deleteCardLocal;
 
 window.openEditCard = (cardId, colId) => {
@@ -462,6 +485,17 @@ window.openEditCard = (cardId, colId) => {
   document.getElementById('edit-card-id').value  = cardId;
   document.getElementById('edit-card-col').value = colId;
   document.getElementById('edit-card-text').value     = card.text;
+  
+  const descField = document.getElementById('edit-card-description');
+  if (descField) descField.value = card.description || '';
+
+  const timeD = document.getElementById('edit-card-time-d');
+  const timeH = document.getElementById('edit-card-time-h');
+  const timeM = document.getElementById('edit-card-time-m');
+  if (timeD) timeD.value = card.timeEstimate?.d || '';
+  if (timeH) timeH.value = card.timeEstimate?.h || '';
+  if (timeM) timeM.value = card.timeEstimate?.m || '';
+
   document.getElementById('edit-card-priority').value = card.priority || '';
   document.getElementById('edit-card-due').value      = card.due || '';
   const sel     = document.getElementById('edit-card-assignee');
@@ -469,19 +503,28 @@ window.openEditCard = (cardId, colId) => {
   const col     = S.columns.find(c => c.id === colId);
   const inFinished = col && window.isFinishedColumn && window.isFinishedColumn(col);
   const safeEscHtml = (typeof escHtml === 'function') ? escHtml : (t => t);
+  
   if (inFinished) {
     sel.innerHTML = `<option value="${safeEscHtml(card.assignee||'')}" selected>${safeEscHtml(card.assignee || '– Niemand –')}</option>`;
     sel.disabled = true;
-    document.getElementById('edit-card-text').disabled     = true;
+    document.getElementById('edit-card-text').disabled = true;
+    if (descField) descField.disabled = true;
+    if (timeD) timeD.disabled = true;
+    if (timeH) timeH.disabled = true;
+    if (timeM) timeM.disabled = true;
     document.getElementById('edit-card-priority').disabled = true;
-    document.getElementById('edit-card-due').disabled      = true;
+    document.getElementById('edit-card-due').disabled = true;
   } else {
     sel.innerHTML = '<option value="">– Niemand –</option>' + members.map(m => `<option value="${safeEscHtml(m)}" ${card.assignee===m?'selected':''}>${safeEscHtml(m)}</option>`).join('');
     if (!members.length) sel.innerHTML = '<option value="">Keine Mitglieder definiert</option>';
     sel.disabled = false;
-    document.getElementById('edit-card-text').disabled     = false;
+    document.getElementById('edit-card-text').disabled = false;
+    if (descField) descField.disabled = false;
+    if (timeD) timeD.disabled = false;
+    if (timeH) timeH.disabled = false;
+    if (timeM) timeM.disabled = false;
     document.getElementById('edit-card-priority').disabled = false;
-    document.getElementById('edit-card-due').disabled      = false;
+    document.getElementById('edit-card-due').disabled = false;
   }
   document.getElementById('modal-edit-card').style.display = 'flex';
 };
@@ -490,22 +533,51 @@ window.saveEditCard = () => {
   const cardId   = document.getElementById('edit-card-id').value;
   const colId    = document.getElementById('edit-card-col').value;
   const text     = document.getElementById('edit-card-text').value.trim();
+  
+  const descField = document.getElementById('edit-card-description');
+  const description = descField ? descField.value.trim() : '';
+  
+  const d = parseInt(document.getElementById('edit-card-time-d')?.value || 0, 10) || 0;
+  const h = parseInt(document.getElementById('edit-card-time-h')?.value || 0, 10) || 0;
+  const m = parseInt(document.getElementById('edit-card-time-m')?.value || 0, 10) || 0;
+  const timeEstimate = { d, h, m };
+
   const prio     = document.getElementById('edit-card-priority').value;
   const due      = document.getElementById('edit-card-due').value;
   const assignee = document.getElementById('edit-card-assignee').value.trim();
   if (!text) return;
+  
   window.pushUndo('Karte bearbeitet: ' + text.slice(0, 30));
-  updateCard(S.currentBoard.id, colId, cardId, { text, priority: prio, due: due || '', assignee: assignee || '' });
+  
+  updateCard(S.currentBoard.id, colId, cardId, { 
+    text, 
+    description, 
+    timeEstimate, 
+    priority: prio, 
+    due: due || '', 
+    assignee: assignee || '' 
+  });
+  
   window.loadCards(colId);
   window.closeModal('modal-edit-card');
   showToast('Karte gespeichert!');
 };
 
 // ── DRAG & DROP ───────────────────────────────────────
-window.onDragStart = (e, cardId, colId) => { S.dragCard = cardId; S.dragFromCol = colId; setTimeout(() => document.getElementById('card-'+cardId)?.classList.add('dragging'), 0); };
-window.onDragEnd   = () => { document.querySelectorAll('.card').forEach(c => c.classList.remove('dragging')); };
-window.onDragOver  = (e, colId) => { e.preventDefault(); document.getElementById('cards-'+colId)?.classList.add('drag-over'); };
-window.onDragLeave = (e, colId) => { document.getElementById('cards-'+colId)?.classList.remove('drag-over'); };
+window.onDragStart = (e, cardId, colId) => { 
+  S.dragCard = cardId; S.dragFromCol = colId; 
+  setTimeout(() => document.getElementById('card-'+cardId)?.classList.add('dragging'), 0); 
+};
+window.onDragEnd = () => { 
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('dragging')); 
+};
+window.onDragOver = (e, colId) => { 
+  e.preventDefault(); 
+  document.getElementById('cards-'+colId)?.classList.add('drag-over'); 
+};
+window.onDragLeave = (e, colId) => { 
+  document.getElementById('cards-'+colId)?.classList.remove('drag-over'); 
+};
 
 window.onDrop = (e, toColId) => {
   e.preventDefault();
@@ -557,7 +629,6 @@ window.addComment = () => {
   const input  = document.getElementById('new-comment-input');
   const text   = input?.value.trim();
   if (!text) return;
-  // Rolle automatisch aus Session ableiten: Schüler → 'student', Tutor → 'teacher'
   const role = window._kfSession?.isStudent ? 'student' : 'teacher';
   const card = (S.cards[colId]||[]).find(c => c.id === cardId);
   if (!card) return;
