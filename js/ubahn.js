@@ -138,53 +138,56 @@ function topoSortCards(cards) {
 }
 
 function calculateGrid(boardData, people) {
-  let placedCards = [], transferStations = [], processed = new Set(), lanes = [...people];
-  const rowLanes = { 0: [...people] };
+  let placedCards = [], transferStations = [], processed = new Set();
+  const personNextRow = {};
+  people.forEach(p => personNextRow[p] = 1);
   let maxRow = 0;
-  // Zeilenindex je card.id — für spaltenübergreifende Abhängigkeiten
   const cardRowById = {};
+
+  // NEU: Wir sammeln erst alle Events pro Zeile, bevor wir Spuren verschieben
+  const rowEvents = {}; 
 
   boardData.forEach(col => {
     const phaseStartRow = maxRow;
-    const personNextRow = {};
-    people.forEach(p => personNextRow[p] = phaseStartRow + 1);
-
-    // Karten innerhalb der Phase nach Abhängigkeiten sortieren
     const sortedCards = topoSortCards(col.karten);
 
     sortedCards.forEach(card => {
       if (processed.has(card.label)) return;
+
       let inv = card.gruppe
         ? Array.from(new Set(col.karten.filter(c => c.gruppe === card.gruppe).map(c => c.wer)))
         : [card.wer];
-      inv = inv.filter(p => people.includes(p)); if (!inv.length) return;
-      const involved = lanes.filter(p => inv.includes(p)), others = lanes.filter(p => !inv.includes(p));
-      involved.sort((a,b) => lanes.indexOf(a) - lanes.indexOf(b));
-      let avg = involved.reduce((s, p) => s + lanes.indexOf(p), 0) / involved.length;
-      let target = Math.max(0, Math.min(others.length, Math.round(avg - (involved.length / 2))));
+      inv = inv.filter(p => people.includes(p));
+      if (!inv.length) return;
 
-      // Alle deps dieser Karte (inkl. Gruppe) berücksichtigen
       const allDeps = card.gruppe
         ? col.karten.filter(c => c.gruppe === card.gruppe).flatMap(c => c.deps || [])
         : (card.deps || []);
+
       const depMinRow = allDeps.reduce((m, depId) => {
         const r = cardRowById[depId];
         return r !== undefined ? Math.max(m, r + 1) : m;
       }, phaseStartRow + 1);
 
-      // Zeile: frühestens nach allen Abhängigkeiten UND nach Track-Verfügbarkeit
-      const row = Math.max(depMinRow, ...involved.map(p => personNextRow[p]));
+      const row = Math.max(depMinRow, ...inv.map(p => personNextRow[p]));
       if (row > maxRow) maxRow = row;
 
-      lanes = [...others.slice(0, target), ...involved, ...others.slice(target)];
-      rowLanes[row] = [...lanes];
-      involved.forEach(p => personNextRow[p] = row + 1);
+      // Event für diese Zeile registrieren
+      if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
+      inv.forEach(p => {
+         personNextRow[p] = row + 1;
+         rowEvents[row].activePeople.add(p);
+      });
 
       if (card.gruppe) {
         const groupCards = col.karten.filter(c => c.gruppe === card.gruppe);
-        // nach ID UND Label indexieren (deps werden als Labels gespeichert)
         groupCards.forEach(gc => { cardRowById[gc.id] = row; cardRowById[gc.label] = row; });
-        transferStations.push({ name: card.gruppe, row, involved: [...involved] });
+        
+        // Gruppe nur einmal pro Zeile in die Liste aufnehmen
+        if (!rowEvents[row].groups.find(g => g.name === card.gruppe)) {
+            rowEvents[row].groups.push({ name: card.gruppe, involved: [...inv] });
+            transferStations.push({ name: card.gruppe, row, involved: [...inv] });
+        }
         groupCards.forEach(gc => { placedCards.push({ ...gc, row }); processed.add(gc.label); });
       } else {
         cardRowById[card.id] = row;
@@ -196,37 +199,45 @@ function calculateGrid(boardData, people) {
     if (maxRow === phaseStartRow) maxRow++;
   });
 
-  maxRow++;
-  rowLanes[maxRow] = [...lanes];
+  // --- PASS 2: GLEIS-ZUORDNUNG (Die Linien lenken) ---
+  const rowLanes = { 0: [...people] };
+  let currentLanes = [...people];
 
-  // Welche Zeilen hat jede Person wirklich eine Station?
-  const personActiveRows = {};
-  people.forEach(p => personActiveRows[p] = new Set());
-  placedCards.forEach(k => personActiveRows[k.wer].add(k.row));
-  transferStations.forEach(s => s.involved.forEach(p => personActiveRows[p].add(s.row)));
+  for (let r = 1; r <= maxRow + 1; r++) {
+    if (rowEvents[r] && rowEvents[r].groups.length > 0) {
+      // Eine Gruppe auf dieser Zeile gefunden -> Spuren magnetisch zusammenziehen!
+      const mainGroup = rowEvents[r].groups[0].involved;
+      const others = currentLanes.filter(p => !mainGroup.includes(p));
 
-  // trackPoints aufbauen: x nur an eigenen Stationen aktualisieren,
-  // dazwischen gerade Strecke (D-Zug-Effekt)
+      // Durchschnittliche Position der Gruppenmitglieder finden
+      let avg = mainGroup.reduce((s, p) => s + currentLanes.indexOf(p), 0) / mainGroup.length;
+      let target = Math.max(0, Math.min(others.length, Math.round(avg - (mainGroup.length / 2))));
+
+      // Neue Spur-Reihenfolge erzwingen
+      currentLanes = [...others.slice(0, target), ...mainGroup, ...others.slice(target)];
+    }
+    rowLanes[r] = [...currentLanes];
+  }
+
+  // --- PASS 3: KOORDINATEN & KURVEN ZEICHNEN ---
   const trackPoints = {};
   people.forEach(p => trackPoints[p] = []);
   const personCurrentX = {};
-  people.forEach((p, i) => personCurrentX[p] = MARGIN_H + i * TRACK_SPACING);
-
-  for (let r = 0; r <= maxRow; r++) {
-    const lanesAtR = rowLanes[r];
-    if (lanesAtR) {
-      lanesAtR.forEach((p, i) => {
-        if (personActiveRows[p].has(r)) {
-          personCurrentX[p] = MARGIN_H + i * TRACK_SPACING;
-        }
+  
+  for (let r = 0; r <= maxRow + 1; r++) {
+    if (rowLanes[r]) {
+      // Wenn sich die Spurreihenfolge geändert hat, ändern sich hier die X-Koordinaten
+      rowLanes[r].forEach((p, i) => {
+        personCurrentX[p] = MARGIN_H + i * TRACK_SPACING;
       });
     }
+    // Durch die Änderung der X-Koordinate zeichnet SVG nun automatisch schöne Kurven
     people.forEach(p => {
       trackPoints[p].push({ x: personCurrentX[p], y: MARGIN_TOP + r * ROW_HEIGHT });
     });
   }
 
-  return { placedCards, transferStations, maxRows: maxRow, trackPoints };
+  return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints };
 }
 
 function createTrackPath(pts) {
