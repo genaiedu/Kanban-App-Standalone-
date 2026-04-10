@@ -284,27 +284,10 @@ window.renderUBahnMap = function() {
   const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
   const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
-  // ── 1. SVG LAYER (LINIEN & VERBINDUNGEN) ──
+  // ── 1. SVG LAYER (NUR DIE HAUPTSCHIENEN IM HINTERGRUND) ──
   let svg = `<svg id="ubahn-svg-layer" width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;transition:opacity 0.25s ease;">`;
-  
-  // Haupt-Fahrspuren
   people.forEach(p => svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`);
   people.forEach(p => svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`);
-  
-  // Waagerechte Verbindungslinien bei Gruppen (Dünner & Schwarz)
-  transferStations.forEach(s => {
-    const xs = s.involved.map(p => trackPoints[p][s.row].x);
-    const x1 = Math.min(...xs), x2 = Math.max(...xs), y = s.row * ROW_HEIGHT + MARGIN_TOP;
-    
-    // Die Verbindungslinie: Jetzt 3px breit und tiefschwarz
-    svg += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#000" stroke-width="3" stroke-linecap="round" opacity="0.8"/>`;
-    
-    // Kleine dezente Anker-Ringe
-    s.involved.forEach(p => {
-      const stationX = trackPoints[p][s.row].x;
-      svg += `<rect x="${stationX-24}" y="${y-24}" width="48" height="48" rx="24" fill="#ffffff05" stroke="rgba(0,0,0,0.2)" stroke-width="2"/>`;
-    });
-  });
   svg += `</svg>`;
 
   const isInProgress = c => c.colName && c.colName.toLowerCase().includes('bearb');
@@ -321,39 +304,46 @@ window.renderUBahnMap = function() {
     }
   </style>`;
   
-  // ── 2. START- & ENDPUNKTE ──
+  // ── 2. START- & ENDPUNKTE (NAMEN) ──
   people.forEach(p => {
     const sPt = trackPoints[p][0], ePt = trackPoints[p][maxRows], color = lineColors[p];
-    html += `<button onclick='window.renderUBahnPerson(${JSON.stringify(p)})' style="position:absolute;left:${sPt.x - 60}px;top:${sPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:1001;"><div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;font-weight:900;font-size:12px;color:var(--text);box-shadow:0 4px 16px ${color}44;">${esc(p)}</div></button>`;
+    html += `<button onclick='window.renderUBahnPerson(${JSON.stringify(p)})' style="position:absolute;left:${sPt.x - 60}px;top:${sPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:1005;"><div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;font-weight:900;font-size:12px;color:var(--text);box-shadow:0 4px 16px ${color}44;">${esc(p)}</div></button>`;
     html += `<div style="position:absolute;left:${sPt.x-12}px;top:${sPt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
     html += `<div style="position:absolute;left:${ePt.x-12}px;top:${ePt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
   });
 
-  // ── 3. GRUPPEN-PILLEN (Mit schwarzem Rahmen) ──
+  // ── 3. GRUPPEN-PILLEN & DUNKLE VERBINDUNGSLINIEN ──
   transferStations.forEach(s => {
     const xs = s.involved.map(p => trackPoints[p][s.row].x);
     const xMin = Math.min(...xs), xMax = Math.max(...xs);
     const y = s.row * ROW_HEIGHT + MARGIN_TOP;
     const width = (xMax - xMin) + 64;
+    const lineWidth = (xMax - xMin);
     
+    // Die Pille (Hintergrund mit schwarzem Rahmen)
     html += `
-      <div style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:var(--surface); border:1.5px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none;"></div>
+      <div style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:var(--surface); border:2px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none;"></div>
+    `;
+
+    // Die Verbindungslinie (Dunkel, Dick, ÜBER der Pille)
+    html += `
+      <div style="position:absolute; left:${xMin}px; top:${y - 4}px; width:${lineWidth}px; height:8px; background:#2d3748; z-index:1001; pointer-events:none;"></div>
     `;
   });
 
-  // ── 4. STATIONEN ──
+  // ── 4. STATIONEN (RINGE) ──
   placedCards.forEach(k => {
     const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
     const active = isInProgress(k);
     
-    if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pt.y-30}px;width:60px;height:60px;border:3px solid ${color};z-index:1001;transition:opacity 0.25s ease;"></div>`;
+    if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pt.y-30}px;width:60px;height:60px;border:3px solid ${color};z-index:1003;transition:opacity 0.25s ease;"></div>`;
     
     html += `
       <div id="ubahn-node-${k.label}" class="ubahn-station"
            onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
            onmouseenter='window.ubahnHoverCard(${JSON.stringify(k.label)})'
            onmouseleave='window.ubahnLeaveCard()'
-           style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;justify-content:center;align-items:center;cursor:pointer;z-index:1002;transition:opacity 0.25s ease;">
+           style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;justify-content:center;align-items:center;cursor:pointer;z-index:1004;transition:opacity 0.25s ease;">
         <div id="ubahn-ring-${k.label}" data-color="${color}" data-active="${active}" 
              style="position:relative; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4)${active ? `,0 0 18px ${color}99` : ''}; transition:all 0.25s ease;">
           ${esc(k.label)}
