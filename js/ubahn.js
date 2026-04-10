@@ -588,42 +588,89 @@ window.openUBahnModal = function() {
 window.ubahnHoverCard = function(label) {
   if (!_data || !_data.allCardsFlat) return;
 
-  const hoveredCard = _data.allCardsFlat.find(c => c.label === label);
+  const allCards = _data.allCardsFlat;
+  const hoveredCard = allCards.find(c => c.label === label);
   if (!hoveredCard) return;
 
-  const prereqs = hoveredCard.deps || [];
-  const successors = _data.allCardsFlat.filter(c => (c.deps || []).includes(label)).map(c => c.label);
+  // Hilfsfunktion: Sucht den kompletten Baum ab und berechnet die "Generation" (Tiefe)
+  function getGenerations(startLabel, direction) {
+    const generations = new Map();
+    const queue = [{ label: startLabel, depth: 0 }];
+    const visited = new Set([startLabel]);
+
+    while(queue.length > 0) {
+      const { label: currLabel, depth } = queue.shift();
+
+      if (depth > 0) generations.set(currLabel, depth);
+
+      if (direction === 'up') { 
+        // Rückwärts: Voraussetzungen (Ancestors)
+        const card = allCards.find(c => c.label === currLabel);
+        if (card && card.deps) {
+          card.deps.forEach(depLabel => {
+            if (!visited.has(depLabel)) {
+              visited.add(depLabel);
+              queue.push({ label: depLabel, depth: depth + 1 });
+            }
+          });
+        }
+      } else { 
+        // Vorwärts: Gibt folgendes frei (Descendants)
+        const successors = allCards.filter(c => (c.deps || []).includes(currLabel));
+        successors.forEach(succ => {
+          if (!visited.has(succ.label)) {
+            visited.add(succ.label);
+            queue.push({ label: succ.label, depth: depth + 1 });
+          }
+        });
+      }
+    }
+    return generations;
+  }
+
+  // Komplette Stammbäume berechnen
+  const preGens = getGenerations(label, 'up');
+  const succGens = getGenerations(label, 'down');
 
   // Hintergrund-Linien stark abdunkeln
   const svgLayer = document.getElementById('ubahn-svg-layer');
   if (svgLayer) svgLayer.style.opacity = '0.15';
 
-  _data.allCardsFlat.forEach(c => {
+  allCards.forEach(c => {
     const node = document.getElementById(`ubahn-node-${c.label}`);
     const ring = document.getElementById(`ubahn-ring-${c.label}`);
     if (!node || !ring) return;
 
     if (c.label === label) {
-      // 1. Die aktuell anvisierte Karte (Leuchtet vergrößert)
+      // 0. Die aktuell anvisierte Karte (Zentrum)
       node.style.opacity = '1';
       ring.style.boxShadow = '0 0 25px rgba(255,255,255,0.7)';
       ring.style.transform = 'scale(1.15)';
-    } else if (prereqs.includes(c.label)) {
-      // 2. Muss vorher fertig sein (Leuchtet ORANGE)
-      node.style.opacity = '1';
+      
+    } else if (preGens.has(c.label)) {
+      // 1. Voraussetzungen (ORANGE) - Je weiter weg, desto schwächer
+      const depth = preGens.get(c.label);
+      const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3); // Gen1: 1.0, Gen2: 0.7, Gen3: 0.4...
+      
+      node.style.opacity = intensity.toString();
       ring.style.borderColor = '#f59e0b';
       ring.style.color = '#f59e0b';
-      ring.style.boxShadow = '0 0 20px #f59e0b';
-      ring.style.transform = 'scale(1.05)';
-    } else if (successors.includes(c.label)) {
-      // 3. Gibt folgendes frei (Leuchtet GRÜN)
-      node.style.opacity = '1';
+      ring.style.boxShadow = `0 0 ${20 * intensity}px rgba(245, 158, 11, ${intensity})`;
+      ring.style.transform = depth === 1 ? 'scale(1.05)' : 'scale(1)';
+      
+    } else if (succGens.has(c.label)) {
+      // 2. Freigegebene Karten (GRÜN) - Je weiter weg, desto schwächer
+      const depth = succGens.get(c.label);
+      const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3); 
+      
+      node.style.opacity = intensity.toString();
       ring.style.borderColor = '#10b981';
       ring.style.color = '#10b981';
-      ring.style.boxShadow = '0 0 20px #10b981';
-      ring.style.transform = 'scale(1.05)';
+      ring.style.boxShadow = `0 0 ${20 * intensity}px rgba(16, 185, 129, ${intensity})`;
+      ring.style.transform = depth === 1 ? 'scale(1.05)' : 'scale(1)';
+      
     } else {
-      // 4. Unbeteiligte Karten stark abdunkeln
+      // 3. Völlig unbeteiligte Karten stark abdunkeln
       node.style.opacity = '0.15';
     }
   });
