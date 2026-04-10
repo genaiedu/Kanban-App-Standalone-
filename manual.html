@@ -94,7 +94,7 @@
           <a href="#ch-gruppieren" class="toc-link"><i data-lucide="link-2" style="width:14px;height:14px;"></i> Karten verketten (Gruppen)</a>
           <a href="#ch-loeschen" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Karten löschen</a>
           <a href="#ch-hintergrund" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Hintergrund anpassen</a>
-          <a href="#ch-agenda" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Agenda, Termine und Fristen</a>
+          <a href="#ch-termine" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Termine und Fristen</a>
           <a href="#ch-ubahn" class="toc-link"><i data-lucide="train" style="width:14px;height:14px;"></i> U-Bahn-Ansicht (Projektablauf)</a>
           <a href="#ch-export-import" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Exportieren, Image und KI Import</a>
           <a href="#ch-pwa" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> App installieren</a>
@@ -119,6 +119,7 @@
 
     </div>
   </div>
+  
   <!-- WAS IST KANBAN -->
   <div id="ch-was-ist-kanban" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="trello" style="width:24px;height:24px;"></i> Was ist ein Kanban-Board?</span></div>
@@ -293,16 +294,53 @@
     <p style="margin-top:8px;">Alle Einstellungen werden lokal auf diesem Gerät gespeichert.</p>
   </div>
 
-  <!-- AGENDA -->
-  <div id="ch-agenda" class="help-section" style="scroll-margin-top: 20px;">
-    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="calendar" style="width:24px;height:24px;"></i> Agenda, Termine und Fristen</span></div>
-    <p>Die <strong style="color:var(--text);">Agenda</strong> (Kalender-Symbol in der Board-Leiste) gibt einen Überblick über alle Aufgaben sortiert nach Fälligkeitsdatum.</p>
-    <p style="margin-top:8px;"><strong style="color:var(--text);">Welche Termine gibt es?</strong></p>
+  <!-- Termine -->
+  <div id="ch-termine" class="help-section" style="scroll-margin-top: 20px;">
+    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="calendar" style="width:24px;height:24px;"></i> Termine und Fristen</span></div>
+    <p>Das Kanban-Board hilft dir dabei, zeitliche Vorgaben nicht aus den Augen zu verlieren. Es gibt drei Arten von Fristen:</p>
     <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
-      <li><strong style="color:var(--text);">Fälligkeitsdatum pro Karte</strong> – Selbst im Bearbeitungsdialog gesetzt</li>
-      <li><strong style="color:var(--text);">Projekt-Deadline</strong> – Im Werkzeugkasten gesetzt, gilt für das gesamte Board als farbiger Countdown</li>
-      <li><strong style="color:var(--text);">Aging-Warnung</strong> – Karten, die zu lange in „In Bearbeitung" liegen, werden rötlich markiert. Das Aging kann mit dem <strong style="color:var(--text);">Sanduhr-Symbol</strong> pausiert werden (z.&nbsp;B. in den Ferien)</li>
+      <li><strong style="color:var(--text);">Fälligkeitsdatum pro Karte:</strong> Kannst du selbst im Bearbeitungsdialog der Karte setzen.</li>
+      <li><strong style="color:var(--text);">Projekt-Deadline:</strong> Wird im Werkzeugkasten gesetzt und gilt für das gesamte Board. Sie wird oben als farbiger Countdown angezeigt.</li>
+      <li><strong style="color:var(--text);">Aging-Warnung:</strong> Karten, die zu lange in der Spalte „In Bearbeitung“ liegen, werden rötlich markiert. Das "Aging" (die Alterung) kann mit dem <strong style="color:var(--text);">Sanduhr-Symbol</strong> auf der Karte pausiert werden (z.&nbsp;B. während der Schulferien).</li>
     </ul>
+  </div>
+
+   <!-- U-Bahn -->
+
+  <div id="ch-ubahn" class="help-section" style="scroll-margin-top: 20px;">
+    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="train" style="width:24px;height:24px;"></i> U-Bahn-Ansicht (Projektablauf)</span></div>
+
+    <div class="help-info" style="margin-top:0; margin-bottom:16px;">
+      <div class="help-info-title">Warum ein U-Bahn-Plan?</div>
+      <p style="margin-top:4px; margin-bottom:0;">Ein komplexes Projekt ist wie der Nahverkehr einer Großstadt: Jedes Teammitglied fährt auf seiner eigenen <strong>Linie</strong>. Die Aufgaben sind die <strong>Stationen</strong>. Wenn Personen zusammenarbeiten, kreuzen sich ihre Linien an einer <strong>Umsteigestation</strong>. Muss jemand auf die Vorarbeit eines anderen warten, zeigt der Plan, wo es zu Verzögerungen kommt. Diese Metapher macht selbst komplizierteste Projektabläufe sofort intuitiv verständlich!</p>
+    </div>
+
+    <p>Klicke auf dem Hauptbildschirm auf das <strong style="color:var(--text);">Zug-Symbol</strong>, um die U-Bahn-Ansicht zu öffnen. Diese Ansicht verwandelt dein Kanban-Board in einen intelligenten Liniennetzplan – ideal, um Engpässe und Abhängigkeiten sofort zu erkennen.</p>
+    
+    <p style="margin-top:10px;"><strong style="color:var(--text);">So liest du den Plan:</strong></p>
+    <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:6px;">
+      <li><strong style="color:var(--text);">Die Linien:</strong> Jede Person im Team bekommt eine eigene, farbige U-Bahn-Linie.</li>
+      <li><strong style="color:var(--text);">Die Stationen:</strong> Jede Aufgabe (Karte) ist eine Station auf der Linie. Klicke auf eine Station, um die Kartendetails zu öffnen oder die Karte in eine andere Spalte zu verschieben.</li>
+      <li><strong style="color:var(--text);">Umsteigestationen (Gruppen):</strong> Wenn mehrere Personen an einer Aufgabe arbeiten, treffen sich ihre Linien an einer großen, gemeinsamen Station.</li>
+      <li><strong style="color:var(--text);">Pulsierende Ringe:</strong> Aufgaben, die sich aktuell in der Spalte „In Bearbeitung“ befinden, haben einen animierten, pulsierenden Ring. So siehst du sofort, wo aktuell im Projekt gearbeitet wird.</li>
+    </ul>
+
+    <div class="help-tip">
+      <div class="help-tip-title"><i data-lucide="mouse-pointer-2" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px;"></i> Der Röntgen-Blick (Hover-Effekt)</div>
+      <p style="margin-top:4px; margin-bottom:0;">Wenn du mit der Maus über eine Station fährst (ohne zu klicken), dunkelt sich das restliche Netz ab und zeigt dir die genaue Kette der Abhängigkeiten für diese spezifische Aufgabe:</p>
+      <ul style="margin:6px 0 0 16px; display:flex; flex-direction:column; gap:2px;">
+        <li><strong style="color:#f59e0b;">Orange Stationen:</strong> Diese Aufgaben sind Voraussetzungen und müssen <em>vorher</em> erledigt werden.</li>
+        <li><strong style="color:var(--success);">Grüne Stationen:</strong> Diese Aufgaben werden durch die aktuelle Station <em>freigeschaltet</em> (Nachfolger).</li>
+      </ul>
+      <p style="margin-top:6px; margin-bottom:0; font-size:12px; opacity:0.8;">Je weiter entfernt eine Aufgabe in dieser Kette ist, desto schwächer leuchtet sie. So erkennst du sofort, ob eine Aufgabe ein kritischer Flaschenhals ist.</p>
+    </div>
+
+    <p style="margin-top:10px;"><strong style="color:var(--text);">Ansicht anpassen &amp; Export:</strong></p>
+    <p>Über das schwebende Kontroll-Panel auf der linken Seite kannst du den Abstand zwischen den Stationen mit einem Schieberegler (<i data-lucide="sliders-horizontal" style="width:14px;height:14px;vertical-align:-2px;"></i>) anpassen, falls das Netz zu gedrungen wirkt. Über das Download-Symbol (<i data-lucide="download" style="width:14px;height:14px;vertical-align:-2px;"></i>) lässt sich der gesamte U-Bahn-Plan als hochauflösendes Bild abspeichern oder ausdrucken.</p>
+  </div>
+
+  <div id="ch-export-import" class="help-section" style="scroll-margin-top: 20px;">
+    ... (hier geht es weiter mit deinem bestehenden Text) ...
   </div>
 
   <!-- EXPORT / IMAGE / KI IMPORT -->
