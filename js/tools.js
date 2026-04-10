@@ -87,7 +87,8 @@ window.showAiPrompt = () => {
         const depsStr  = (c.dependencies && c.dependencies.length > 0) ? ` (Abhängig von: ${c.dependencies.map(d => `[${d}]`).join(', ')})` : '';
         const grpStr   = c.groupId ? ` (Gruppe: ${c.groupId})` : '';
         const whoStr   = c.assignee ? ` [Zuständig: ${c.assignee}]` : ' [Zuständig: offen]';
-        currentBoardStateText += `   - ${lbl}${c.text}${whoStr}${depsStr}${grpStr}\n`;
+        const descStr  = c.description ? `\n      📝 ${c.description}` : '';
+        currentBoardStateText += `   - ${lbl}${c.text}${whoStr}${depsStr}${grpStr}${descStr}\n`;
       });
     }
     
@@ -108,7 +109,7 @@ WICHTIGSTE REGELN FÜR DIE PLANUNG:
 6. BOARD-ADMINISTRATION für Grüppen ab 6 Mitgliedern: Integriere in jedes Board zwingend eine Karte für die Person, die dieses Board selbst administriert und aktuell hält.
 7. KEINE ABHÄNGIGKEIT BEI ADMIN: Die Board-Administrations-Karte darf KEINE direkten Abhängigkeiten (deps) zu Produkt-Aufgaben haben, da das Board nur Mittel zum Zweck und nicht Teil des Produkts ist.
 8. VERKETTUNGEN: Nutze das Feld "gruppe" für Karten, die vertikal zusammengehören.
-9. BESCHREIBUNG: Füge für komplexe Aufgaben eine kurze Erläuterung im Feld 'beschreibung' hinzu.
+9. BESCHREIBUNG: Füge für jede nicht-triviale Aufgabe eine detaillierte Erläuterung im Feld 'beschreibung' hinzu (2–5 Sätze: Was ist zu tun, worauf ist zu achten, welches Ergebnis wird erwartet?). Bestehende Beschreibungen unbedingt übernehmen und nur verbessern, niemals löschen.
 
 AKTUELLER STAND DES BOARDS:
 ${currentBoardStateText}
@@ -134,7 +135,7 @@ Gib ein JSON-Array aus, wobei jedes Objekt eine Spalte repräsentiert:
       "wer": "Zuständige Person",
       "deps": ["Label1", "Label2"],
       "gruppe": "Optionaler Gruppenname",
-      "beschreibung": "Optional: Detaillierte Erläuterung der Aufgabe (mehrere Sätze)"
+      "beschreibung": "Detaillierte Erläuterung: Was ist zu tun, worauf ist zu achten, welches Ergebnis wird erwartet? (2–5 Sätze, bei einfachen Aufgaben weglassen)"
     }
   ]
 }`;
@@ -332,7 +333,8 @@ window.parseImportPreview = () => {
     col.cards.forEach(c => {
       const prio = c.priority ? ` <span class="card-priority priority-${c.priority}" style="font-size:9px;">${c.priority}</span>` : '';
       const lbl  = c.label ? `<strong>[${c.label}]</strong> ` : '<strong style="color:var(--accent);">[NEU]</strong> ';
-      html += `<div style="font-size:12px; margin-left:10px; opacity:0.9;">→ ${lbl}${escHtml(c.text)}${prio}${c.due ? ` · 📅 ${c.due}` : ''}${c.assignee ? ` · 👤 ${escHtml(c.assignee)}` : ''}</div>`;
+      const desc = c.description ? `<div style="font-size:11px; margin-left:18px; opacity:0.65; font-style:italic; margin-top:2px;">📝 ${escHtml(c.description)}</div>` : '';
+      html += `<div style="font-size:12px; margin-left:10px; opacity:0.9;">→ ${lbl}${escHtml(c.text)}${prio}${c.due ? ` · 📅 ${c.due}` : ''}${c.assignee ? ` · 👤 ${escHtml(c.assignee)}` : ''}</div>${desc}`;
     });
     html += '</div>';
   });

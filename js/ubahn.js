@@ -636,6 +636,9 @@ window.ubahn_saveDescription = function(textarea) {
   const cardId = textarea.dataset.cardid;
   const colId  = textarea.dataset.colid;
   updateCard(S.currentBoard.id, colId, cardId, { description });
+  // S.cards im Speicher aktualisieren, damit der Wert beim nächsten Öffnen korrekt angezeigt wird
+  if (typeof window.loadCards === 'function') window.loadCards(colId);
+  if (_data) _data = prepareBoardData();
 };
 
 // Kartendetail von Hauptboard aus öffnen (ohne U-Bahn offen zu haben)
