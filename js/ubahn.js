@@ -268,15 +268,17 @@ function createTrackPath(pts) {
   return d;
 }
 
-// ── 3. RENDERN ───────────────────────────────────────────────// 
+// ── 3. RENDERN ───────────────────────────────────────────────
+// ── GEWÜNSCHTE RENDER-FUNKTION FÜR DIE U-BAHN KARTE ──
 window.renderUBahnMap = function() {
   _currentView = 'map'; 
   _currentPerson = null;
   
-  ensureControls(); 
+  ensureControls(); // Stellt sicher, dass Regler etc. da sind
   document.getElementById('ubahn-back-btn').style.display = 'none';
   const container = document.getElementById('ubahn-content');
   
+  // Daten sammeln und Grid berechnen
   _data = prepareBoardData();
   const { boardData, people, lineColors, allCardsFlat } = _data;
   if (!people.length) return;
@@ -284,19 +286,24 @@ window.renderUBahnMap = function() {
   _lastGrid = calculateGrid(boardData, people);
   const { placedCards, transferStations, maxRows, trackPoints } = _lastGrid;
   
+  // Maße für die Canvas-Fläche
   const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
   const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
   // 1. SVG LAYER (Hintergrund-Schienen)
   let svg = `<svg id="ubahn-svg-layer" width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;transition:opacity 0.25s ease;">`;
+  
+  // Zeichnet die dicken grauen Betonschienen und die farbigen Linien darauf
   people.forEach(p => {
     svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
     svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
   });
   svg += `</svg>`;
 
+  // Helper für den Status-Check
   const isInProgress = c => c.colName && c.colName.toLowerCase().includes('bearb');
 
+  // 2. HTML LAYER VORBEREITEN (Animationen & Namen)
   let html = `<style>
     @keyframes ubahn-pulse {
       0%   { transform:scale(1);   opacity:0.85; }
@@ -309,7 +316,7 @@ window.renderUBahnMap = function() {
     }
   </style>`;
   
-  // 2. START- & ENDPUNKTE (Namen)
+  // Namen der Personen an Start- und Endpunkten platzieren
   people.forEach(p => {
     const sPt = trackPoints[p][0], ePt = trackPoints[p][maxRows], color = lineColors[p];
     html += `<button onclick='window.renderUBahnPerson(${JSON.stringify(p)})' style="position:absolute;left:${sPt.x - 60}px;top:${sPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:1005;"><div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;font-weight:900;font-size:12px;color:var(--text);box-shadow:0 4px 16px ${color}44;">${esc(p)}</div></button>`;
@@ -317,34 +324,34 @@ window.renderUBahnMap = function() {
     html += `<div style="position:absolute;left:${ePt.x-12}px;top:${ePt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
   });
 
-  // 3. GRUPPEN-PILLEN & DUNKLE SCHIENEN (Mit Klassen für Hover-Effekt)
-  transferStations.forEach((s, idx) => {
+  // 3. GRUPPEN-PILLEN (Immer weiß, über den Schienen)
+  transferStations.forEach(s => {
     const xs = s.involved.map(p => trackPoints[p][s.row].x);
     const xMin = Math.min(...xs), xMax = Math.max(...xs);
     const y = s.row * ROW_HEIGHT + MARGIN_TOP;
     const width = (xMax - xMin) + 64;
     const lineWidth = (xMax - xMin);
     
-    // Die weiße Kapsel
+    // Die Kapsel (Hintergrund): Fest auf Weiß für den "Plan-Look"
     html += `
-      <div id="ubahn-pill-${idx}" class="ubahn-group-element" data-row="${s.row}"
-           style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:#ffffff; border:2px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none; transition: opacity 0.25s ease;"></div>
+      <div style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:#ffffff; border:2px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none;"></div>
     `;
 
-    // Die dunkle Verbindungslinie (über dem Weiß)
+    // Die dunkle Verbindungsschiene (Liegt ÜBER dem Weiß der Pille)
     html += `
-      <div id="ubahn-line-${idx}" class="ubahn-group-element" data-row="${s.row}"
-           style="position:absolute; left:${xMin}px; top:${y - 4}px; width:${lineWidth}px; height:8px; background:#2d3748; z-index:1001; pointer-events:none; transition: opacity 0.25s ease;"></div>
+      <div style="position:absolute; left:${xMin}px; top:${y - 4}px; width:${lineWidth}px; height:8px; background:#2d3748; z-index:1001; pointer-events:none;"></div>
     `;
   });
 
-  // 4. STATIONEN (Bahnhöfe)
+  // 4. EINZELNE STATIONEN (Bahnhöfe)
   placedCards.forEach(k => {
     const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
     const active = isInProgress(k);
     
+    // Pulsierender Ring für Karten in Bearbeitung
     if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pt.y-30}px;width:60px;height:60px;border:3px solid ${color};z-index:1003;transition:opacity 0.25s ease;"></div>`;
     
+    // Der klickbare Bahnhofs-Ring
     html += `
       <div id="ubahn-node-${k.label}" class="ubahn-station"
            onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
@@ -359,6 +366,7 @@ window.renderUBahnMap = function() {
       </div>`;
   });
   
+  // 5. FINALES RENDERING IN DEN CONTAINER
   container.innerHTML = `<div style="position:relative;width:${mapW}px;height:${mapH}px;margin:0 auto;">${svg}${html}</div>`;
 };
 
@@ -593,23 +601,27 @@ window.openUBahnModal = function() {
   renderUBahnMap();
 };
 
-// ── 7. HOVER RÖNTGEN-BLICK (ABHÄNGIGKEITEN) ──────────────────// 
-  window.ubahnHoverCard = function(label) {
+// ── 7. HOVER RÖNTGEN-BLICK (ABHÄNGIGKEITEN) ──────────────────
+window.ubahnHoverCard = function(label) {
   if (!_data || !_data.allCardsFlat) return;
 
   const allCards = _data.allCardsFlat;
   const hoveredCard = allCards.find(c => c.label === label);
   if (!hoveredCard) return;
 
-  // Hilfsfunktion für den Abhängigkeits-Baum
+  // Hilfsfunktion: Sucht den kompletten Baum ab und berechnet die "Generation" (Tiefe)
   function getGenerations(startLabel, direction) {
     const generations = new Map();
     const queue = [{ label: startLabel, depth: 0 }];
     const visited = new Set([startLabel]);
+
     while(queue.length > 0) {
       const { label: currLabel, depth } = queue.shift();
+
       if (depth > 0) generations.set(currLabel, depth);
+
       if (direction === 'up') { 
+        // Rückwärts: Voraussetzungen (Ancestors)
         const card = allCards.find(c => c.label === currLabel);
         if (card && card.deps) {
           card.deps.forEach(depLabel => {
@@ -620,6 +632,7 @@ window.openUBahnModal = function() {
           });
         }
       } else { 
+        // Vorwärts: Gibt folgendes frei (Descendants)
         const successors = allCards.filter(c => (c.deps || []).includes(currLabel));
         successors.forEach(succ => {
           if (!visited.has(succ.label)) {
@@ -632,49 +645,49 @@ window.openUBahnModal = function() {
     return generations;
   }
 
+  // Komplette Stammbäume berechnen
   const preGens = getGenerations(label, 'up');
   const succGens = getGenerations(label, 'down');
 
-  // 1. SVG Linien abdunkeln
+  // Hintergrund-Linien stark abdunkeln
   const svgLayer = document.getElementById('ubahn-svg-layer');
   if (svgLayer) svgLayer.style.opacity = '0.15';
 
-  // 2. Pillen & Dunkle Schienen abdunkeln
-  const placed = _lastGrid.placedCards.find(pc => pc.label === label);
-  const currentRow = placed ? placed.row : -1;
-
-  document.querySelectorAll('.ubahn-group-element').forEach(el => {
-    const elRow = parseInt(el.getAttribute('data-row'));
-    el.style.opacity = (elRow === currentRow) ? '1' : '0.15';
-  });
-
-  // 3. Karten-Nodes & Ringe steuern
   allCards.forEach(c => {
     const node = document.getElementById(`ubahn-node-${c.label}`);
     const ring = document.getElementById(`ubahn-ring-${c.label}`);
     if (!node || !ring) return;
 
     if (c.label === label) {
+      // 0. Die aktuell anvisierte Karte (Zentrum)
       node.style.opacity = '1';
       ring.style.boxShadow = '0 0 25px rgba(255,255,255,0.7)';
       ring.style.transform = 'scale(1.15)';
+      
     } else if (preGens.has(c.label)) {
+      // 1. Voraussetzungen (ORANGE) - Je weiter weg, desto schwächer
       const depth = preGens.get(c.label);
-      const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3);
+      const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3); // Gen1: 1.0, Gen2: 0.7, Gen3: 0.4...
+      
       node.style.opacity = intensity.toString();
       ring.style.borderColor = '#f59e0b';
       ring.style.color = '#f59e0b';
       ring.style.boxShadow = `0 0 ${20 * intensity}px rgba(245, 158, 11, ${intensity})`;
       ring.style.transform = depth === 1 ? 'scale(1.05)' : 'scale(1)';
+      
     } else if (succGens.has(c.label)) {
+      // 2. Freigegebene Karten (GRÜN) - Je weiter weg, desto schwächer
       const depth = succGens.get(c.label);
       const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3); 
+      
       node.style.opacity = intensity.toString();
       ring.style.borderColor = '#10b981';
       ring.style.color = '#10b981';
       ring.style.boxShadow = `0 0 ${20 * intensity}px rgba(16, 185, 129, ${intensity})`;
       ring.style.transform = depth === 1 ? 'scale(1.05)' : 'scale(1)';
+      
     } else {
+      // 3. Völlig unbeteiligte Karten stark abdunkeln
       node.style.opacity = '0.15';
     }
   });
@@ -682,17 +695,20 @@ window.openUBahnModal = function() {
 
 window.ubahnLeaveCard = function() {
   if (!_data || !_data.allCardsFlat) return;
+  
+  // Hintergrund-Linien wiederherstellen
   const svgLayer = document.getElementById('ubahn-svg-layer');
   if (svgLayer) svgLayer.style.opacity = '1';
 
-  document.querySelectorAll('.ubahn-group-element').forEach(el => el.style.opacity = '1');
-
+  // Alle Karten auf Normalzustand zurücksetzen
   _data.allCardsFlat.forEach(c => {
     const node = document.getElementById(`ubahn-node-${c.label}`);
     const ring = document.getElementById(`ubahn-ring-${c.label}`);
     if (!node || !ring) return;
+
     const originalColor = ring.getAttribute('data-color');
     const isActive = ring.getAttribute('data-active') === 'true';
+
     node.style.opacity = '1';
     ring.style.transform = 'scale(1)';
     ring.style.borderColor = originalColor;
