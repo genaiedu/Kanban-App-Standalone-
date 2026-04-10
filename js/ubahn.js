@@ -143,10 +143,9 @@ function calculateGrid(boardData, people) {
   people.forEach(p => personNextRow[p] = 1);
   let maxRow = 0;
   const cardRowById = {};
+  const rowEvents = {};
 
-  // NEU: Wir sammeln erst alle Events pro Zeile, bevor wir Spuren verschieben
-  const rowEvents = {}; 
-
+  // --- PASS 1: ZEITPLAN & GRUPPEN ERFASSEN ---
   boardData.forEach(col => {
     const phaseStartRow = maxRow;
     const sortedCards = topoSortCards(col.karten);
@@ -172,7 +171,6 @@ function calculateGrid(boardData, people) {
       const row = Math.max(depMinRow, ...inv.map(p => personNextRow[p]));
       if (row > maxRow) maxRow = row;
 
-      // Event für diese Zeile registrieren
       if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
       inv.forEach(p => {
          personNextRow[p] = row + 1;
@@ -182,8 +180,7 @@ function calculateGrid(boardData, people) {
       if (card.gruppe) {
         const groupCards = col.karten.filter(c => c.gruppe === card.gruppe);
         groupCards.forEach(gc => { cardRowById[gc.id] = row; cardRowById[gc.label] = row; });
-        
-        // Gruppe nur einmal pro Zeile in die Liste aufnehmen
+
         if (!rowEvents[row].groups.find(g => g.name === card.gruppe)) {
             rowEvents[row].groups.push({ name: card.gruppe, involved: [...inv] });
             transferStations.push({ name: card.gruppe, row, involved: [...inv] });
@@ -199,22 +196,47 @@ function calculateGrid(boardData, people) {
     if (maxRow === phaseStartRow) maxRow++;
   });
 
-  // --- PASS 2: GLEIS-ZUORDNUNG (Die Linien lenken) ---
+  // --- PASS 2: GLEIS-ZUORDNUNG (Alle Gruppen als Blöcke sortieren!) ---
   const rowLanes = { 0: [...people] };
   let currentLanes = [...people];
 
   for (let r = 1; r <= maxRow + 1; r++) {
     if (rowEvents[r] && rowEvents[r].groups.length > 0) {
-      // Eine Gruppe auf dieser Zeile gefunden -> Spuren magnetisch zusammenziehen!
-      const mainGroup = rowEvents[r].groups[0].involved;
-      const others = currentLanes.filter(p => !mainGroup.includes(p));
+      
+      const personCluster = {};
+      const clusterAvg = {};
 
-      // Durchschnittliche Position der Gruppenmitglieder finden
-      let avg = mainGroup.reduce((s, p) => s + currentLanes.indexOf(p), 0) / mainGroup.length;
-      let target = Math.max(0, Math.min(others.length, Math.round(avg - (mainGroup.length / 2))));
+      // Standard: Jeder fährt auf seinem eigenen Gleis (Cluster)
+      currentLanes.forEach(p => { personCluster[p] = p; }); 
 
-      // Neue Spur-Reihenfolge erzwingen
-      currentLanes = [...others.slice(0, target), ...mainGroup, ...others.slice(target)];
+      // Wenn Personen in einer Gruppe sind, bekommen sie dieselbe Cluster-ID
+      rowEvents[r].groups.forEach(grp => {
+        grp.involved.forEach(p => { personCluster[p] = grp.name; });
+      });
+
+      // Durchschnittliche Position für jeden Cluster berechnen
+      currentLanes.forEach(p => {
+        const cluster = personCluster[p];
+        if (!clusterAvg[cluster]) clusterAvg[cluster] = { sum: 0, count: 0, members: [] };
+        clusterAvg[cluster].sum += currentLanes.indexOf(p);
+        clusterAvg[cluster].count++;
+        clusterAvg[cluster].members.push(p);
+      });
+
+      const clusters = Object.keys(clusterAvg).map(k => ({
+        id: k,
+        avg: clusterAvg[k].sum / clusterAvg[k].count,
+        members: clusterAvg[k].members
+      }));
+
+      // Cluster so sortieren, dass die Kreuzungen minimal bleiben
+      clusters.sort((a, b) => a.avg - b.avg);
+
+      // Spuren neu aufbauen: Cluster bleiben zwingend nebeneinander!
+      currentLanes = clusters.flatMap(c => {
+        // Innerhalb der Gruppe die alte Reihenfolge bewahren
+        return c.members.sort((a, b) => currentLanes.indexOf(a) - currentLanes.indexOf(b));
+      });
     }
     rowLanes[r] = [...currentLanes];
   }
@@ -223,15 +245,13 @@ function calculateGrid(boardData, people) {
   const trackPoints = {};
   people.forEach(p => trackPoints[p] = []);
   const personCurrentX = {};
-  
+
   for (let r = 0; r <= maxRow + 1; r++) {
     if (rowLanes[r]) {
-      // Wenn sich die Spurreihenfolge geändert hat, ändern sich hier die X-Koordinaten
       rowLanes[r].forEach((p, i) => {
         personCurrentX[p] = MARGIN_H + i * TRACK_SPACING;
       });
     }
-    // Durch die Änderung der X-Koordinate zeichnet SVG nun automatisch schöne Kurven
     people.forEach(p => {
       trackPoints[p].push({ x: personCurrentX[p], y: MARGIN_TOP + r * ROW_HEIGHT });
     });
@@ -239,6 +259,7 @@ function calculateGrid(boardData, people) {
 
   return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints };
 }
+
 
 function createTrackPath(pts) {
   if (!pts.length) return '';
