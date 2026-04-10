@@ -284,22 +284,16 @@ window.renderUBahnMap = function() {
   const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
   const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
-  // SVG Layer mit ID und Transition für den Hover-Effekt
+  // ── 1. SVG LAYER (LINIEN & SCHIENEN) ──
   let svg = `<svg id="ubahn-svg-layer" width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;transition:opacity 0.25s ease;">`;
   
-  // Linien zeichnen
   people.forEach(p => svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`);
   people.forEach(p => svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`);
   
-  // FIX: Transfer-Stationen präzise zeichnen (keine falsche Bounding-Box mehr)
   transferStations.forEach(s => {
     const xs = s.involved.map(p => trackPoints[p][s.row].x);
     const x1 = Math.min(...xs), x2 = Math.max(...xs), y = s.row * ROW_HEIGHT + MARGIN_TOP;
-    
-    // Verbindungslinie
     svg += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="var(--text-muted)" stroke-width="8" stroke-linecap="round" opacity="0.5"/>`;
-    
-    // Ringe NUR um die beteiligten Linien
     s.involved.forEach(p => {
       const stationX = trackPoints[p][s.row].x;
       svg += `<rect x="${stationX-24}" y="${y-24}" width="48" height="48" rx="24" fill="#ffffff15" stroke="var(--border)" stroke-width="3"/>`;
@@ -321,7 +315,7 @@ window.renderUBahnMap = function() {
     }
   </style>`;
   
-  // Linien-Start- und Endpunkte (Namen der Personen)
+  // ── 2. START- & ENDPUNKTE ──
   people.forEach(p => {
     const sPt = trackPoints[p][0], ePt = trackPoints[p][maxRows], color = lineColors[p];
     html += `<button onclick='window.renderUBahnPerson(${JSON.stringify(p)})' style="position:absolute;left:${sPt.x - 60}px;top:${sPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:1001;"><div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;font-weight:900;font-size:12px;color:var(--text);box-shadow:0 4px 16px ${color}44;">${esc(p)}</div></button>`;
@@ -329,7 +323,20 @@ window.renderUBahnMap = function() {
     html += `<div style="position:absolute;left:${ePt.x-12}px;top:${ePt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
   });
 
-  // UPDATE: Stationen mit Hover-Events und IDs ausstatten
+  // ── 3. GRUPPEN-PILLEN (HINTERGRUND-KAPSELN) ──
+  // Hier wird die "Pille" gezeichnet, wenn Linien an einer Station zusammenkommen
+  transferStations.forEach(s => {
+    const xs = s.involved.map(p => trackPoints[p][s.row].x);
+    const xMin = Math.min(...xs), xMax = Math.max(...xs);
+    const y = s.row * ROW_HEIGHT + MARGIN_TOP;
+    const width = (xMax - xMin) + 64; // Breite der Pille (Abstand + Puffer für Rundung)
+    
+    html += `
+      <div style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:var(--surface); border:1px solid var(--border); border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none;"></div>
+    `;
+  });
+
+  // ── 4. EINZELNE STATIONEN (STOPS) ──
   placedCards.forEach(k => {
     const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
     const active = isInProgress(k);
@@ -352,7 +359,6 @@ window.renderUBahnMap = function() {
   
   container.innerHTML = `<div style="position:relative;width:${mapW}px;height:${mapH}px;margin:0 auto;">${svg}${html}</div>`;
 };
-
 // ── 4. PERSONEN ANSICHT ──────────────────────────────────────
 window.renderUBahnPerson = function(workerName) {
   _currentView = 'person'; _currentPerson = workerName;
