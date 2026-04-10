@@ -274,20 +274,36 @@ window.renderUBahnMap = function() {
   ensureControls();
   document.getElementById('ubahn-back-btn').style.display = 'none';
   const container = document.getElementById('ubahn-content');
+  
   _data = prepareBoardData();
   const { boardData, people, lineColors, allCardsFlat } = _data;
   if (!people.length) return;
+  
   _lastGrid = calculateGrid(boardData, people);
   const { placedCards, transferStations, maxRows, trackPoints } = _lastGrid;
-  const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2, mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
+  const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
+  const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
-  let svg = `<svg width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;">`;
+  // SVG Layer mit ID und Transition für den Hover-Effekt
+  let svg = `<svg id="ubahn-svg-layer" width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;transition:opacity 0.25s ease;">`;
+  
+  // Linien zeichnen
   people.forEach(p => svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`);
   people.forEach(p => svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`);
+  
+  // FIX: Transfer-Stationen präzise zeichnen (keine falsche Bounding-Box mehr)
   transferStations.forEach(s => {
     const xs = s.involved.map(p => trackPoints[p][s.row].x);
     const x1 = Math.min(...xs), x2 = Math.max(...xs), y = s.row * ROW_HEIGHT + MARGIN_TOP;
-    svg += `<rect x="${x1-24}" y="${y-24}" width="${(x2-x1)+48}" height="48" rx="24" fill="#ffffff15" stroke="var(--border)" stroke-width="3"/><line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="var(--text-muted)" stroke-width="8" stroke-linecap="round" opacity="0.6"/>`;
+    
+    // Verbindungslinie
+    svg += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="var(--text-muted)" stroke-width="8" stroke-linecap="round" opacity="0.5"/>`;
+    
+    // Ringe NUR um die beteiligten Linien
+    s.involved.forEach(p => {
+      const stationX = trackPoints[p][s.row].x;
+      svg += `<rect x="${stationX-24}" y="${y-24}" width="48" height="48" rx="24" fill="#ffffff15" stroke="var(--border)" stroke-width="3"/>`;
+    });
   });
   svg += `</svg>`;
 
@@ -304,6 +320,8 @@ window.renderUBahnMap = function() {
       animation: ubahn-pulse 1.8s ease-out infinite;
     }
   </style>`;
+  
+  // Linien-Start- und Endpunkte (Namen der Personen)
   people.forEach(p => {
     const sPt = trackPoints[p][0], ePt = trackPoints[p][maxRows], color = lineColors[p];
     html += `<button onclick='window.renderUBahnPerson(${JSON.stringify(p)})' style="position:absolute;left:${sPt.x - 60}px;top:${sPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:1001;"><div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;font-weight:900;font-size:12px;color:var(--text);box-shadow:0 4px 16px ${color}44;">${esc(p)}</div></button>`;
@@ -311,19 +329,27 @@ window.renderUBahnMap = function() {
     html += `<div style="position:absolute;left:${ePt.x-12}px;top:${ePt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
   });
 
+  // UPDATE: Stationen mit Hover-Events und IDs ausstatten
   placedCards.forEach(k => {
     const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
     const active = isInProgress(k);
-    if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pt.y-30}px;width:60px;height:60px;border:3px solid ${color};z-index:1001;"></div>`;
+    
+    if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pt.y-30}px;width:60px;height:60px;border:3px solid ${color};z-index:1001;transition:opacity 0.25s ease;"></div>`;
+    
     html += `
-      <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
-           style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;justify-content:center;align-items:center;cursor:pointer;z-index:1002;" class="ubahn-station">
-        <div style="position:relative; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4)${active ? `,0 0 18px ${color}99` : ''};">
+      <div id="ubahn-node-${k.label}" class="ubahn-station"
+           onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
+           onmouseenter='window.ubahnHoverCard(${JSON.stringify(k.label)})'
+           onmouseleave='window.ubahnLeaveCard()'
+           style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;justify-content:center;align-items:center;cursor:pointer;z-index:1002;transition:opacity 0.25s ease;">
+        <div id="ubahn-ring-${k.label}" data-color="${color}" data-active="${active}" 
+             style="position:relative; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4)${active ? `,0 0 18px ${color}99` : ''}; transition:all 0.25s ease;">
           ${esc(k.label)}
           ${isHigh ? `<span style="position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid var(--surface); z-index:10;"></span>` : ''}
         </div>
       </div>`;
   });
+  
   container.innerHTML = `<div style="position:relative;width:${mapW}px;height:${mapH}px;margin:0 auto;">${svg}${html}</div>`;
 };
 
