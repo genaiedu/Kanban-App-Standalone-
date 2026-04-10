@@ -47,7 +47,13 @@ function ensureControls() {
   panel.id = 'ubahn-controls-panel';
   panel.className = 'no-print';
   panel.style.cssText = `position: absolute; left: 20px; top: 100px; background: rgba(var(--panel-rgb),1); border: 1px solid var(--border); width: 56px; padding: 22px 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; gap: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); z-index: 10001;`;
-  panel.innerHTML = `<button onclick="window.exportUBahnAsImage()" style="background:var(--surface2); border:1px solid var(--border); width:38px; height:38px; border-radius:50%; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center;"><i data-lucide="download" style="width:20px; height:20px;"></i></button><div style="height:1px; width:24px; background:var(--border);"></div><div style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:1px;">Abstand</div><div style="height: 140px; display: flex; align-items: center;"><input type="range" min="60" max="450" value="${ROW_HEIGHT}" oninput="window.updateUBahnRowHeight(this.value)" style="width: 130px; transform: rotate(-90deg); cursor: pointer; accent-color: var(--accent); margin: 0; background:transparent;"></div><div id="val-row" style="font-size:10px; font-weight:900; color:var(--text);">${ROW_HEIGHT}px</div>`;
+panel.innerHTML = `
+    <button onclick="window.startUBahnSimulation()" style="background:var(--surface2); border:1px solid var(--border); width:38px; height:38px; border-radius:50%; color:#10b981; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 10px rgba(16,185,129,0.2);" title="Simulation starten"><i data-lucide="play" style="width:20px; height:20px; fill:currentColor;"></i></button>
+    <button onclick="window.exportUBahnAsImage()" style="background:var(--surface2); border:1px solid var(--border); width:38px; height:38px; border-radius:50%; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Als Bild exportieren"><i data-lucide="download" style="width:20px; height:20px;"></i></button>
+    <div style="height:1px; width:24px; background:var(--border);"></div>
+    <div style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:1px;">Abstand</div>
+    <div style="height: 140px; display: flex; align-items: center;"><input type="range" min="60" max="450" value="${ROW_HEIGHT}" oninput="window.updateUBahnRowHeight(this.value)" style="width: 130px; transform: rotate(-90deg); cursor: pointer; accent-color: var(--accent); margin: 0; background:transparent;"></div>
+    <div id="val-row" style="font-size:10px; font-weight:900; color:var(--text);">${ROW_HEIGHT}px</div>`;
   modal.appendChild(panel);
   if (typeof reloadIcons === 'function') reloadIcons();
 }
@@ -698,4 +704,103 @@ window.ubahnLeaveCard = function() {
     ring.style.color = 'var(--text)';
     ring.style.boxShadow = isActive ? `0 4px 14px rgba(0,0,0,0.4), 0 0 18px ${originalColor}99` : '0 4px 14px rgba(0,0,0,0.4)';
   });
+};
+
+// ── 8. SIMULATIONS-ENGINE (ZÜGE FAHREN LASSEN) ──────────────────
+window.startUBahnSimulation = function() {
+  if (!_lastGrid || !_data) return;
+  const { placedCards, maxRows, trackPoints } = _lastGrid;
+  const { people, lineColors } = _data;
+  const container = document.getElementById('ubahn-content').querySelector('div');
+  
+  // Alte Züge entfernen, falls die Simulation schon lief
+  document.querySelectorAll('.ubahn-train').forEach(e => e.remove());
+
+  // Status-Variablen für die Simulation
+  const trainPos = {}; // Aktuelle Zeile (Row) für jeden Zug
+  const completedCards = new Set(); // Welche Stationen wurden schon abgefahren?
+  const trains = {};
+
+  // Züge (als UI-Elemente) auf Startposition setzen
+  people.forEach(p => {
+    trainPos[p] = 0;
+    const pt = trackPoints[p][0];
+    const train = document.createElement('div');
+    train.className = 'ubahn-train';
+    train.style.cssText = `position:absolute; left:0; top:0; width:32px; height:32px; background:#fff; border:6px solid ${lineColors[p]}; border-radius:50%; box-shadow:0 4px 15px rgba(0,0,0,0.5); z-index:2000; transform:translate(${pt.x - 16}px, ${pt.y - 16}px); transition:transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s;`;
+    container.appendChild(train);
+    trains[p] = train;
+  });
+
+  // Der "Herzschlag" der Simulation
+  function simulationTick() {
+    let movedAnyTrain = false;
+    let allFinished = true;
+
+    people.forEach(p => {
+      if (trainPos[p] >= maxRows) return; // Zug ist im Ziel
+      allFinished = false;
+
+      const nextRow = trainPos[p] + 1;
+      const cardAtNextRow = placedCards.find(c => c.wer === p && c.row === nextRow);
+      let canMove = true;
+
+      // 1. Abhängigkeits-Check: Fehlt noch was?
+      if (cardAtNextRow && cardAtNextRow.deps) {
+        cardAtNextRow.deps.forEach(depLabel => {
+          if (!completedCards.has(depLabel)) canMove = false;
+        });
+      }
+
+      // 2. Gruppen-Check: Alle müssen gleichzeitig ankommen!
+      if (cardAtNextRow && cardAtNextRow.gruppe && canMove) {
+        const groupMembers = placedCards.filter(c => c.gruppe === cardAtNextRow.gruppe).map(c => c.wer);
+        groupMembers.forEach(member => {
+          // Wenn ein Gruppenmitglied noch weiter hinten hängt, warten wir
+          if (trainPos[member] < nextRow - 1) canMove = false;
+        });
+      }
+
+      if (canMove) {
+        // ZUG FÄHRT!
+        trainPos[p] = nextRow;
+        movedAnyTrain = true;
+        trains[p].style.boxShadow = `0 4px 15px rgba(0,0,0,0.5)`; // Normales Aussehen
+        
+        // Karte als erledigt markieren, wenn er ankommt
+        if (cardAtNextRow) completedCards.add(cardAtNextRow.label);
+
+        // UI animieren
+        const pt = trackPoints[p][nextRow];
+        trains[p].style.transform = `translate(${pt.x - 16}px, ${pt.y - 16}px)`;
+        
+        // Station aufleuchten lassen
+        if (cardAtNextRow) {
+           const ring = document.getElementById(`ubahn-ring-${cardAtNextRow.label}`);
+           if(ring) {
+             setTimeout(() => { 
+                ring.style.transform = 'scale(1.2)';
+                ring.style.background = lineColors[p];
+                ring.style.color = '#fff';
+             }, 800);
+           }
+        }
+      } else {
+        // ZUG WARTET (Rotes Warn-Pulsieren)
+        trains[p].style.boxShadow = `0 0 0 6px rgba(239,68,68,0.4), 0 0 20px rgba(239,68,68,0.8)`;
+      }
+    });
+
+    // Nächster Tick nach 1,2 Sekunden (damit man die Fahrt sieht)
+    if (!allFinished) {
+      setTimeout(simulationTick, 1200);
+    } else {
+      if (typeof window.showToast === 'function') window.showToast('✅ Projekt-Simulation erfolgreich beendet!', 'success');
+      setTimeout(() => document.querySelectorAll('.ubahn-train').forEach(e => e.remove()), 3000);
+    }
+  }
+
+  // Simulation starten!
+  if (typeof window.showToast === 'function') window.showToast('🚂 Simulation startet...', 'info');
+  setTimeout(simulationTick, 500); // Kurze Pause vor dem Start
 };
