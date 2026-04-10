@@ -339,11 +339,36 @@
     <div class="modal-title">Karte bearbeiten</div>
     <input type="hidden" id="edit-card-id"/>
     <input type="hidden" id="edit-card-col"/>
+    
     <div class="form-group">
       <label>Text</label>
-      <textarea id="edit-card-text" class="add-card-textarea" rows="3"></textarea>
+      <textarea id="edit-card-text" class="add-card-textarea" rows="2"></textarea>
     </div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+
+    <div class="form-group">
+      <label>Beschreibung</label>
+      <textarea id="edit-card-description" rows="3" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Geschätzte Bearbeitungszeit</label>
+      <div style="display: flex; gap: 10px;">
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+          <input type="number" id="edit-card-time-d" min="0" placeholder="0" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);">
+          <span style="font-size: 10px; color: var(--text-muted);">Tage</span>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+          <input type="number" id="edit-card-time-h" min="0" max="23" placeholder="0" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);">
+          <span style="font-size: 10px; color: var(--text-muted);">Stunden</span>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+          <input type="number" id="edit-card-time-m" min="0" max="59" placeholder="0" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);">
+          <span style="font-size: 10px; color: var(--text-muted);">Minuten</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top: 12px;">
       <div class="form-group">
         <label>Priorität</label>
         <select id="edit-card-priority" class="priority-select" style="width:100%">
@@ -355,22 +380,23 @@
       </div>
       <div class="form-group">
         <label>Fälligkeitsdatum</label>
-        <input type="date" id="edit-card-due" style="color-scheme:dark; width:100%;"/>
+        <input type="date" id="edit-card-due" style="color-scheme:dark; width:100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text);"/>
       </div>
     </div>
+    
     <div class="form-group">
       <label>Zuweisen an</label>
       <select id="edit-card-assignee" class="priority-select" style="width:100%">
         <option value="">– Niemand –</option>
       </select>
     </div>
+    
     <div class="modal-actions">
       <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-edit-card')">Abbrechen</button>
       <button class="btn-sm btn-sm-primary" onclick="saveEditCard()">Speichern</button>
     </div>
   </div>
 </div>
-
 
   
 <div id="modal-edit-board-meta" class="modal-overlay" style="display:none;" onclick="closeModal('modal-edit-board-meta')">
