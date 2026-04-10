@@ -324,13 +324,26 @@ window.renderUBahnMap = function() {
     html += `<div style="position:absolute;left:${ePt.x-12}px;top:${ePt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
   });
 
-  // 3. GRUPPEN-PILLEN (Immer weiß, über den Schienen)
+// 3. GRUPPEN-PILLEN (Immer weiß, über den Schienen)
   transferStations.forEach(s => {
     const xs = s.involved.map(p => trackPoints[p][s.row].x);
     const xMin = Math.min(...xs), xMax = Math.max(...xs);
     const y = s.row * ROW_HEIGHT + MARGIN_TOP;
     const width = (xMax - xMin) + 64;
     const lineWidth = (xMax - xMin);
+    
+    // NEU: id="ubahn-pill-${s.row}" und class="ubahn-group-element" sowie transition hinzugefügt
+    html += `
+      <div id="ubahn-pill-${s.row}" class="ubahn-group-element" 
+           style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:#ffffff; border:2px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none; transition: opacity 0.25s ease;"></div>
+    `;
+
+    // NEU: id="ubahn-line-${s.row}" und class="ubahn-group-element" sowie transition hinzugefügt
+    html += `
+      <div id="ubahn-line-${s.row}" class="ubahn-group-element" 
+           style="position:absolute; left:${xMin}px; top:${y - 4}px; width:${lineWidth}px; height:8px; background:#2d3748; z-index:1001; pointer-events:none; transition: opacity 0.25s ease;"></div>
+    `;
+  });
     
     // Die Kapsel (Hintergrund): Fest auf Weiß für den "Plan-Look"
     html += `
