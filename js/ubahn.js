@@ -284,19 +284,25 @@ window.renderUBahnMap = function() {
   const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
   const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
-  // ── 1. SVG LAYER (LINIEN & SCHIENEN) ──
+  // ── 1. SVG LAYER (LINIEN & VERBINDUNGEN) ──
   let svg = `<svg id="ubahn-svg-layer" width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;transition:opacity 0.25s ease;">`;
   
+  // Haupt-Fahrspuren
   people.forEach(p => svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`);
   people.forEach(p => svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`);
   
+  // Waagerechte Verbindungslinien bei Gruppen (Dünner & Schwarz)
   transferStations.forEach(s => {
     const xs = s.involved.map(p => trackPoints[p][s.row].x);
     const x1 = Math.min(...xs), x2 = Math.max(...xs), y = s.row * ROW_HEIGHT + MARGIN_TOP;
-    svg += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="var(--text-muted)" stroke-width="8" stroke-linecap="round" opacity="0.5"/>`;
+    
+    // Die Verbindungslinie: Jetzt 3px breit und tiefschwarz
+    svg += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#000" stroke-width="3" stroke-linecap="round" opacity="0.8"/>`;
+    
+    // Kleine dezente Anker-Ringe
     s.involved.forEach(p => {
       const stationX = trackPoints[p][s.row].x;
-      svg += `<rect x="${stationX-24}" y="${y-24}" width="48" height="48" rx="24" fill="#ffffff15" stroke="var(--border)" stroke-width="3"/>`;
+      svg += `<rect x="${stationX-24}" y="${y-24}" width="48" height="48" rx="24" fill="#ffffff05" stroke="rgba(0,0,0,0.2)" stroke-width="2"/>`;
     });
   });
   svg += `</svg>`;
@@ -323,20 +329,19 @@ window.renderUBahnMap = function() {
     html += `<div style="position:absolute;left:${ePt.x-12}px;top:${ePt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
   });
 
-  // ── 3. GRUPPEN-PILLEN (HINTERGRUND-KAPSELN) ──
-  // Hier wird die "Pille" gezeichnet, wenn Linien an einer Station zusammenkommen
+  // ── 3. GRUPPEN-PILLEN (Mit schwarzem Rahmen) ──
   transferStations.forEach(s => {
     const xs = s.involved.map(p => trackPoints[p][s.row].x);
     const xMin = Math.min(...xs), xMax = Math.max(...xs);
     const y = s.row * ROW_HEIGHT + MARGIN_TOP;
-    const width = (xMax - xMin) + 64; // Breite der Pille (Abstand + Puffer für Rundung)
+    const width = (xMax - xMin) + 64;
     
     html += `
-      <div style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:var(--surface); border:1px solid var(--border); border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none;"></div>
+      <div style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:var(--surface); border:1.5px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none;"></div>
     `;
   });
 
-  // ── 4. EINZELNE STATIONEN (STOPS) ──
+  // ── 4. STATIONEN ──
   placedCards.forEach(k => {
     const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
     const active = isInProgress(k);
