@@ -334,7 +334,7 @@ window.renderUBahnMap = function() {
     
     // Die Kapsel (Hintergrund): Fest auf Weiß für den "Plan-Look"
     html += `
-      <div style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:#ffffff; border:2px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none;"></div>
+      <div class="ubahn-pill" style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:#ffffff; border:2px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none; transition:background 0.25s ease, border-color 0.25s ease;"></div>
     `;
 
     // Die dunkle Verbindungsschiene (Liegt ÜBER dem Weiß der Pille)
@@ -351,18 +351,18 @@ window.renderUBahnMap = function() {
     // Pulsierender Ring für Karten in Bearbeitung
     if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pt.y-30}px;width:60px;height:60px;border:3px solid ${color};z-index:1003;transition:opacity 0.25s ease;"></div>`;
     
-    // Der klickbare Bahnhofs-Ring
+    // Der klickbare Bahnhofs-Punkt (nur dot, keine Pille bei Einzelstationen)
     html += `
       <div id="ubahn-node-${k.label}" class="ubahn-station"
            onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
            onmouseenter='window.ubahnHoverCard(${JSON.stringify(k.label)})'
            onmouseleave='window.ubahnLeaveCard()'
-           style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;justify-content:center;align-items:center;cursor:pointer;z-index:1004;transition:opacity 0.25s ease;">
-        <div id="ubahn-ring-${k.label}" data-color="${color}" data-active="${active}" 
-             style="position:relative; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4)${active ? `,0 0 18px ${color}99` : ''}; transition:all 0.25s ease;">
-          ${esc(k.label)}
-          ${isHigh ? `<span style="position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid var(--surface); z-index:10;"></span>` : ''}
+           style="position:absolute;left:${pt.x-90}px;top:${pt.y-9}px;width:180px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;z-index:1004;transition:opacity 0.25s ease;">
+        <div id="ubahn-ring-${k.label}" data-color="${color}" data-active="${active}"
+             style="position:relative;width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid ${color};box-shadow:0 2px 8px rgba(0,0,0,0.4)${active ? `,0 0 12px ${color}99` : ''};transition:all 0.25s ease;flex-shrink:0;">
+          ${isHigh ? `<span style="position:absolute;top:-5px;right:-5px;width:10px;height:10px;background:#ef4444;border-radius:50%;border:2px solid #fff;z-index:10;"></span>` : ''}
         </div>
+        <div style="font-size:10px;font-weight:900;color:var(--text);background:rgba(var(--panel-rgb),0.85);padding:2px 6px;border-radius:6px;white-space:nowrap;pointer-events:none;line-height:1.2;">${esc(k.label)}</div>
       </div>`;
   });
   
@@ -760,6 +760,12 @@ window.ubahnHoverCard = function(label) {
   const svgLayer = document.getElementById('ubahn-svg-layer');
   if (svgLayer) svgLayer.style.opacity = '0.15';
 
+  // Alle Gruppenarbeits-Pillen abdunkeln
+  document.querySelectorAll('.ubahn-pill').forEach(p => {
+    p.style.background = '#888';
+    p.style.borderColor = '#555';
+  });
+
   allCards.forEach(c => {
     const node = document.getElementById(`ubahn-node-${c.label}`);
     const ring = document.getElementById(`ubahn-ring-${c.label}`);
@@ -807,6 +813,12 @@ window.ubahnLeaveCard = function() {
   const svgLayer = document.getElementById('ubahn-svg-layer');
   if (svgLayer) svgLayer.style.opacity = '1';
 
+  // Alle Pillen zurücksetzen
+  document.querySelectorAll('.ubahn-pill').forEach(p => {
+    p.style.background = '#ffffff';
+    p.style.borderColor = '#000';
+  });
+
   // Alle Karten auf Normalzustand zurücksetzen
   _data.allCardsFlat.forEach(c => {
     const node = document.getElementById(`ubahn-node-${c.label}`);
@@ -820,6 +832,6 @@ window.ubahnLeaveCard = function() {
     ring.style.transform = 'scale(1)';
     ring.style.borderColor = originalColor;
     ring.style.color = 'var(--text)';
-    ring.style.boxShadow = isActive ? `0 4px 14px rgba(0,0,0,0.4), 0 0 18px ${originalColor}99` : '0 4px 14px rgba(0,0,0,0.4)';
+    ring.style.boxShadow = isActive ? `0 2px 8px rgba(0,0,0,0.4), 0 0 12px ${originalColor}99` : '0 2px 8px rgba(0,0,0,0.4)';
   });
 };
