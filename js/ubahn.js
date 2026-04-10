@@ -583,3 +583,72 @@ window.openUBahnModal = function() {
   ensureControls();
   renderUBahnMap();
 };
+
+// ── 7. HOVER RÖNTGEN-BLICK (ABHÄNGIGKEITEN) ──────────────────
+window.ubahnHoverCard = function(label) {
+  if (!_data || !_data.allCardsFlat) return;
+
+  const hoveredCard = _data.allCardsFlat.find(c => c.label === label);
+  if (!hoveredCard) return;
+
+  const prereqs = hoveredCard.deps || [];
+  const successors = _data.allCardsFlat.filter(c => (c.deps || []).includes(label)).map(c => c.label);
+
+  // Hintergrund-Linien stark abdunkeln
+  const svgLayer = document.getElementById('ubahn-svg-layer');
+  if (svgLayer) svgLayer.style.opacity = '0.15';
+
+  _data.allCardsFlat.forEach(c => {
+    const node = document.getElementById(`ubahn-node-${c.label}`);
+    const ring = document.getElementById(`ubahn-ring-${c.label}`);
+    if (!node || !ring) return;
+
+    if (c.label === label) {
+      // 1. Die aktuell anvisierte Karte (Leuchtet vergrößert)
+      node.style.opacity = '1';
+      ring.style.boxShadow = '0 0 25px rgba(255,255,255,0.7)';
+      ring.style.transform = 'scale(1.15)';
+    } else if (prereqs.includes(c.label)) {
+      // 2. Muss vorher fertig sein (Leuchtet ORANGE)
+      node.style.opacity = '1';
+      ring.style.borderColor = '#f59e0b';
+      ring.style.color = '#f59e0b';
+      ring.style.boxShadow = '0 0 20px #f59e0b';
+      ring.style.transform = 'scale(1.05)';
+    } else if (successors.includes(c.label)) {
+      // 3. Gibt folgendes frei (Leuchtet GRÜN)
+      node.style.opacity = '1';
+      ring.style.borderColor = '#10b981';
+      ring.style.color = '#10b981';
+      ring.style.boxShadow = '0 0 20px #10b981';
+      ring.style.transform = 'scale(1.05)';
+    } else {
+      // 4. Unbeteiligte Karten stark abdunkeln
+      node.style.opacity = '0.15';
+    }
+  });
+};
+
+window.ubahnLeaveCard = function() {
+  if (!_data || !_data.allCardsFlat) return;
+  
+  // Hintergrund-Linien wiederherstellen
+  const svgLayer = document.getElementById('ubahn-svg-layer');
+  if (svgLayer) svgLayer.style.opacity = '1';
+
+  // Alle Karten auf Normalzustand zurücksetzen
+  _data.allCardsFlat.forEach(c => {
+    const node = document.getElementById(`ubahn-node-${c.label}`);
+    const ring = document.getElementById(`ubahn-ring-${c.label}`);
+    if (!node || !ring) return;
+
+    const originalColor = ring.getAttribute('data-color');
+    const isActive = ring.getAttribute('data-active') === 'true';
+
+    node.style.opacity = '1';
+    ring.style.transform = 'scale(1)';
+    ring.style.borderColor = originalColor;
+    ring.style.color = 'var(--text)';
+    ring.style.boxShadow = isActive ? `0 4px 14px rgba(0,0,0,0.4), 0 0 18px ${originalColor}99` : '0 4px 14px rgba(0,0,0,0.4)';
+  });
+};
