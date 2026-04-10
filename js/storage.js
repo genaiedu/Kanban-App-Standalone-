@@ -201,6 +201,7 @@ export function createCard(boardId, colId, fields) {
     dependencies: fields.dependencies || [],
     groupId: fields.groupId || '',
     comments: fields.comments || [],
+    description: fields.description || '',
     createdAt: new Date().toISOString(),
   };
   if (!col.cards) col.cards = [];

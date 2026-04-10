@@ -295,10 +295,10 @@ window.renderCards = function(colId) {
 
     const lockHtml   = isFinished ? '<span style="font-size:10px; color:var(--text-muted); opacity:0.6; display:flex; align-items:center; gap:3px;"><i data-lucide="lock" style="width:10px;height:10px;pointer-events:none;"></i></span>' : '';
     const deleteBtn  = isFinished ? '' : `<button class="card-btn delete" onclick="event.stopPropagation(); window.deleteCardLocal('${card.id}','${colId}')" title="Löschen"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>`;
-    const editBtn    = `<button class="card-btn" onclick="event.stopPropagation(); window.openEditCard('${card.id}','${colId}')" title="Bearbeiten"><i data-lucide="edit-2" style="width:12px;height:12px;"></i></button>`;
+    const editBtn    = `<button class="card-btn" onclick="event.stopPropagation(); window.openCardDetail('${card.id}','${colId}')" title="Bearbeiten"><i data-lucide="edit-2" style="width:12px;height:12px;"></i></button>`;
 
     return `
-    <div class="card ${myCard?'my-card':''} ${agingClass} ${groupClasses}" id="card-${card.id}" ${isLockedCol ? '' : `draggable="true" ondragstart="window.onDragStart(event,'${card.id}','${colId}')" ondragend="window.onDragEnd(event)"`} ondblclick="window.openEditCard('${card.id}','${colId}')">
+    <div class="card ${myCard?'my-card':''} ${agingClass} ${groupClasses}" id="card-${card.id}" ${isLockedCol ? '' : `draggable="true" ondragstart="window.onDragStart(event,'${card.id}','${colId}')" ondragend="window.onDragEnd(event)"`} ondblclick="window.openCardDetail('${card.id}','${colId}')">
       ${flagsHtml}
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:14px; margin-bottom:6px; min-height:20px;">
         <div style="flex:1;">${labelHtml}</div>

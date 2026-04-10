@@ -108,6 +108,7 @@ WICHTIGSTE REGELN FÜR DIE PLANUNG:
 6. BOARD-ADMINISTRATION für Grüppen ab 6 Mitgliedern: Integriere in jedes Board zwingend eine Karte für die Person, die dieses Board selbst administriert und aktuell hält.
 7. KEINE ABHÄNGIGKEIT BEI ADMIN: Die Board-Administrations-Karte darf KEINE direkten Abhängigkeiten (deps) zu Produkt-Aufgaben haben, da das Board nur Mittel zum Zweck und nicht Teil des Produkts ist.
 8. VERKETTUNGEN: Nutze das Feld "gruppe" für Karten, die vertikal zusammengehören.
+9. BESCHREIBUNG: Füge für komplexe Aufgaben eine kurze Erläuterung im Feld 'beschreibung' hinzu.
 
 AKTUELLER STAND DES BOARDS:
 ${currentBoardStateText}
@@ -132,7 +133,8 @@ Gib ein JSON-Array aus, wobei jedes Objekt eine Spalte repräsentiert:
       "deadline": "YYYY-MM-DD oder leer",
       "wer": "Zuständige Person",
       "deps": ["Label1", "Label2"],
-      "gruppe": "Optionaler Gruppenname"
+      "gruppe": "Optionaler Gruppenname",
+      "beschreibung": "Optional: Detaillierte Erläuterung der Aufgabe (mehrere Sätze)"
     }
   ]
 }`;
@@ -303,6 +305,7 @@ function parseExportText(raw) {
         due: card.deadline || card.due || '', assignee: card.wer || card.assignee || '',
         dependencies: Array.isArray(card.deps || card.dependencies) ? (card.deps || card.dependencies) : [],
         groupId: card.gruppe || card.groupId || '',
+        description: card.beschreibung || card.description || '',
         comments: card.comments || [], startedAt: card.startedAt || '', finishedAt: card.finishedAt || ''
       }))
     }));
@@ -358,7 +361,7 @@ window.confirmImport = () => {
         const newCol = createColumn(newBoard.id, { name: importCol.name, color: importCol.color || '#5c6ef8', order: importCol.order ?? colOrder++, wipLimit: importCol.wipLimit || 0 });
         let cardOrder = 0;
         for (const card of (importCol.cards || [])) {
-          createCard(newBoard.id, newCol.id, { text: card.text || 'Ohne Titel', priority: card.priority || '', assignee: card.assignee || '', due: card.due || '', label: card.label || '', dependencies: card.dependencies || [], groupId: card.groupId || '', comments: card.comments || [], order: card.order ?? cardOrder++, startedAt: card.startedAt || '', finishedAt: card.finishedAt || '' });
+          createCard(newBoard.id, newCol.id, { text: card.text || 'Ohne Titel', priority: card.priority || '', assignee: card.assignee || '', due: card.due || '', label: card.label || '', dependencies: card.dependencies || [], groupId: card.groupId || '', description: card.description || '', comments: card.comments || [], order: card.order ?? cardOrder++, startedAt: card.startedAt || '', finishedAt: card.finishedAt || '' });
           importedCardsCount++;
         }
       }
@@ -394,7 +397,7 @@ window.confirmImport = () => {
           if (!card || !card.text) continue;
           let cardLabel = card.label;
           if (!cardLabel) { cardLabel = window.numberToLabel ? window.numberToLabel(currentCounter) : `K${currentCounter}`; currentCounter++; }
-          createCard(S.currentBoard.id, newCol.id, { text: card.text, priority: card.priority || '', assignee: card.assignee || '', due: card.due || '', label: cardLabel, dependencies: card.dependencies || [], groupId: card.groupId || '', order: cardOrder++, startedAt: card.startedAt || '', finishedAt: card.finishedAt || '' });
+          createCard(S.currentBoard.id, newCol.id, { text: card.text, priority: card.priority || '', assignee: card.assignee || '', due: card.due || '', label: cardLabel, dependencies: card.dependencies || [], groupId: card.groupId || '', description: card.description || '', order: cardOrder++, startedAt: card.startedAt || '', finishedAt: card.finishedAt || '' });
           importedCardsCount++;
         }
       }

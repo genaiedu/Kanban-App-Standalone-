@@ -65,7 +65,7 @@ function prepareBoardData() {
     const colCards = (S.cards[col.id] || []).filter(c => c.assignee);
     colCards.forEach(card => {
       peopleSet.add(card.assignee);
-      allCardsFlat.push({ id: card.id, label: card.label || '?', titel: card.text, wer: card.assignee, prio: card.priority || 'mittel', deps: card.dependencies || [], gruppe: card.groupId || null, colName: col.name });
+      allCardsFlat.push({ id: card.id, label: card.label || '?', titel: card.text, wer: card.assignee, prio: card.priority || 'mittel', deps: card.dependencies || [], gruppe: card.groupId || null, colName: col.name, description: card.description || '' });
     });
     if (colCards.length) boardData.push({ spalte: col.name, karten: colCards.map(c => allCardsFlat.find(f => f.id === c.id)) });
   });
@@ -468,35 +468,30 @@ window.showUBahnCardDetail = function(label) {
   const card = _data.allCardsFlat.find(c => c.label === label); if (!card) return;
   const color = _data.lineColors[card.wer];
 
-  // Aktuelle Spalten-ID
   const currentColId = Object.entries(S.cards).find(([, cards]) => cards.some(c => c.id === card.id))?.[0];
   const currentCol   = S.columns.find(c => c.id === currentColId);
   const isLocked     = currentCol && window.isFinishedColumn ? window.isFinishedColumn(currentCol) : false;
 
-  // Voraussetzungen (diese Karte braucht …)
-  const prereqs = (card.deps || []).map(_resolveCard).filter(Boolean);
+  // Description from live S.cards (most up to date)
+  const liveCard = (S.cards[currentColId] || []).find(c => c.id === card.id);
+  const description = liveCard?.description || card.description || '';
 
-  // Gibt frei (… braucht diese Karte) — deps sind Labels
-  const enables = _data.allCardsFlat.filter(c => (c.deps || []).includes(card.label)).map(c => _resolveCard(c.label)).filter(Boolean);
+  const prereqs  = (card.deps || []).map(_resolveCard).filter(Boolean);
+  const enables  = _data.allCardsFlat.filter(c => (c.deps || []).includes(card.label)).map(c => _resolveCard(c.label)).filter(Boolean);
+  const groupPartners = card.gruppe ? _data.allCardsFlat.filter(c => c.gruppe === card.gruppe && c.wer !== card.wer) : [];
 
-  // Gruppenpartner
-  const groupPartners = card.gruppe
-    ? _data.allCardsFlat.filter(c => c.gruppe === card.gruppe && c.wer !== card.wer)
-    : [];
-
-  // Priorität-Badge
   const prioBadge = {
     hoch:    `<span style="background:#ef444422;color:#ef4444;border:1px solid #ef444466;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">▲ Hoch</span>`,
     niedrig: `<span style="background:#22c55e22;color:#22c55e;border:1px solid #22c55e66;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">▼ Niedrig</span>`,
   }[card.prio] || `<span style="background:var(--surface);color:var(--text-muted);border:1px solid var(--border);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">● Mittel</span>`;
 
-  // Spalten-Selector
   const colOptions = S.columns.map(col =>
     `<option value="${col.id}" ${col.id === currentColId ? 'selected' : ''}>${esc(col.name)}</option>`
   ).join('');
 
-  // Trenner-Linie
-  const hr = `<div style="border:none;border-top:1px solid var(--border);margin:16px 0;"></div>`;
+  const hr = `<div style="border:none;border-top:1px solid var(--border);margin:14px 0;"></div>`;
+
+  const editStyle = isLocked ? 'pointer-events:none;opacity:0.7;' : '';
 
   document.getElementById('ubahn-card-overlay')?.remove();
   const overlay = document.createElement('div');
@@ -505,7 +500,7 @@ window.showUBahnCardDetail = function(label) {
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
   overlay.innerHTML = `
     <style>@keyframes _ubahn_in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}</style>
-    <div data-ubahn-popup style="background:rgba(var(--panel-rgb),1);border-radius:24px;width:92%;max-width:460px;border:1px solid var(--border);padding:28px 28px 24px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,0.5);max-height:88vh;overflow-y:auto;animation:_ubahn_in .18s ease;">
+    <div data-ubahn-popup style="background:rgba(var(--panel-rgb),1);border-radius:24px;width:92%;max-width:480px;border:1px solid var(--border);padding:28px 28px 24px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,0.5);max-height:88vh;overflow-y:auto;animation:_ubahn_in .18s ease;">
       <button onclick="document.getElementById('ubahn-card-overlay').remove()" style="position:absolute;right:18px;top:18px;background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;">✕</button>
 
       ${prereqs.length ? `
@@ -514,30 +509,67 @@ window.showUBahnCardDetail = function(label) {
         ${hr}` : ''}
 
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
-        <div style="width:50px;height:50px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:#fff;flex-shrink:0;box-shadow:0 4px 14px ${color}66;">${esc(card.label)}</div>
-        <div>
-          <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;">Linie ${esc(card.wer)}</div>
-          <div style="margin-top:4px;">${prioBadge}</div>
+        <div style="position:relative;flex-shrink:0;">
+          <input id="ubahn-label-input"
+            type="text" maxlength="6"
+            value="${esc(card.label)}"
+            data-original="${esc(card.label)}"
+            data-cardid="${card.id}"
+            data-colid="${currentColId}"
+            ${isLocked ? 'readonly' : ''}
+            onblur="window.ubahn_saveLabel(this)"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+            style="width:52px;height:52px;border-radius:50%;background:${color};color:#fff;font-weight:900;font-size:15px;text-align:center;border:3px solid transparent;outline:none;cursor:${isLocked?'default':'pointer'};box-shadow:0 4px 14px ${color}66;transition:border-color .2s;${editStyle}"
+            onfocus="this.style.borderColor='#fff'" onblur2="this.style.borderColor='transparent'">
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;">Linie ${esc(card.wer)}</div>
+          ${prioBadge}
         </div>
       </div>
-      <div style="font-size:19px;font-weight:700;line-height:1.4;margin-bottom:16px;">${esc(card.titel)}</div>
+
+      <textarea id="ubahn-title-input"
+        data-cardid="${card.id}" data-colid="${currentColId}"
+        onblur="window.ubahn_saveTitle(this)"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}"
+        rows="2" ${isLocked ? 'readonly' : ''}
+        placeholder="Aufgabenbeschreibung…"
+        style="width:100%;font-size:18px;font-weight:700;line-height:1.4;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text);resize:none;outline:none;padding:0 0 6px;font-family:inherit;transition:border-color .2s;${editStyle}"
+        onfocus="this.style.borderBottomColor='${color}'" onblur2="this.style.borderBottomColor='transparent'"
+      >${esc(card.titel)}</textarea>
+
+      <div style="margin-top:14px;">
+        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Beschreibung</div>
+        <textarea id="ubahn-desc-input"
+          data-cardid="${card.id}" data-colid="${currentColId}"
+          onblur="window.ubahn_saveDescription(this)"
+          rows="4" ${isLocked ? 'readonly' : ''}
+          placeholder="${isLocked ? '' : 'Detaillierte Beschreibung der Aufgabe…'}"
+          style="width:100%;font-size:13px;line-height:1.6;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);resize:vertical;outline:none;padding:10px 12px;font-family:inherit;transition:border-color .2s;${editStyle}"
+          onfocus="this.style.borderColor='${color}'" onblur2="this.style.borderColor='var(--border)'"
+        >${esc(description)}</textarea>
+      </div>
 
       ${groupPartners.length ? `
-        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Gruppenarbeit mit</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
-          ${groupPartners.map(p => `<div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface);border-radius:20px;border:2px solid ${_data.lineColors[p.wer]||'var(--border)'};">
-            <span style="width:14px;height:14px;border-radius:50%;background:${_data.lineColors[p.wer]||'var(--border)'}"></span>
-            <span style="font-size:12px;font-weight:700;">${esc(p.wer)}</span>
-          </div>`).join('')}
+        <div style="margin-top:14px;">
+          <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Gruppenarbeit mit</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${groupPartners.map(p => `<div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface);border-radius:20px;border:2px solid ${_data.lineColors[p.wer]||'var(--border)'};">
+              <span style="width:14px;height:14px;border-radius:50%;background:${_data.lineColors[p.wer]||'var(--border)'}"></span>
+              <span style="font-size:12px;font-weight:700;">${esc(p.wer)}</span>
+            </div>`).join('')}
+          </div>
         </div>` : ''}
 
-      <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Phase</div>
-      <select id="ubahn-col-select" onchange="window.ubahn_moveCard('${card.id}','${currentColId}',this.value)"
-        ${isLocked ? 'disabled' : ''}
-        style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid ${isLocked ? 'var(--border)' : color};background:rgba(var(--panel-rgb),1);color:${isLocked ? 'var(--text-muted)' : 'var(--text)'};font-size:13px;font-weight:600;cursor:${isLocked ? 'not-allowed' : 'pointer'};outline:none;">
-        ${colOptions}
-      </select>
-      ${isLocked ? `<div style="font-size:11px;color:var(--text-muted);margin-top:5px;">🔒 Fertig-Spalte – kein Zurück</div>` : ''}
+      <div style="margin-top:14px;">
+        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Phase</div>
+        <select id="ubahn-col-select" onchange="window.ubahn_moveCard('${card.id}','${currentColId}',this.value)"
+          ${isLocked ? 'disabled' : ''}
+          style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid ${isLocked?'var(--border)':color};background:rgba(var(--panel-rgb),1);color:${isLocked?'var(--text-muted)':'var(--text)'};font-size:13px;font-weight:600;cursor:${isLocked?'not-allowed':'pointer'};outline:none;">
+          ${colOptions}
+        </select>
+        ${isLocked ? `<div style="font-size:11px;color:var(--text-muted);margin-top:5px;">🔒 Fertig-Spalte – kein Zurück</div>` : ''}
+      </div>
 
       ${enables.length ? `
         ${hr}
@@ -545,6 +577,81 @@ window.showUBahnCardDetail = function(label) {
         ${enables.map(_miniCard).join('')}` : ''}
     </div>`;
   document.body.appendChild(overlay);
+};
+
+// Label speichern (mit Eindeutigkeitsprüfung + Deps-Update)
+window.ubahn_saveLabel = function(input) {
+  const newLabel = input.value.trim().toUpperCase().replace(/\s+/g, '');
+  const oldLabel = input.dataset.original;
+  const cardId   = input.dataset.cardid;
+  const colId    = input.dataset.colid;
+  if (!newLabel) { input.value = oldLabel; return; }
+  if (newLabel === oldLabel) return;
+  // Eindeutigkeit prüfen
+  for (const [cid, cards] of Object.entries(S.cards)) {
+    for (const c of cards) {
+      if (c.id !== cardId && c.label === newLabel) {
+        if (typeof window.showToast === 'function') window.showToast(`Label "${newLabel}" bereits vergeben!`, 'error');
+        input.value = oldLabel; input.style.borderColor = '#ef4444';
+        setTimeout(() => { input.style.borderColor = 'transparent'; }, 1500);
+        return;
+      }
+    }
+  }
+  // Alle Abhängigkeiten in anderen Karten aktualisieren
+  for (const [cid, cards] of Object.entries(S.cards)) {
+    for (const c of cards) {
+      if ((c.dependencies || []).includes(oldLabel)) {
+        updateCard(S.currentBoard.id, cid, c.id, { dependencies: c.dependencies.map(d => d === oldLabel ? newLabel : d) });
+        if (typeof window.loadCards === 'function') window.loadCards(cid);
+      }
+    }
+  }
+  updateCard(S.currentBoard.id, colId, cardId, { label: newLabel });
+  if (typeof window.loadCards === 'function') window.loadCards(colId);
+  input.dataset.original = newLabel;
+  if (_data) { _data = prepareBoardData(); _lastGrid = calculateGrid(_data.boardData, _data.people); if (_currentView === 'map') window.renderUBahnMap(); else if (_currentView === 'person') window.renderUBahnPerson(_currentPerson); }
+  if (typeof window.renderBoard === 'function') window.renderBoard();
+  if (typeof window.showToast === 'function') window.showToast(`Label: ${oldLabel} → ${newLabel}`);
+};
+
+// Titel speichern
+window.ubahn_saveTitle = function(textarea) {
+  const text   = textarea.value.trim();
+  const cardId = textarea.dataset.cardid;
+  const colId  = textarea.dataset.colid;
+  if (!text) return;
+  updateCard(S.currentBoard.id, colId, cardId, { text });
+  if (typeof window.loadCards === 'function') window.loadCards(colId);
+  if (_data) { _data = prepareBoardData(); if (_currentView === 'map') window.renderUBahnMap(); else if (_currentView === 'person') window.renderUBahnPerson(_currentPerson); }
+};
+
+// Beschreibung speichern
+window.ubahn_saveDescription = function(textarea) {
+  const description = textarea.value;
+  const cardId = textarea.dataset.cardid;
+  const colId  = textarea.dataset.colid;
+  updateCard(S.currentBoard.id, colId, cardId, { description });
+};
+
+// Kartendetail von Hauptboard aus öffnen (ohne U-Bahn offen zu haben)
+window.openCardDetail = function(cardId, colId) {
+  if (!_data) _data = prepareBoardData();
+  if (!_lastGrid) _lastGrid = calculateGrid(_data.boardData, _data.people);
+  const card = _data.allCardsFlat.find(c => c.id === cardId);
+  if (!card) {
+    // Karte ist nicht in allCardsFlat (z.B. kein Assignee) — direkt aus S.cards holen
+    const raw = (S.cards[colId] || []).find(c => c.id === cardId);
+    if (!raw) return;
+    const col = S.columns.find(c => c.id === colId);
+    // Temporären Eintrag in allCardsFlat hinzufügen
+    const tmp = { id: raw.id, label: raw.label || '?', titel: raw.text, wer: raw.assignee || '–', prio: raw.priority || 'mittel', deps: raw.dependencies || [], gruppe: raw.groupId || null, colName: col?.name || '', description: raw.description || '' };
+    if (!_data.lineColors[tmp.wer]) _data.lineColors[tmp.wer] = '#6366f1';
+    _data.allCardsFlat.push(tmp);
+    window.showUBahnCardDetail(tmp.label);
+  } else {
+    window.showUBahnCardDetail(card.label);
+  }
 };
 
 // Karte in neue Spalte verschieben (aus U-Bahn-Popup heraus)
