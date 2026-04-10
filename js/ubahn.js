@@ -268,17 +268,15 @@ function createTrackPath(pts) {
   return d;
 }
 
-// ── 3. RENDERN ───────────────────────────────────────────────
-// ── GEWÜNSCHTE RENDER-FUNKTION FÜR DIE U-BAHN KARTE ──
+// ── 3. RENDERN ───────────────────────────────────────────────// 
 window.renderUBahnMap = function() {
   _currentView = 'map'; 
   _currentPerson = null;
   
-  ensureControls(); // Stellt sicher, dass Regler etc. da sind
+  ensureControls(); 
   document.getElementById('ubahn-back-btn').style.display = 'none';
   const container = document.getElementById('ubahn-content');
   
-  // Daten sammeln und Grid berechnen
   _data = prepareBoardData();
   const { boardData, people, lineColors, allCardsFlat } = _data;
   if (!people.length) return;
@@ -286,24 +284,19 @@ window.renderUBahnMap = function() {
   _lastGrid = calculateGrid(boardData, people);
   const { placedCards, transferStations, maxRows, trackPoints } = _lastGrid;
   
-  // Maße für die Canvas-Fläche
   const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
   const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
   // 1. SVG LAYER (Hintergrund-Schienen)
   let svg = `<svg id="ubahn-svg-layer" width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;transition:opacity 0.25s ease;">`;
-  
-  // Zeichnet die dicken grauen Betonschienen und die farbigen Linien darauf
   people.forEach(p => {
     svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
     svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
   });
   svg += `</svg>`;
 
-  // Helper für den Status-Check
   const isInProgress = c => c.colName && c.colName.toLowerCase().includes('bearb');
 
-  // 2. HTML LAYER VORBEREITEN (Animationen & Namen)
   let html = `<style>
     @keyframes ubahn-pulse {
       0%   { transform:scale(1);   opacity:0.85; }
@@ -316,7 +309,7 @@ window.renderUBahnMap = function() {
     }
   </style>`;
   
-  // Namen der Personen an Start- und Endpunkten platzieren
+  // 2. START- & ENDPUNKTE (Namen)
   people.forEach(p => {
     const sPt = trackPoints[p][0], ePt = trackPoints[p][maxRows], color = lineColors[p];
     html += `<button onclick='window.renderUBahnPerson(${JSON.stringify(p)})' style="position:absolute;left:${sPt.x - 60}px;top:${sPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:1005;"><div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;font-weight:900;font-size:12px;color:var(--text);box-shadow:0 4px 16px ${color}44;">${esc(p)}</div></button>`;
@@ -324,47 +317,34 @@ window.renderUBahnMap = function() {
     html += `<div style="position:absolute;left:${ePt.x-12}px;top:${ePt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
   });
 
-// 3. GRUPPEN-PILLEN (Immer weiß, über den Schienen)
-  transferStations.forEach(s => {
+  // 3. GRUPPEN-PILLEN & DUNKLE SCHIENEN (Mit Klassen für Hover-Effekt)
+  transferStations.forEach((s, idx) => {
     const xs = s.involved.map(p => trackPoints[p][s.row].x);
     const xMin = Math.min(...xs), xMax = Math.max(...xs);
     const y = s.row * ROW_HEIGHT + MARGIN_TOP;
     const width = (xMax - xMin) + 64;
     const lineWidth = (xMax - xMin);
     
-    // NEU: id="ubahn-pill-${s.row}" und class="ubahn-group-element" sowie transition hinzugefügt
+    // Die weiße Kapsel
     html += `
-      <div id="ubahn-pill-${s.row}" class="ubahn-group-element" 
+      <div id="ubahn-pill-${idx}" class="ubahn-group-element" data-row="${s.row}"
            style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:#ffffff; border:2px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none; transition: opacity 0.25s ease;"></div>
     `;
 
-    // NEU: id="ubahn-line-${s.row}" und class="ubahn-group-element" sowie transition hinzugefügt
+    // Die dunkle Verbindungslinie (über dem Weiß)
     html += `
-      <div id="ubahn-line-${s.row}" class="ubahn-group-element" 
+      <div id="ubahn-line-${idx}" class="ubahn-group-element" data-row="${s.row}"
            style="position:absolute; left:${xMin}px; top:${y - 4}px; width:${lineWidth}px; height:8px; background:#2d3748; z-index:1001; pointer-events:none; transition: opacity 0.25s ease;"></div>
     `;
   });
-    
-    // Die Kapsel (Hintergrund): Fest auf Weiß für den "Plan-Look"
-    html += `
-      <div style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:#ffffff; border:2px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none;"></div>
-    `;
 
-    // Die dunkle Verbindungsschiene (Liegt ÜBER dem Weiß der Pille)
-    html += `
-      <div style="position:absolute; left:${xMin}px; top:${y - 4}px; width:${lineWidth}px; height:8px; background:#2d3748; z-index:1001; pointer-events:none;"></div>
-    `;
-  });
-
-  // 4. EINZELNE STATIONEN (Bahnhöfe)
+  // 4. STATIONEN (Bahnhöfe)
   placedCards.forEach(k => {
     const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
     const active = isInProgress(k);
     
-    // Pulsierender Ring für Karten in Bearbeitung
     if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pt.y-30}px;width:60px;height:60px;border:3px solid ${color};z-index:1003;transition:opacity 0.25s ease;"></div>`;
     
-    // Der klickbare Bahnhofs-Ring
     html += `
       <div id="ubahn-node-${k.label}" class="ubahn-station"
            onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
@@ -379,7 +359,6 @@ window.renderUBahnMap = function() {
       </div>`;
   });
   
-  // 5. FINALES RENDERING IN DEN CONTAINER
   container.innerHTML = `<div style="position:relative;width:${mapW}px;height:${mapH}px;margin:0 auto;">${svg}${html}</div>`;
 };
 
@@ -614,15 +593,15 @@ window.openUBahnModal = function() {
   renderUBahnMap();
 };
 
-// ── 7. HOVER RÖNTGEN-BLICK (ABHÄNGIGKEITEN) ──────────────────
-window.ubahnHoverCard = function(label) {
+// ── 7. HOVER RÖNTGEN-BLICK (ABHÄNGIGKEITEN) ──────────────────// 
+  window.ubahnHoverCard = function(label) {
   if (!_data || !_data.allCardsFlat) return;
 
   const allCards = _data.allCardsFlat;
   const hoveredCard = allCards.find(c => c.label === label);
   if (!hoveredCard) return;
 
-  // ... (getGenerations Hilfsfunktion bleibt identisch) ...
+  // Hilfsfunktion für den Abhängigkeits-Baum
   function getGenerations(startLabel, direction) {
     const generations = new Map();
     const queue = [{ label: startLabel, depth: 0 }];
@@ -656,19 +635,20 @@ window.ubahnHoverCard = function(label) {
   const preGens = getGenerations(label, 'up');
   const succGens = getGenerations(label, 'down');
 
-  // 1. Hintergrund-Linien abdunkeln
+  // 1. SVG Linien abdunkeln
   const svgLayer = document.getElementById('ubahn-svg-layer');
   if (svgLayer) svgLayer.style.opacity = '0.15';
 
-  // 2. NEU: Alle Pillen (Gruppen-Kapseln) abdunkeln
-  const allPills = document.querySelectorAll('.ubahn-pill');
-  allPills.forEach(p => {
-    // Extrahiere die Reihe aus der ID (ubahn-pill-REIHE)
-    const pillRow = parseInt(p.id.split('-').pop());
-    // Die Pille bleibt nur hell, wenn die gehoverte Karte genau in dieser Reihe liegt
-    p.style.opacity = (pillRow === hoveredCard.row) ? '1' : '0.15';
+  // 2. Pillen & Dunkle Schienen abdunkeln
+  const placed = _lastGrid.placedCards.find(pc => pc.label === label);
+  const currentRow = placed ? placed.row : -1;
+
+  document.querySelectorAll('.ubahn-group-element').forEach(el => {
+    const elRow = parseInt(el.getAttribute('data-row'));
+    el.style.opacity = (elRow === currentRow) ? '1' : '0.15';
   });
 
+  // 3. Karten-Nodes & Ringe steuern
   allCards.forEach(c => {
     const node = document.getElementById(`ubahn-node-${c.label}`);
     const ring = document.getElementById(`ubahn-ring-${c.label}`);
@@ -702,12 +682,10 @@ window.ubahnHoverCard = function(label) {
 
 window.ubahnLeaveCard = function() {
   if (!_data || !_data.allCardsFlat) return;
-  
   const svgLayer = document.getElementById('ubahn-svg-layer');
   if (svgLayer) svgLayer.style.opacity = '1';
 
-  // NEU: Alle Pillen wieder auf volle Sichtbarkeit setzen
-  document.querySelectorAll('.ubahn-pill').forEach(p => p.style.opacity = '1');
+  document.querySelectorAll('.ubahn-group-element').forEach(el => el.style.opacity = '1');
 
   _data.allCardsFlat.forEach(c => {
     const node = document.getElementById(`ubahn-node-${c.label}`);
