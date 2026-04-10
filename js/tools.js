@@ -60,6 +60,7 @@ window.createTeacherIniFile = async () => {
 };
 
 // ── KI-PROMPT ─────────────────────────────────────────
+// ── KI-ASSISTENT: PROMPT-GENERIERUNG ──────────────────────────────────
 window.showAiPrompt = () => {
   if (!S.currentBoard) return;
   const promptEl = document.getElementById('ai-prompt-content');
@@ -70,70 +71,89 @@ window.showAiPrompt = () => {
   const teamInfo  = members.length > 0 ? members.join(', ') : 'Einzelperson';
   const deadline  = S.currentBoard.deadline || 'Keine';
 
+  // Aktuellen Board-Status für die KI textuell aufbereiten
   let currentBoardStateText = '';
   for (const col of S.columns) {
     const colWipLimit = col.wipLimit || 0;
     const limitText   = colWipLimit > 0 ? `(WIP-Limit: ${colWipLimit})` : '';
     currentBoardStateText += `\nSpalte: "${col.name}" ${limitText}\n`;
     const colCards = S.cards[col.id] || [];
+    
     if (!colCards.length) {
-      currentBoardStateText += '  (Aktuell leer)\n';
+      currentBoardStateText += '   (Aktuell leer)\n';
     } else {
       colCards.forEach(c => {
         const lbl      = c.label ? `[${c.label}] ` : '';
-        const depsStr  = (c.dependencies && c.dependencies.length > 0) ? ` (Braucht: ${c.dependencies.map(d => `[${d}]`).join(', ')})` : '';
+        const depsStr  = (c.dependencies && c.dependencies.length > 0) ? ` (Abhängig von: ${c.dependencies.map(d => `[${d}]`).join(', ')})` : '';
         const grpStr   = c.groupId ? ` (Gruppe: ${c.groupId})` : '';
-        currentBoardStateText += `  - ${lbl}${c.text} [Zuständig: ${c.assignee || 'offen'}]${depsStr}${grpStr}\n`;
+        const whoStr   = c.assignee ? ` [Zuständig: ${c.assignee}]` : ' [Zuständig: offen]';
+        currentBoardStateText += `   - ${lbl}${c.text}${whoStr}${depsStr}${grpStr}\n`;
       });
     }
+    
     if (colWipLimit > 0 && colCards.length >= colWipLimit) {
-      currentBoardStateText += `  ⚠️ ACHTUNG KI: Diese Spalte ist VOLL (${colCards.length}/${colWipLimit}). Hier darf nichts mehr hinzugefügt werden!\n`;
+      currentBoardStateText += `   ⚠️ HINWEIS: Diese Spalte hat das WIP-Limit erreicht (${colCards.length}/${colWipLimit}).\n`;
     }
   }
 
+  // Der aktualisierte Prompt mit deinen neuen Regeln
   const prompt = `Du bist ein Projektassistent für das Kanban-Board "${boardName}".
 
-WICHTIGSTE REGELN:
-1. WIP-LIMITS NUR FÜR "In Bearbeitung": Die WIP-Limits gelten AUSSCHLIESSLICH für Fortschritts-Spalten. Alle anderen Spalten (wie "Offen", "Voraussetzungen") haben KEIN Limit!
-2. ABSOLUT EINDEUTIGE LABELS: Jede Karte MUSS ein absolut eindeutiges Label haben (z.B. A, B, C). Keine Duplikate!
-3. FERTIG-SPALTE: Die Spalte für fertige Aufgaben ist TABU.
-4. VORAUSSETZUNGEN (Spalte 1): Plane vorbereitende Aufgaben als separate Spalte "Voraussetzungen" ganz links ein.
-5. ABHÄNGIGKEITEN VERKNÜPFEN: Nutze das Array-Feld "deps", um exakt auf die Labels der benötigten Karten zu verweisen.
-6. VERKETTUNGEN: Karten, die inhaltlich zusammengehören und gemeinsam bearbeitet werden, können durch denselben Wert im Feld "gruppe" vertikal verkettet werden. Vergib dafür einen kurzen Bezeichner (z.B. "G1", "G2"). Nur Karten in derselben Spalte werden verkettet dargestellt.
+WICHTIGSTE REGELN FÜR DIE PLANUNG:
+1. WIP-LIMITS: Diese gelten nur für Fortschritts-Spalten. Spalten wie "Offen" oder "Voraussetzungen" haben kein Limit.
+2. EINDEUTIGE LABELS: Jede Karte MUSS ein absolut eindeutiges Kurz-Label haben (z.B. A, B, C). Keine Duplikate!
+3. FERTIG-SPALTE: Diese Spalte ist tabu und wird von dir nicht beplant.
+4. VORAUSSETZUNGEN: Plane vorbereitende Aufgaben in einer Spalte ganz links ein.
+5. LÜCKENLOSES NETZ: Schaffe für alle Karten, die direkt mit dem Produkt zu tun haben, ein möglichst lückenloses Netz von Abhängigkeiten (deps). Jede Produkt-Aufgabe muss logisch im Arbeitsfluss verknüpft sein.
+6. BOARD-ADMINISTRATION für Grüppen ab 6 Mitgliedern: Integriere in jedes Board zwingend eine Karte für die Person, die dieses Board selbst administriert und aktuell hält.
+7. KEINE ABHÄNGIGKEIT BEI ADMIN: Die Board-Administrations-Karte darf KEINE direkten Abhängigkeiten (deps) zu Produkt-Aufgaben haben, da das Board nur Mittel zum Zweck und nicht Teil des Produkts ist.
+8. VERKETTUNGEN: Nutze das Feld "gruppe" für Karten, die vertikal zusammengehören.
 
-AKTUELLER STAND:
+AKTUELLER STAND DES BOARDS:
 ${currentBoardStateText}
 
 RAHMENDATEN:
-- Team: ${teamInfo} | Deadline: ${deadline}
+- Team: ${teamInfo}
+- Deadline: ${deadline}
 
 DEINE AUFGABE:
-1. Berate den Nutzer, frage nach Voraussetzungen und optimiere den Workflow.
-2. Wenn der Nutzer "FERTIG" sagt, gib die finale Planung als JSON aus.
+1. Analysiere den Stand, frage nach fehlenden Infos und optimiere das Netz der Abhängigkeiten.
+2. Wenn der Nutzer "FERTIG" sagt oder eine neue Planung wünscht, gib die finale Struktur als JSON-Array aus.
 
-REGELN FÜR DAS JSON-FORMAT:
-- "spalte" (Name der Spalte)
-- "karten" (Liste der Aufgaben)
-- "label" (ID der Karte, z.B. "A")
-- "titel" (Text der Aufgabe)
-- "prio" (hoch, mittel oder niedrig)
-- "deadline" (YYYY-MM-DD oder "")
-- "wer" (Name der zuständigen Person)
-- "deps" (Array der Labels, z.B. ["A", "B"])
-- "gruppe" (optionaler Bezeichner für vertikal verkettete Karten, z.B. "G1" — nur bei Karten in derselben Spalte, die zusammen bearbeitet werden)`;
+AUSGABEFORMAT (STRENGES JSON):
+Gib ein JSON-Array aus, wobei jedes Objekt eine Spalte repräsentiert:
+{
+  "spalte": "Name der Spalte",
+  "karten": [
+    {
+      "label": "Eindeutige ID",
+      "titel": "Beschreibung der Aufgabe",
+      "prio": "hoch/mittel/niedrig",
+      "deadline": "YYYY-MM-DD oder leer",
+      "wer": "Zuständige Person",
+      "deps": ["Label1", "Label2"],
+      "gruppe": "Optionaler Gruppenname"
+    }
+  ]
+}`;
 
   promptEl.textContent = prompt;
 };
 
+// Hilfsfunktion zum Kopieren (nutzt lokale Lucide-Icons nach dem Timeout)
 window.copyAiPrompt = async () => {
   const text = document.getElementById('ai-prompt-content').textContent;
   try {
     await navigator.clipboard.writeText(text);
     const btn = document.getElementById('ai-prompt-copy-btn');
     btn.textContent = '✓ Kopiert!';
-    setTimeout(() => { btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> Prompt kopieren'; }, 2000);
+    setTimeout(() => { 
+      // Zurück zum Icon-Zustand (Wichtig: Lucide Icons müssen lokal eingebunden sein)
+      btn.innerHTML = '<i data-lucide="copy" style="width:13px;height:13px;margin-right:4px;"></i> Prompt kopieren'; 
+      if(typeof reloadIcons === 'function') reloadIcons();
+    }, 2000);
   } catch(e) {
-    showToast('Kopieren fehlgeschlagen.', 'error');
+    alert('Fehler beim Kopieren in die Zwischenablage.');
   }
 };
 
