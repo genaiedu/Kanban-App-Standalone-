@@ -145,58 +145,61 @@ function calculateGrid(boardData, people) {
   const cardRowById = {};
   const rowEvents = {};
 
+  // NEU: 1. Wir ignorieren die Spalten völlig und werfen alle Karten in einen großen Topf!
+  const allCards = boardData.flatMap(col => col.karten);
+
+  // NEU: 2. Wir sortieren den GESAMTEN Projektplan auf einmal, nur nach Abhängigkeiten
+  const sortedCards = topoSortCards(allCards);
+
   // --- PASS 1: ZEITPLAN & GRUPPEN ERFASSEN ---
-  boardData.forEach(col => {
-    const phaseStartRow = maxRow;
-    const sortedCards = topoSortCards(col.karten);
+  sortedCards.forEach(card => {
+    if (processed.has(card.label)) return;
 
-    sortedCards.forEach(card => {
-      if (processed.has(card.label)) return;
+    // Suche nach Gruppenmitgliedern im Gesamt-Topf (allCards)
+    let inv = card.gruppe
+      ? Array.from(new Set(allCards.filter(c => c.gruppe === card.gruppe).map(c => c.wer)))
+      : [card.wer];
+    inv = inv.filter(p => people.includes(p));
+    if (!inv.length) return;
 
-      let inv = card.gruppe
-        ? Array.from(new Set(col.karten.filter(c => c.gruppe === card.gruppe).map(c => c.wer)))
-        : [card.wer];
-      inv = inv.filter(p => people.includes(p));
-      if (!inv.length) return;
+    // Suche nach allen Abhängigkeiten der Gruppe im Gesamt-Topf
+    const allDeps = card.gruppe
+      ? allCards.filter(c => c.gruppe === card.gruppe).flatMap(c => c.deps || [])
+      : (card.deps || []);
 
-      const allDeps = card.gruppe
-        ? col.karten.filter(c => c.gruppe === card.gruppe).flatMap(c => c.deps || [])
-        : (card.deps || []);
+    // Früheste Reihe berechnen (Startet nun immer bei 1, nicht mehr nach Spalten-Reihenfolge)
+    const depMinRow = allDeps.reduce((m, depId) => {
+      const r = cardRowById[depId];
+      return r !== undefined ? Math.max(m, r + 1) : m;
+    }, 1); 
 
-      const depMinRow = allDeps.reduce((m, depId) => {
-        const r = cardRowById[depId];
-        return r !== undefined ? Math.max(m, r + 1) : m;
-      }, phaseStartRow + 1);
+    const row = Math.max(depMinRow, ...inv.map(p => personNextRow[p]));
+    if (row > maxRow) maxRow = row;
 
-      const row = Math.max(depMinRow, ...inv.map(p => personNextRow[p]));
-      if (row > maxRow) maxRow = row;
-
-      if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
-      inv.forEach(p => {
-         personNextRow[p] = row + 1;
-         rowEvents[row].activePeople.add(p);
-      });
-
-      if (card.gruppe) {
-        const groupCards = col.karten.filter(c => c.gruppe === card.gruppe);
-        groupCards.forEach(gc => { cardRowById[gc.id] = row; cardRowById[gc.label] = row; });
-
-        if (!rowEvents[row].groups.find(g => g.name === card.gruppe)) {
-            rowEvents[row].groups.push({ name: card.gruppe, involved: [...inv] });
-            transferStations.push({ name: card.gruppe, row, involved: [...inv] });
-        }
-        groupCards.forEach(gc => { placedCards.push({ ...gc, row }); processed.add(gc.label); });
-      } else {
-        cardRowById[card.id] = row;
-        cardRowById[card.label] = row;
-        placedCards.push({ ...card, row });
-        processed.add(card.label);
-      }
+    if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
+    inv.forEach(p => {
+       personNextRow[p] = row + 1;
+       rowEvents[row].activePeople.add(p);
     });
-    if (maxRow === phaseStartRow) maxRow++;
+
+    if (card.gruppe) {
+      const groupCards = allCards.filter(c => c.gruppe === card.gruppe);
+      groupCards.forEach(gc => { cardRowById[gc.id] = row; cardRowById[gc.label] = row; });
+
+      if (!rowEvents[row].groups.find(g => g.name === card.gruppe)) {
+          rowEvents[row].groups.push({ name: card.gruppe, involved: [...inv] });
+          transferStations.push({ name: card.gruppe, row, involved: [...inv] });
+      }
+      groupCards.forEach(gc => { placedCards.push({ ...gc, row }); processed.add(gc.label); });
+    } else {
+      cardRowById[card.id] = row;
+      cardRowById[card.label] = row;
+      placedCards.push({ ...card, row });
+      processed.add(card.label);
+    }
   });
 
-  // --- PASS 2: GLEIS-ZUORDNUNG (Alle Gruppen als Blöcke sortieren!) ---
+  // --- PASS 2: GLEIS-ZUORDNUNG (Cluster sortieren) ---
   const rowLanes = { 0: [...people] };
   let currentLanes = [...people];
 
@@ -206,15 +209,12 @@ function calculateGrid(boardData, people) {
       const personCluster = {};
       const clusterAvg = {};
 
-      // Standard: Jeder fährt auf seinem eigenen Gleis (Cluster)
       currentLanes.forEach(p => { personCluster[p] = p; }); 
 
-      // Wenn Personen in einer Gruppe sind, bekommen sie dieselbe Cluster-ID
       rowEvents[r].groups.forEach(grp => {
         grp.involved.forEach(p => { personCluster[p] = grp.name; });
       });
 
-      // Durchschnittliche Position für jeden Cluster berechnen
       currentLanes.forEach(p => {
         const cluster = personCluster[p];
         if (!clusterAvg[cluster]) clusterAvg[cluster] = { sum: 0, count: 0, members: [] };
@@ -229,12 +229,9 @@ function calculateGrid(boardData, people) {
         members: clusterAvg[k].members
       }));
 
-      // Cluster so sortieren, dass die Kreuzungen minimal bleiben
       clusters.sort((a, b) => a.avg - b.avg);
 
-      // Spuren neu aufbauen: Cluster bleiben zwingend nebeneinander!
       currentLanes = clusters.flatMap(c => {
-        // Innerhalb der Gruppe die alte Reihenfolge bewahren
         return c.members.sort((a, b) => currentLanes.indexOf(a) - currentLanes.indexOf(b));
       });
     }
@@ -259,7 +256,6 @@ function calculateGrid(boardData, people) {
 
   return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints };
 }
-
 
 function createTrackPath(pts) {
   if (!pts.length) return '';
