@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Parallelgleis (Weichen) Edition
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Perfekte Parallelgleise (Max 2)
 import { S, moveCard, getCards, updateCard } from './state.js';
 
 const PALETTE = [
@@ -85,7 +85,7 @@ function prepareBoardData() {
   return { boardData, people, lineColors: colors, allCardsFlat };
 }
 
-// ── DIE PARALLEL-GLEIS MASCHINE ──
+// ── DIE KAUSALITÄTS-MASCHINE MIT HARTEM 2-GLEIS LIMIT ──
 function calculateGrid(boardData, people) {
   const allCards = boardData.flatMap(col => col.karten).filter(Boolean);
 
@@ -99,7 +99,7 @@ function calculateGrid(boardData, people) {
   let graphResolved = false;
   let safeGuardOuter = 0;
 
-  // 1. ZIRKELBEZÜGE BRECHEN UND KNOTEN BILDEN
+  // 1. ZIRKELBEZÜGE BRECHEN
   while (!graphResolved && safeGuardOuter < 15) {
       safeGuardOuter++;
       nodesMap.clear();
@@ -181,8 +181,8 @@ function calculateGrid(boardData, people) {
       }
   }
 
-  // 2. PARALLEL-GLEISE VORBEREITEN (Weichen-System)
-  const MAX_LANES = 4; // Maximal erlaubte Parallelaufgaben pro Person
+  // 2. PARALLEL-GLEISE VORBEREITEN (Hartes Limit: Max 2)
+  const MAX_LANES = 2; 
   const personLanes = {};
   const laneNextRow = {};
   const laneUsage = {};
@@ -201,7 +201,7 @@ function calculateGrid(boardData, people) {
   const nodeRowByKey = new Map();
   const nodeAssignedLanes = new Map();
 
-  // 3. PHYSISCHE PLATZIERUNG MIT WEICHEN-LOGIK
+  // 3. PLATZIERUNG MIT VERHINDERUNG VON DRITTEN SPUREN
   sortedNodes.forEach(node => {
       let depMaxRow = 0;
       node.resolvedDeps.forEach(depKey => {
@@ -209,25 +209,42 @@ function calculateGrid(boardData, people) {
           if (r !== undefined && r > depMaxRow) depMaxRow = r;
       });
 
-      let baseRow = depMaxRow + 1;
-      let row = baseRow;
+      let row = depMaxRow + 1;
       const inv = Array.from(node.involved).filter(p => people.includes(p));
 
-      // Finde die frühstmögliche Reihe, in der JEDER eine freie (oder neue) Weiche hat
-      inv.forEach(p => {
-          const minNext = personLanes[p].length < MAX_LANES ? 1 : Math.min(...personLanes[p].map(l => laneNextRow[l]));
-          if (minNext > row) row = minNext;
-      });
+      // Finde die frühstmögliche Reihe, in der JEDER maximal 2 Spuren hat
+      let validRowFound = false;
+      while (!validRowFound) {
+          let allHaveSpace = true;
+          for (const p of inv) {
+              let hasFreeLane = false;
+              // Prüfe, ob eine der existierenden Spuren in dieser Reihe frei ist
+              for (const lane of personLanes[p]) {
+                  if (laneNextRow[lane] <= row) { hasFreeLane = true; break; }
+              }
+              // Wenn nicht, darf eine neue gebaut werden? (Max 2)
+              if (!hasFreeLane && personLanes[p].length < MAX_LANES) {
+                  hasFreeLane = true;
+              }
+              if (!hasFreeLane) {
+                  allHaveSpace = false;
+                  break;
+              }
+          }
+          if (allHaveSpace) {
+              validRowFound = true;
+          } else {
+              row++; // Eine Reihe weiter nach unten rücken und warten
+          }
+      }
 
       if (row > maxRow) maxRow = row;
       if (!rowEvents[row]) rowEvents[row] = { groups: [], activeLanes: new Set() };
 
       const assignedLanes = {};
       inv.forEach(p => {
-          // Suche das erste freie Gleis dieser Person
           let chosenLane = personLanes[p].find(l => laneNextRow[l] <= row);
           
-          // Wenn alle Gleise belegt sind, baue eine Weiche (Parallelgleis)
           if (!chosenLane) {
               chosenLane = `${p}_${personLanes[p].length}`;
               personLanes[p].push(chosenLane);
@@ -308,14 +325,25 @@ function calculateGrid(boardData, people) {
       });
   });
 
-  // 5. GLEIS-LAYOUT (Clusterung mit Parallel-Gleisen)
+  // 5. GLEIS-LAYOUT (Akkordeon-Prinzip: Gleise schließen sich wieder)
   const rowLanes = { 0: people.map(p => `${p}_0`) };
   let currentLanes = [...rowLanes[0]];
   const allLanesFlat = Object.values(personLanes).flat();
 
   for (let r = 1; r <= maxRow + 1; r++) {
-    // Neu erstellte Weichen in die Fahrspur einklinken
-    const spawnedHere = allLanesFlat.filter(l => laneUsage[l] && Math.min(...laneUsage[l]) === r);
+    // a) ABGELAUFENE GLEISE ENTFERNEN (Damit das Brett nicht ewig nach rechts wächst!)
+    currentLanes = currentLanes.filter(l => {
+        if (l.endsWith('_0')) return true; // Hauptgleis bleibt immer
+        const usage = laneUsage[l] || [];
+        const last = usage.length > 0 ? Math.max(...usage) : -1;
+        return r <= last; // Gleis verschwindet ab der Reihe nach seiner letzten Nutzung
+    });
+
+    // b) NEUE GLEISE EINFÄDELN
+    const spawnedHere = allLanesFlat.filter(l => {
+        const usage = laneUsage[l] || [];
+        return usage.length > 0 && Math.min(...usage) === r;
+    });
     spawnedHere.forEach(l => {
         const parent = `${l.split('_')[0]}_0`;
         const pIdx = currentLanes.indexOf(parent);
@@ -345,7 +373,7 @@ function calculateGrid(boardData, people) {
     rowLanes[r] = [...currentLanes];
   }
 
-  // 6. WEICHEN-KOORDINATEN (Branching & Merging Berechnung)
+  // 6. WEICHEN-KOORDINATEN
   const rawX = {};
   for (let r = 0; r <= maxRow + 1; r++) {
       rawX[r] = {};
@@ -368,7 +396,6 @@ function calculateGrid(boardData, people) {
               const first = usage.length ? Math.min(...usage) : Infinity;
               const last = usage.length ? Math.max(...usage) : -Infinity;
               
-              // Weiche splittet sich auf und fädelt sich wieder ein!
               if (r < first) targetX = rawX[r][parent] || MARGIN_H;
               else if (r > last) targetX = rawX[r][parent] || MARGIN_H;
               else targetX = rawX[r][l] || rawX[r][parent] || MARGIN_H;
@@ -377,7 +404,7 @@ function calculateGrid(boardData, people) {
       });
   }
 
-  return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints, personLanes, warnings: { cards: warningCards, messages: warningMessages } };
+  return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints, personLanes, warnings: { cards: warningCards, messages: warningMessages }, laneUsage };
 }
 
 function createTrackPath(pts) {
@@ -411,7 +438,7 @@ window.renderUBahnMap = function() {
       }
       
       _lastGrid = calculateGrid(boardData, people);
-      const { placedCards, transferStations, maxRows, trackPoints, personLanes, warnings } = _lastGrid;
+      const { placedCards, transferStations, maxRows, trackPoints, personLanes, warnings, laneUsage } = _lastGrid;
 
       // WIP-LIMIT WÄCHTER
       const activeTasksCount = allCardsFlat.filter(c => c.colName && c.colName.toLowerCase().includes('bearb')).length;
@@ -426,18 +453,20 @@ window.renderUBahnMap = function() {
       }
       
       const allLanesFlat = Object.values(personLanes).flat();
-      const mapW = (allLanesFlat.length - 1) * TRACK_SPACING + MARGIN_H * 2;
+      
+      // Nur Spuren berücksichtigen, die auch wirklich benutzt wurden
+      const activeLanesFlat = allLanesFlat.filter(l => l.endsWith('_0') || (laneUsage[l] && laneUsage[l].length > 0));
+
+      const mapW = (activeLanesFlat.length - 1) * TRACK_SPACING + MARGIN_H * 2;
       const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
-      // HINTERGRUND-GLEISE (Jede Weiche wird gezeichnet)
+      // HINTERGRUND-GLEISE (Kein Geister-Stapeln mehr)
       let svg = `<svg id="ubahn-svg-layer" width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;transition:opacity 0.25s ease;">`;
-      allLanesFlat.forEach(l => {
+      activeLanesFlat.forEach(l => {
         const p = l.split('_')[0];
-        const isMain = l.endsWith('_0');
-        const opacity = isMain ? '0.85' : '0.4'; // Parallelgleise sind etwas dezenter
-        
+        // Beide Gleise sehen jetzt völlig identisch aus (Deckkraft 0.85)
         svg += `<path d="${createTrackPath(trackPoints[l])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
-        svg += `<path d="${createTrackPath(trackPoints[l])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="${opacity}"/>`;
+        svg += `<path d="${createTrackPath(trackPoints[l])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
       });
       svg += `</svg>`;
 
@@ -448,7 +477,6 @@ window.renderUBahnMap = function() {
         .ubahn-pulse-ring { position:absolute; border-radius:50%; pointer-events:none; animation: ubahn-pulse 1.8s ease-out infinite; }
       </style>`;
       
-      // KÖPFE & ENDPUNKTE (Nur auf den Hauptgleisen '_0')
       people.forEach(p => {
         const mainLane = `${p}_0`;
         const sPt = trackPoints[mainLane][0], ePt = trackPoints[mainLane][maxRows], color = lineColors[p];
@@ -470,7 +498,6 @@ window.renderUBahnMap = function() {
       });
 
       placedCards.forEach(k => {
-        // Station wird auf der zugewiesenen WEICHE gerendert!
         const pt = trackPoints[k.assignedLane][k.row];
         const color = lineColors[k.wer], isHigh = k.prio === 'hoch';
         const active = isInProgress(k);
@@ -578,7 +605,6 @@ function _ubahnScrollToCard(label) {
   if (!_lastGrid || !_data) return;
   const placed = _lastGrid.placedCards.find(c => c.label === label);
   if (!placed) return;
-  // Scrolle zur zugewiesenen WEICHE der Karte
   const pt = _lastGrid.trackPoints[placed.assignedLane]?.[placed.row];
   if (!pt) return;
   const container = document.getElementById('ubahn-content');
