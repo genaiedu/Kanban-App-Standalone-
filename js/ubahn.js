@@ -86,165 +86,170 @@ function prepareBoardData() {
   return { boardData, people, lineColors: colors, allCardsFlat };
 }
 
-function topoSortCards(cards) {
-  const byKey = new Map();
-  cards.forEach(c => {
-    if (!c) return;
-    if (c.id) byKey.set(c.id, c);
-    if (c.label) byKey.set(c.label, c);
-  });
-  const visited = new Set();
-  const visiting = new Set(); 
-  const result = [];
-
-  function visit(card, path = []) {
-    if (!card) return;
-    if (visited.has(card.id)) return;
-    if (visiting.has(card.id)) return; 
-    visiting.add(card.id);
-    const currentPath = [...path, card.label || card.id];
-    let allDeps = [...(card.deps || [])];
-    if (card.gruppe) {
-      const groupPartners = cards.filter(c => c && c.gruppe === card.gruppe && c.id !== card.id);
-      groupPartners.forEach(partner => {
-        if (partner.deps) allDeps.push(...partner.deps);
-      });
-    }
-    allDeps.forEach(depKey => { 
-      const d = byKey.get(depKey); 
-      if (d) visit(d, currentPath); 
-    });
-    visiting.delete(card.id);
-    visited.add(card.id);
-    result.push(card);
-  }
-  cards.forEach(c => visit(c));
-  return result;
-}
+// --- ALTE topoSortCards FUNKTION KOMPLETT LÖSCHEN ---
 
 function calculateGrid(boardData, people) {
-  let placedCards = [], transferStations = [], processed = new Set();
-  const personNextRow = {};
-  people.forEach(p => personNextRow[p] = 1);
-  let maxRow = 0;
-  const cardRowById = {};
-  const rowEvents = {};
-
   const allCards = boardData.flatMap(col => col.karten).filter(Boolean);
-  const sortedCards = topoSortCards(allCards);
 
-  // --- PASS 1: REIHENFOLGE (T VOR U GESETZ) ---
-  sortedCards.forEach((card, index) => {
-    if (processed.has(card.label) || processed.has(card.id)) return;
+  // =================================================================
+  // 1. MAKRO-KNOTEN BILDEN (Gruppen unzerstörbar zusammenschweißen)
+  // =================================================================
+  const macroNodes = new Map();
+  const lookup = new Map();
 
-    if (card.gruppe) {
-        const groupMembers = allCards.filter(c => c.gruppe === card.gruppe);
-        const isLast = groupMembers.every(m => {
-            const idx = sortedCards.findIndex(sc => sc.id === m.id);
-            return idx === -1 || idx <= index;
-        });
-        if (!isLast) return; 
-    }
-
-    let inv = card.gruppe
-      ? Array.from(new Set(allCards.filter(c => c.gruppe === card.gruppe).map(c => c.wer)))
-      : [card.wer];
-    inv = inv.filter(p => people.includes(p));
-    if (!inv.length) return;
-
-    const allDeps = card.gruppe
-      ? allCards.filter(c => c.gruppe === card.gruppe).flatMap(c => c.deps || [])
-      : (card.deps || []);
-
-    const depMinRow = allDeps.reduce((m, depId) => {
-      const r = cardRowById[depId];
-      return r !== undefined ? Math.max(m, r + 1) : m;
-    }, 1); 
-
-    const row = Math.max(depMinRow, ...inv.map(p => personNextRow[p]));
-    if (row > maxRow) maxRow = row;
-
-    if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
-    inv.forEach(p => {
-       personNextRow[p] = row + 1;
-       rowEvents[row].activePeople.add(p);
-    });
-
-    if (card.gruppe) {
-      const groupCards = allCards.filter(c => c.gruppe === card.gruppe);
-      groupCards.forEach(gc => { cardRowById[gc.id] = row; cardRowById[gc.label] = row; placedCards.push({ ...gc, row }); processed.add(gc.id); });
-      if (!rowEvents[row].groups.find(g => g.name === card.gruppe)) {
-          rowEvents[row].groups.push({ name: card.gruppe, involved: [...inv] });
-          transferStations.push({ name: card.gruppe, row, involved: [...inv] });
+  allCards.forEach(card => {
+      const key = card.gruppe ? `group_${card.gruppe}` : `card_${card.id}`;
+      if (!macroNodes.has(key)) {
+          macroNodes.set(key, { key, isGroup: !!card.gruppe, name: card.gruppe, cards: [], deps: new Set(), involved: new Set() });
       }
-    } else {
-      cardRowById[card.id] = row;
-      cardRowById[card.label] = row;
-      placedCards.push({ ...card, row });
-      processed.add(card.id);
-    }
+      const node = macroNodes.get(key);
+      node.cards.push(card);
+      if (card.deps) card.deps.forEach(d => node.deps.add(d));
+      if (card.wer) node.involved.add(card.wer);
+
+      // Lookup-Tabelle für Abhängigkeiten
+      lookup.set(card.id, key);
+      if (card.label) lookup.set(card.label, key);
   });
 
-  // --- PASS 2: ZEITPLAN-BERECHNUNG ---
+  // Alle Abhängigkeiten übersetzen (Karte wartet jetzt auf Makro-Knoten)
+  const nodes = Array.from(macroNodes.values());
+  nodes.forEach(node => {
+      const mappedDeps = new Set();
+      node.deps.forEach(dep => {
+          const targetKey = lookup.get(dep);
+          if (targetKey && targetKey !== node.key) mappedDeps.add(targetKey);
+      });
+      node.deps = mappedDeps;
+  });
+
+  // =================================================================
+  // 2. ABSOLUT SICHERE SORTIERUNG (Verhindert T nach U!)
+  // =================================================================
+  const sortedNodes = [];
+  const visited = new Set();
+  const visiting = new Set();
+
+  function visitNode(nodeKey) {
+      if (visited.has(nodeKey)) return;
+      if (visiting.has(nodeKey)) return; // Verhindert Abstürze bei Logik-Kreisen
+      visiting.add(nodeKey);
+      
+      const node = macroNodes.get(nodeKey);
+      if (node) node.deps.forEach(depKey => visitNode(depKey));
+      
+      visiting.delete(nodeKey);
+      visited.add(nodeKey);
+      if (node) sortedNodes.push(node);
+  }
+
+  nodes.forEach(node => visitNode(node.key));
+
+  // =================================================================
+  // 3. PASS 1: GRID PLATZIERUNG (Physische Reihen berechnen)
+  // =================================================================
+  let placedCards = [];
+  let transferStations = [];
+  let maxRow = 0;
+  const personNextRow = {};
+  people.forEach(p => { personNextRow[p] = 1; });
+  const rowEvents = {};
+  const nodeRowByKey = new Map();
+
+  sortedNodes.forEach(node => {
+      // 1. In welcher Reihe liegt die allerletzte Vorbedingung?
+      let depMaxRow = 0;
+      node.deps.forEach(depKey => {
+          const r = nodeRowByKey.get(depKey);
+          if (r !== undefined && r > depMaxRow) depMaxRow = r;
+      });
+
+      const inv = Array.from(node.involved).filter(p => people.includes(p));
+      if (!inv.length) return;
+
+      // 2. Reihe festlegen: Zwingend NACH der letzten Vorbedingung!
+      let row = depMaxRow + 1;
+      inv.forEach(p => { if (personNextRow[p] > row) row = personNextRow[p]; });
+
+      if (row > maxRow) maxRow = row;
+      if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
+
+      inv.forEach(p => { personNextRow[p] = row + 1; rowEvents[row].activePeople.add(p); });
+      nodeRowByKey.set(node.key, row);
+
+      node.cards.forEach(c => { placedCards.push({ ...c, row }); });
+
+      if (node.isGroup) {
+          rowEvents[row].groups.push({ name: node.name, involved: inv });
+          transferStations.push({ name: node.name, row, involved: inv });
+      }
+  });
+
+  // =================================================================
+  // 4. PASS 2: ZEIT-SIMULATION (Sicher & Ohne Abstürze)
+  // =================================================================
   const personLastEnd = {};
-  people.forEach(p => personLastEnd[p] = 0);
-  const cardSimResults = {};
+  people.forEach(p => { personLastEnd[p] = 0; });
+  const nodeSimResults = new Map();
 
-  placedCards.sort((a,b) => a.row - b.row).forEach(pCard => {
-    if (cardSimResults[pCard.id]) return;
+  sortedNodes.forEach(node => {
+      let maxDepEnd = 0;
+      node.deps.forEach(depKey => {
+          const res = nodeSimResults.get(depKey);
+          if (res && res.end > maxDepEnd) maxDepEnd = res.end;
+      });
 
-    const groupMembers = pCard.gruppe 
-      ? placedCards.filter(c => c.gruppe === pCard.gruppe)
-      : [pCard];
+      let maxWorkerReady = 0;
+      const inv = Array.from(node.involved).filter(p => people.includes(p));
+      inv.forEach(p => { if (personLastEnd[p] > maxWorkerReady) maxWorkerReady = personLastEnd[p]; });
 
-    let liveC = pCard;
-    if (typeof S !== 'undefined' && S.cards) {
-        for (const colId in S.cards) {
-            if (Array.isArray(S.cards[colId])) {
-                const found = S.cards[colId].find(c => c.id === pCard.id);
-                if (found) { liveC = found; break; }
-            }
-        }
-    }
+      let start = Math.max(maxDepEnd, maxWorkerReady, 0);
+      const transit = start > 0 ? 0.3 : 0;
+      start += transit;
 
-    const est = liveC.timeEstimate || {};
-    let d = parseFloat(est.d) || 0;
-    let h = parseFloat(est.h) || 0;
-    let m = parseFloat(est.m) || 0;
-    
-    let duration = (d * 8) + h + (m / 60);
-    if (isNaN(duration) || duration <= 0) duration = 1.5;
+      // Längste definierte Zeit innerhalb der Gruppe finden (Standard: 1.5)
+      let maxDuration = 1.5;
+      node.cards.forEach(pCard => {
+          let liveC = pCard;
+          try {
+              if (typeof S !== 'undefined' && S.cards) {
+                  for (const colId in S.cards) {
+                      if (Array.isArray(S.cards[colId])) {
+                          const found = S.cards[colId].find(c => c.id === pCard.id);
+                          if (found) { liveC = found; break; }
+                      }
+                  }
+              }
+          } catch(e) {}
+          const est = liveC.timeEstimate || {};
+          let d = parseFloat(est.d) || 0;
+          let h = parseFloat(est.h) || 0;
+          let m = parseFloat(est.m) || 0;
+          let dur = (d * 8) + h + (m / 60);
+          if (dur > 0 && dur !== 1.5 && dur > maxDuration) maxDuration = dur;
+      });
 
-    const allDeps = groupMembers.flatMap(m => m.deps || []);
-    let maxDepEnd = 0;
-    allDeps.forEach(depId => {
-      if (cardSimResults[depId]) maxDepEnd = Math.max(maxDepEnd, cardSimResults[depId].end || 0);
-    });
+      const end = start + maxDuration;
+      nodeSimResults.set(node.key, { start, end });
+      inv.forEach(p => { personLastEnd[p] = end; });
 
-    const invWorkers = Array.from(new Set(groupMembers.map(m => m.wer)));
-    let maxWorkerReady = 0;
-    invWorkers.forEach(w => { maxWorkerReady = Math.max(maxWorkerReady, personLastEnd[w] || 0); });
-
-    const start = Math.max(maxDepEnd, maxWorkerReady, 0);
-    const transit = start > 0 ? 0.3 : 0;
-    
-    groupMembers.forEach(m => {
-      m.simStart = start + transit;
-      m.simEnd = m.simStart + duration;
-      cardSimResults[m.id] = { start: m.simStart, end: m.simEnd };
-      if(m.label) cardSimResults[m.label] = { start: m.simStart, end: m.simEnd };
-      personLastEnd[m.wer] = m.simEnd;
-    });
+      // Zeiten auf die platzierten Karten übertragen
+      node.cards.forEach(c => {
+          const pc = placedCards.find(placed => placed.id === c.id);
+          if (pc) { pc.simStart = start; pc.simEnd = end; }
+      });
   });
 
-  // --- PASS 3: GLEIS-LAYOUT ---
+  // =================================================================
+  // 5. PASS 3: GLEIS-LAYOUT & KOORDINATEN (Unverändert)
+  // =================================================================
   const rowLanes = { 0: [...people] };
   let currentLanes = [...people];
   for (let r = 1; r <= maxRow + 1; r++) {
     if (rowEvents[r] && rowEvents[r].groups.length > 0) {
       const personCluster = {};
       const clusterAvg = {};
-      currentLanes.forEach(p => { personCluster[p] = p; }); 
+      currentLanes.forEach(p => { personCluster[p] = p; });
       rowEvents[r].groups.forEach(grp => {
         grp.involved.forEach(p => { personCluster[p] = grp.name; });
       });
@@ -280,7 +285,6 @@ function calculateGrid(boardData, people) {
 
   return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints };
 }
-
 function createTrackPath(pts) {
   if (!pts.length) return '';
   let d = `M ${pts[0].x} ${pts[0].y}`;
