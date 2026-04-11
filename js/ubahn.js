@@ -473,22 +473,49 @@ window.renderUBahnMap = function() {
         html += `<div class="ubahn-pill" style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:#ffffff; border:2px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none; transition:background 0.25s ease, border-color 0.25s ease;"></div>`;
         html += `<div style="position:absolute; left:${xMin}px; top:${y - 4}px; width:${lineWidth}px; height:8px; background:#2d3748; z-index:1001; pointer-events:none;"></div>`;
       });
+// --- 1. SCHRITT: BELEGUNG PRÜFEN (Wer hat wie viele Tasks in dieser Zeile?) ---
+      const occupancy = {};
+      placedCards.forEach(k => {
+        const key = `${k.wer}_${k.row}`;
+        if (!occupancy[key]) occupancy[key] = [];
+        occupancy[key].push(k);
+      });
 
+      // --- 2. SCHRITT: STATIONEN RENDERN MIT WARN-LOGIK ---
       placedCards.forEach(k => {
         const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
         const active = isInProgress(k);
         
-        const hasWarning = warnings.cards.has(k.id) || warnings.cards.has(k.label);
-        const warningBadge = hasWarning ? `<div style="position:absolute; top:-8px; left:-8px; background:#facc15; color:#854d0e; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px; border:2px solid var(--surface); z-index:20; box-shadow:0 2px 4px rgba(0,0,0,0.3);" title="⚠️ Logik-Konflikt vom System aufgelöst">⚠️</div>` : '';
+        // Stapel-Offset berechnen (damit man die Karten sieht, wenn es mehrere sind)
+        const key = `${k.wer}_${k.row}`;
+        const totalInStack = occupancy[key].length;
+        const idxInStack = occupancy[key].findIndex(c => c.id === k.id);
+        const stackOffsetY = (idxInStack - (totalInStack - 1) / 2) * 48; 
 
-        if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pt.y-30}px;width:60px;height:60px;border:3px solid ${color};z-index:1003;transition:opacity 0.25s ease;"></div>`;
+        // WARN-LOGIK: Deadlock ODER Doppelbuchung?
+        const hasDeadlock = warnings.cards.has(k.id) || warnings.cards.has(k.label);
+        const isDoubleBooked = totalInStack > 1;
+
+        let warningBadge = '';
+        if (hasDeadlock || isDoubleBooked) {
+            let msg = isDoubleBooked 
+                ? "⚠️ Doppelbuchung: Person hat mehrere Aufgaben im selben Synchron-Block!" 
+                : "⚠️ Logik-Konflikt vom System aufgelöst";
+            
+            warningBadge = `<div style="position:absolute; top:-8px; left:-8px; background:#facc15; color:#854d0e; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px; border:2px solid var(--surface); z-index:20; box-shadow:0 2px 4px rgba(0,0,0,0.3);" title="${msg}">⚠️</div>`;
+        }
+
+        const currentTop = pt.y - 22 + stackOffsetY;
+        const pulseTop = pt.y - 30 + stackOffsetY;
+
+        if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pulseTop}px;width:60px;height:60px;border:3px solid ${color};z-index:1003;transition:opacity 0.25s ease;"></div>`;
         
         html += `
           <div id="ubahn-node-${k.label}" class="ubahn-station"
                onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
                onmouseenter='window.ubahnHoverCard(${JSON.stringify(k.label)})'
                onmouseleave='window.ubahnLeaveCard()'
-               style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;justify-content:center;align-items:center;cursor:pointer;z-index:1004;transition:opacity 0.25s ease;">
+               style="position:absolute;left:${pt.x-90}px;top:${currentTop}px;width:180px;display:flex;justify-content:center;align-items:center;cursor:pointer;z-index:1004;transition:opacity 0.25s ease;">
             <div id="ubahn-ring-${k.label}" data-color="${color}" data-active="${active}"
                  style="position:relative; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4)${active ? `,0 0 18px ${color}99` : ''}; transition:all 0.25s ease;">
               ${esc(k.label)}
