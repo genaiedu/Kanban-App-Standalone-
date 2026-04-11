@@ -160,53 +160,47 @@ function calculateGrid(boardData, people) {
   people.forEach(p => personNextRow[p] = 1);
   let maxRow = 0;
   
-  // Wichtig: Wir speichern hier JEDE Karte mit ID und Label ab, 
-  // damit Abhängigkeiten immer gefunden werden.
   const cardRowById = {};
   const rowEvents = {};
 
   const allCards = boardData.flatMap(col => col.karten);
   const sortedCards = topoSortCards(allCards);
 
-  // --- PASS 1: STRIKTE REIHENFOLGE-BERECHNUNG ---
-  sortedCards.forEach(card => {
-    // Falls die Karte schon als Teil einer Gruppe verarbeitet wurde: Überspringen.
+  // --- PASS 1: REIHENFOLGE-LOGIK (DER FIX) ---
+  sortedCards.forEach((card, index) => {
     if (processed.has(card.id)) return;
 
-    // 1. Gruppe identifizieren
-    const isInGroup = !!card.gruppe;
-    const groupMembers = isInGroup 
+    const groupMembers = card.gruppe 
       ? allCards.filter(c => c.gruppe === card.gruppe)
       : [card];
 
-    // 2. STRIKTER CHECK: Sind alle Abhängigkeiten für ALLE Gruppenmitglieder bereit?
-    // Ein Gruppenmitglied könnte eine Abhängigkeit haben, die erst viel später 
-    // in der sortedCards-Liste kommt.
-    const allGroupDeps = groupMembers.flatMap(m => m.deps || []);
-    const allDepsReady = allGroupDeps.every(depId => cardRowById[depId] !== undefined);
-
-    // Falls noch nicht alle Voraussetzungen (von allen Mitgliedern) platziert sind:
-    // Wir überspringen diese Karte JETZT. Sie wird automatisch später wieder 
-    // aufgerufen, wenn das letzte Mitglied der Gruppe in sortedCards erscheint.
-    if (isInGroup && !allDepsReady) {
-      return; 
+    // TRICK: Wir verarbeiten eine Gruppe erst, wenn wir beim LETZTEN Mitglied 
+    // in der sortierten Liste angekommen sind. Das garantiert, dass alle 
+    // Abhängigkeiten (auch die von U) bereits einen Platz haben.
+    if (card.gruppe) {
+      const isLastMember = groupMembers.every(m => {
+        const mIndex = sortedCards.findIndex(sc => sc.id === m.id);
+        return mIndex <= index;
+      });
+      if (!isLastMember) return; // Wir warten auf den "Gruppen-Sprecher"
     }
 
-    // 3. Beteiligte Personen ermitteln
+    // Ab hier: Platzierung der Karte oder der gesamten Gruppe
     let inv = Array.from(new Set(groupMembers.map(c => c.wer))).filter(p => people.includes(p));
     if (!inv.length) return;
 
-    // 4. Frühestmögliche Reihe berechnen
-    // Regel A: Muss nach der letzten Voraussetzung (aller Mitglieder) kommen.
+    // Alle Abhängigkeiten der Gruppe sammeln
+    const allGroupDeps = groupMembers.flatMap(m => m.deps || []);
+
+    // 1. Minimum Reihe durch Abhängigkeiten (muss nach T kommen!)
     const depMinRow = allGroupDeps.reduce((m, depId) => {
       const r = cardRowById[depId];
       return r !== undefined ? Math.max(m, r + 1) : m;
     }, 1); 
 
-    // Regel B: Die beteiligten Personen müssen frei sein.
+    // 2. Minimum Reihe durch Personen-Verfügbarkeit
     const row = Math.max(depMinRow, ...inv.map(p => personNextRow[p]));
     
-    // 5. Grid aktualisieren
     if (row > maxRow) maxRow = row;
     if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
     
@@ -215,7 +209,6 @@ function calculateGrid(boardData, people) {
        rowEvents[row].activePeople.add(p);
     });
 
-    // 6. Alle Mitglieder der Gruppe (oder die Einzelkarte) final platzieren
     groupMembers.forEach(gc => { 
       cardRowById[gc.id] = row; 
       cardRowById[gc.label] = row; 
@@ -223,41 +216,35 @@ function calculateGrid(boardData, people) {
       processed.add(gc.id); 
     });
 
-    // 7. Pille (Umsteigebahnhof) für Gruppen registrieren
-    if (isInGroup && !rowEvents[row].groups.find(g => g.name === card.gruppe)) {
+    if (card.gruppe && !rowEvents[row].groups.find(g => g.name === card.gruppe)) {
         rowEvents[row].groups.push({ name: card.gruppe, involved: [...inv] });
         transferStations.push({ name: card.gruppe, row, involved: [...inv] });
     }
   });
 
-  // --- PASS 2: ZEITPLAN-BERECHNUNG FÜR GANTT/SIM ---
-  // (Wir nutzen die gleichen Reihen-Ergebnisse für die Zeit-Berechnung)
+  // --- PASS 2: ZEITPLAN-BERECHNUNG (Bleibt gleich, funktioniert jetzt aber) ---
   const personLastEnd = {};
   people.forEach(p => personLastEnd[p] = 0);
   const cardSimResults = {};
 
-  // Wir müssen die Zeitberechnung in der gleichen Reihenfolge machen wie das Grid
   placedCards.sort((a,b) => a.row - b.row).forEach(pCard => {
-    if (cardSimResults[pCard.id]) return; // Schon berechnet (Gruppe)
+    if (cardSimResults[pCard.id]) return;
 
     const groupMembers = pCard.gruppe 
       ? placedCards.filter(c => c.gruppe === pCard.gruppe)
       : [pCard];
 
-    // Zeitwerte holen
     const liveC = (Object.values(S.cards).flat()).find(x => x.id === pCard.id) || pCard;
     const est = liveC.timeEstimate || { d: 0, h: 0, m: 0 };
     let duration = (est.d * 8) + est.h + (est.m / 60);
     if (duration <= 0) duration = 1.5;
 
-    // Wann sind Vorbedingungen (aller Mitglieder) fertig?
     const allDeps = groupMembers.flatMap(m => m.deps || []);
     let maxDepEnd = 0;
     allDeps.forEach(depId => {
       if (cardSimResults[depId]) maxDepEnd = Math.max(maxDepEnd, cardSimResults[depId].end);
     });
 
-    // Wann sind alle Personen der Gruppe frei?
     const inv = Array.from(new Set(groupMembers.map(m => m.wer)));
     let maxWorkerReady = 0;
     inv.forEach(m => maxWorkerReady = Math.max(maxWorkerReady, personLastEnd[m] || 0));
@@ -274,31 +261,25 @@ function calculateGrid(boardData, people) {
     });
   });
 
-  // --- PASS 3: LAYOUT (Lanes sortieren) ---
+  // --- PASS 3 & 4 (Layout & TrackPoints) bleiben wie gehabt ---
   const rowLanes = { 0: [...people] };
   let currentLanes = [...people];
   for (let r = 1; r <= maxRow + 1; r++) {
     if (rowEvents[r] && rowEvents[r].groups.length > 0) {
-      const personCluster = {};
-      const clusterAvg = {};
+      const personCluster = {}; const clusterAvg = {};
       currentLanes.forEach(p => personCluster[p] = p); 
       rowEvents[r].groups.forEach(grp => grp.involved.forEach(p => personCluster[p] = grp.name));
       currentLanes.forEach(p => {
-        const cluster = personCluster[p];
-        if (!clusterAvg[cluster]) clusterAvg[cluster] = { sum: 0, count: 0, members: [] };
-        clusterAvg[cluster].sum += currentLanes.indexOf(p);
-        clusterAvg[cluster].count++;
-        clusterAvg[cluster].members.push(p);
+        const cl = personCluster[p];
+        if (!clusterAvg[cl]) clusterAvg[cl] = { sum: 0, count: 0, members: [] };
+        clusterAvg[cl].sum += currentLanes.indexOf(p); clusterAvg[cl].count++; clusterAvg[cl].members.push(p);
       });
-      const clusters = Object.keys(clusterAvg).map(k => ({
-        id: k, avg: clusterAvg[k].sum / clusterAvg[k].count, members: clusterAvg[k].members
-      })).sort((a,b) => a.avg - b.avg);
+      const clusters = Object.keys(clusterAvg).map(k => ({ id: k, avg: clusterAvg[k].sum / clusterAvg[k].count, members: clusterAvg[k].members })).sort((a,b) => a.avg - b.avg);
       currentLanes = clusters.flatMap(c => c.members.sort((a,b) => currentLanes.indexOf(a) - currentLanes.indexOf(b)));
     }
     rowLanes[r] = [...currentLanes];
   }
 
-  // --- PASS 4: TRACK POINTS ---
   const trackPoints = {};
   people.forEach(p => trackPoints[p] = []);
   const personCurrentX = {};
@@ -308,17 +289,6 @@ function calculateGrid(boardData, people) {
   }
 
   return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints };
-}
-
-function createTrackPath(pts) {
-  if (!pts.length) return '';
-  let d = `M ${pts[0].x} ${pts[0].y}`;
-  for (let i = 1; i < pts.length; i++) {
-    const p = pts[i-1], c = pts[i];
-    if (p.x !== c.x) { const mY = (p.y + c.y) / 2; d += ` C ${p.x} ${mY}, ${c.x} ${mY}, ${c.x} ${c.y}`; }
-    else d += ` L ${c.x} ${c.y}`;
-  }
-  return d;
 }
 
 // ── 3. RENDERN ───────────────────────────────────────────────
