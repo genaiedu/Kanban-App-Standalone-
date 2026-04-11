@@ -155,74 +155,126 @@ function topoSortCards(cards) {
 }
 
 function calculateGrid(boardData, people) {
-  let placedCards = [], transferStations = [], processed = new Set();
-  const personNextRow = {};
-  people.forEach(p => personNextRow[p] = 1);
-  let maxRow = 0;
-  
-  const cardRowById = {};
-  const rowEvents = {};
-
   const allCards = boardData.flatMap(col => col.karten);
-  const sortedCards = topoSortCards(allCards);
-
-  // --- PASS 1: REIHENFOLGE-LOGIK (DER FIX) ---
-  sortedCards.forEach((card, index) => {
-    if (processed.has(card.id)) return;
-
-    const groupMembers = card.gruppe 
-      ? allCards.filter(c => c.gruppe === card.gruppe)
-      : [card];
-
-    // TRICK: Wir verarbeiten eine Gruppe erst, wenn wir beim LETZTEN Mitglied 
-    // in der sortierten Liste angekommen sind. Das garantiert, dass alle 
-    // Abhängigkeiten (auch die von U) bereits einen Platz haben.
-    if (card.gruppe) {
-      const isLastMember = groupMembers.every(m => {
-        const mIndex = sortedCards.findIndex(sc => sc.id === m.id);
-        return mIndex <= index;
-      });
-      if (!isLastMember) return; // Wir warten auf den "Gruppen-Sprecher"
-    }
-
-    // Ab hier: Platzierung der Karte oder der gesamten Gruppe
-    let inv = Array.from(new Set(groupMembers.map(c => c.wer))).filter(p => people.includes(p));
-    if (!inv.length) return;
-
-    // Alle Abhängigkeiten der Gruppe sammeln
-    const allGroupDeps = groupMembers.flatMap(m => m.deps || []);
-
-    // 1. Minimum Reihe durch Abhängigkeiten (muss nach T kommen!)
-    const depMinRow = allGroupDeps.reduce((m, depId) => {
-      const r = cardRowById[depId];
-      return r !== undefined ? Math.max(m, r + 1) : m;
-    }, 1); 
-
-    // 2. Minimum Reihe durch Personen-Verfügbarkeit
-    const row = Math.max(depMinRow, ...inv.map(p => personNextRow[p]));
-    
-    if (row > maxRow) maxRow = row;
-    if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
-    
-    inv.forEach(p => {
-       personNextRow[p] = row + 1;
-       rowEvents[row].activePeople.add(p);
-    });
-
-    groupMembers.forEach(gc => { 
-      cardRowById[gc.id] = row; 
-      cardRowById[gc.label] = row; 
-      placedCards.push({ ...gc, row }); 
-      processed.add(gc.id); 
-    });
-
-    if (card.gruppe && !rowEvents[row].groups.find(g => g.name === card.gruppe)) {
-        rowEvents[row].groups.push({ name: card.gruppe, involved: [...inv] });
-        transferStations.push({ name: card.gruppe, row, involved: [...inv] });
-    }
+  
+  // =================================================================
+  // PASS 1: MAKRO-KNOTEN (Gruppen als unzerstörbare Blöcke bündeln)
+  // =================================================================
+  const macroNodes = [];
+  const macroNodeMap = new Map();
+  
+  allCards.forEach(card => {
+      let key = card.gruppe ? `group_${card.gruppe}` : `card_${card.id}`;
+      let node = macroNodeMap.get(key);
+      if (!node) {
+          node = { key, isGroup: !!card.gruppe, name: card.gruppe, cards: [], deps: new Set(), involved: new Set() };
+          macroNodes.push(node);
+          macroNodeMap.set(key, node);
+      }
+      node.cards.push(card);
+      (card.deps || []).forEach(d => node.deps.add(d)); // Alle Abhängigkeiten der Gruppe vereinen
+      node.involved.add(card.wer); // Alle Personen der Gruppe vereinen
   });
 
-  // --- PASS 2: ZEITPLAN-BERECHNUNG (Bleibt gleich, funktioniert jetzt aber) ---
+  // Map aktualisieren für einfache Label/ID Suche
+  allCards.forEach(card => {
+      const node = macroNodeMap.get(card.gruppe ? `group_${card.gruppe}` : `card_${card.id}`);
+      macroNodeMap.set(card.id, node);
+      if (card.label) macroNodeMap.set(card.label, node);
+  });
+
+  // =================================================================
+  // PASS 2: STRIKTE PLATZIERUNG (Der finale Logik-Fix)
+  // =================================================================
+  const placedNodes = new Set();
+  let remainingNodes = [...macroNodes];
+  let maxRow = 0;
+  const personNextRow = {};
+  people.forEach(p => personNextRow[p] = 1);
+  const cardRowById = {};
+  const rowEvents = {};
+  let placedCards = [];
+  let transferStations = [];
+
+  let safeguard = 0;
+  while (remainingNodes.length > 0 && safeguard < 1000) {
+      safeguard++;
+      let placedAny = false;
+
+      for (let i = 0; i < remainingNodes.length; i++) {
+          const node = remainingNodes[i];
+          let allDepsMet = true;
+          let depMaxRow = 0;
+
+          // STRIKTE PRÜFUNG: Sind alle Abhängigkeiten dieses Blocks schon im Netz?
+          for (const dep of node.deps) {
+              const depNode = macroNodeMap.get(dep);
+              if (depNode) {
+                  if (!placedNodes.has(depNode.key)) {
+                      allDepsMet = false; break; // Nein? Dann warten wir!
+                  } else {
+                      const depCard = depNode.cards[0];
+                      const r = cardRowById[depCard.id];
+                      if (r !== undefined && r > depMaxRow) depMaxRow = r;
+                  }
+              }
+          }
+
+          if (allDepsMet) {
+              // Ja! Block platzieren.
+              const inv = Array.from(node.involved).filter(p => people.includes(p));
+              let row = depMaxRow + 1; // Muss STRIKT nach der letzten Voraussetzung kommen!
+              inv.forEach(p => { if (personNextRow[p] > row) row = personNextRow[p]; });
+
+              if (row > maxRow) maxRow = row;
+              if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
+              
+              inv.forEach(p => {
+                  personNextRow[p] = row + 1;
+                  rowEvents[row].activePeople.add(p);
+              });
+
+              node.cards.forEach(c => {
+                  cardRowById[c.id] = row;
+                  if (c.label) cardRowById[c.label] = row;
+                  placedCards.push({ ...c, row });
+              });
+
+              if (node.isGroup && !rowEvents[row].groups.find(g => g.name === node.name)) {
+                  rowEvents[row].groups.push({ name: node.name, involved: inv });
+                  transferStations.push({ name: node.name, row, involved: inv });
+              }
+
+              placedNodes.add(node.key);
+              remainingNodes.splice(i, 1);
+              placedAny = true;
+              i--; 
+          }
+      }
+
+      // Notfall-Anker: Falls es irgendwo einen Logik-Kreis gibt (z.B. A wartet auf B, B wartet auf A)
+      if (!placedAny && remainingNodes.length > 0) {
+          const node = remainingNodes.shift();
+          const inv = Array.from(node.involved).filter(p => people.includes(p));
+          let row = 1;
+          inv.forEach(p => { if (personNextRow[p] > row) row = personNextRow[p]; });
+
+          if (row > maxRow) maxRow = row;
+          if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
+          inv.forEach(p => { personNextRow[p] = row + 1; rowEvents[row].activePeople.add(p); });
+
+          node.cards.forEach(c => { cardRowById[c.id] = row; if (c.label) cardRowById[c.label] = row; placedCards.push({ ...c, row }); });
+          if (node.isGroup && !rowEvents[row].groups.find(g => g.name === node.name)) {
+              rowEvents[row].groups.push({ name: node.name, involved: inv });
+              transferStations.push({ name: node.name, row, involved: inv });
+          }
+          placedNodes.add(node.key);
+      }
+  }
+
+  // =================================================================
+  // PASS 3: ZEITPLAN & CRASH-VERHINDERUNG
+  // =================================================================
   const personLastEnd = {};
   people.forEach(p => personLastEnd[p] = 0);
   const cardSimResults = {};
@@ -235,33 +287,42 @@ function calculateGrid(boardData, people) {
       : [pCard];
 
     const liveC = (Object.values(S.cards).flat()).find(x => x.id === pCard.id) || pCard;
-    const est = liveC.timeEstimate || { d: 0, h: 0, m: 0 };
-    let duration = (est.d * 8) + est.h + (est.m / 60);
-    if (duration <= 0) duration = 1.5;
+    const est = liveC.timeEstimate || {};
+    
+    // ANTI-CRASH: Wenn Daten fehlen, wird es gnadenlos zu 0 geparst
+    let d = parseFloat(est.d) || 0;
+    let h = parseFloat(est.h) || 0;
+    let m = parseFloat(est.m) || 0;
+    
+    let duration = (d * 8) + h + (m / 60);
+    if (isNaN(duration) || duration <= 0) duration = 1.5;
 
     const allDeps = groupMembers.flatMap(m => m.deps || []);
     let maxDepEnd = 0;
     allDeps.forEach(depId => {
-      if (cardSimResults[depId]) maxDepEnd = Math.max(maxDepEnd, cardSimResults[depId].end);
+      if (cardSimResults[depId]) maxDepEnd = Math.max(maxDepEnd, cardSimResults[depId].end || 0);
     });
 
     const inv = Array.from(new Set(groupMembers.map(m => m.wer)));
     let maxWorkerReady = 0;
     inv.forEach(m => maxWorkerReady = Math.max(maxWorkerReady, personLastEnd[m] || 0));
 
-    const start = Math.max(maxDepEnd, maxWorkerReady);
+    // SICHERHEIT: Start darf nicht negativ sein
+    const start = Math.max(maxDepEnd, maxWorkerReady, 0);
     const transit = start > 0 ? 0.3 : 0;
     
     groupMembers.forEach(m => {
       m.simStart = start + transit;
       m.simEnd = m.simStart + duration;
       cardSimResults[m.id] = { start: m.simStart, end: m.simEnd };
-      cardSimResults[m.label] = { start: m.simStart, end: m.simEnd };
+      if (m.label) cardSimResults[m.label] = { start: m.simStart, end: m.simEnd };
       personLastEnd[m.wer] = m.simEnd;
     });
   });
 
-  // --- PASS 3 & 4 (Layout & TrackPoints) bleiben wie gehabt ---
+  // =================================================================
+  // PASS 4 & 5: LAYOUT UND KOORDINATEN
+  // =================================================================
   const rowLanes = { 0: [...people] };
   let currentLanes = [...people];
   for (let r = 1; r <= maxRow + 1; r++) {
@@ -290,7 +351,6 @@ function calculateGrid(boardData, people) {
 
   return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints };
 }
-
 // ── 3. RENDERN ───────────────────────────────────────────────
 // ── GEWÜNSCHTE RENDER-FUNKTION FÜR DIE U-BAHN KARTE ──
 window.renderUBahnMap = function() {
