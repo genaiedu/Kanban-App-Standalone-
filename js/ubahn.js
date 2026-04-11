@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Kausalitäts-Edition (Kahn-Algorithmus)
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Deadlock-Resolution Edition
 import { S, moveCard, getCards, updateCard } from './state.js';
 
 const PALETTE = [
@@ -85,102 +85,129 @@ function prepareBoardData() {
   return { boardData, people, lineColors: colors, allCardsFlat };
 }
 
-// ── DIE NEUE KAUSALITÄTS-MASCHINE (Kahn-Algorithmus) ──
-// ── DIE "STAMMBAUM" KAUSALITÄTS-MASCHINE (Vom User definiert) ──
+// ── INTELLIGENTE KAUSALITÄTS-MASCHINE MIT DEADLOCK-BREAKER ──
 function calculateGrid(boardData, people) {
   const allCards = boardData.flatMap(col => col.karten).filter(Boolean);
 
-  // =================================================================
-  // 1. KARTEN BÜNDELN (Gruppenarbeiten zu einem Knoten verschmelzen)
-  // =================================================================
-  const nodes = new Map();
-  const lookup = new Map();
+  let dissolvedGroups = new Set();
+  let ignoredDependencies = [];
+  let warningCards = new Set();
+  let warningMessages = new Set();
+  
+  let sortedNodes = [];
+  let nodesMap = new Map();
+  let graphResolved = false;
+  let safeGuardOuter = 0;
 
-  allCards.forEach(c => {
-      const key = c.gruppe ? `GROUP_${c.gruppe}` : `CARD_${c.id}`;
-      if (!nodes.has(key)) {
-          nodes.set(key, { 
-              key, 
-              isGroup: !!c.gruppe, 
-              name: c.gruppe, 
-              cards: [], 
-              involved: new Set(), 
-              depsRaw: new Set(), 
-              depsResolved: new Set() 
+  // DIE LÖSUNGS-SCHLEIFE: Baut das Netz so lange um, bis es fehlerfrei aufgeht
+  while (!graphResolved && safeGuardOuter < 15) {
+      safeGuardOuter++;
+      nodesMap.clear();
+      const lookup = new Map();
+
+      // 1. KARTEN BÜNDELN (Unter Berücksichtigung aufgelöster Gruppen!)
+      allCards.forEach(card => {
+          const isGroup = card.gruppe && !dissolvedGroups.has(card.gruppe);
+          const key = isGroup ? `group_${card.gruppe}` : `card_${card.id}`;
+          if (!nodesMap.has(key)) {
+              nodesMap.set(key, { key, isGroup, name: card.gruppe, cards: [], rawDeps: new Set(), resolvedDeps: new Set(), involved: new Set() });
+          }
+          const node = nodesMap.get(key);
+          node.cards.push(card);
+          if (card.deps) card.deps.forEach(d => { if(typeof d === 'string') node.rawDeps.add(d.trim().toUpperCase()); });
+          if (card.wer) node.involved.add(card.wer);
+
+          lookup.set(String(card.id).trim().toUpperCase(), key);
+          if (card.label) lookup.set(String(card.label).trim().toUpperCase(), key);
+      });
+
+      // 2. ABHÄNGIGKEITEN KNÜPFEN (Unter Berücksichtigung ignorierter Kausalitäten!)
+      const nodes = Array.from(nodesMap.values());
+      nodes.forEach(node => {
+          node.rawDeps.forEach(rawDep => {
+              const targetKey = lookup.get(rawDep);
+              if (targetKey && targetKey !== node.key) {
+                  // Prüfen, ob diese Linie in einer vorherigen Runde vom System gekappt wurde
+                  const isIgnored = ignoredDependencies.some(ign => ign.from === targetKey && ign.to === node.key);
+                  if (!isIgnored) node.resolvedDeps.add(targetKey);
+              }
+          });
+      });
+
+      // 3. KAHN-ALGORITHMUS
+      sortedNodes = [];
+      let inDegree = new Map();
+      let adjList = new Map();
+
+      nodes.forEach(n => {
+          inDegree.set(n.key, n.resolvedDeps.size);
+          adjList.set(n.key, []);
+      });
+
+      nodes.forEach(n => {
+          n.resolvedDeps.forEach(depKey => {
+              if (adjList.has(depKey)) adjList.get(depKey).push(n.key);
+          });
+      });
+
+      let queue = [];
+      nodes.forEach(n => { if (inDegree.get(n.key) === 0) queue.push(n); });
+
+      let safeGuardInner = 0;
+      while (queue.length > 0 && safeGuardInner < 5000) {
+          safeGuardInner++;
+          const current = queue.shift();
+          sortedNodes.push(current);
+
+          adjList.get(current.key).forEach(dependentKey => {
+              let degree = inDegree.get(dependentKey) - 1;
+              inDegree.set(dependentKey, degree);
+              if (degree === 0) queue.push(nodesMap.get(dependentKey));
           });
       }
-      const n = nodes.get(key);
-      n.cards.push(c);
-      if (c.wer) n.involved.add(c.wer);
-      if (c.deps) c.deps.forEach(d => n.depsRaw.add(String(d).trim().toUpperCase()));
 
-      // Lookup-Tabelle für fehlertolerantes Finden
-      lookup.set(String(c.id).trim().toUpperCase(), key);
-      if (c.label) lookup.set(String(c.label).trim().toUpperCase(), key);
-  });
+      // 4. PARADOXON AUSWERTUNG
+      if (sortedNodes.length === nodes.length) {
+          graphResolved = true; // Juhu! Kein Deadlock mehr!
+      } else {
+          // DEADLOCK ENTDECKT! Wer steckt fest?
+          const stuckNodes = nodes.filter(n => inDegree.get(n.key) > 0);
+          const groupNode = stuckNodes.find(n => n.isGroup);
 
-  // =================================================================
-  // 2. STAMMBAUM VERKNÜPFEN (Wer ist der direkte Vater?)
-  // =================================================================
-  for (const n of nodes.values()) {
-      n.depsRaw.forEach(rawDep => {
-          const targetKey = lookup.get(rawDep);
-          // Man kann nicht sein eigener Großvater sein
-          if (targetKey && targetKey !== n.key) {
-              n.depsResolved.add(targetKey);
+          if (groupNode) {
+              // PRIO 1: Gruppenarbeit sprengen
+              dissolvedGroups.add(groupNode.name);
+              groupNode.cards.forEach(c => warningCards.add(c.id));
+              warningMessages.add(`Gruppenarbeit "${groupNode.name}" wurde aufgelöst.`);
+          } else {
+              // PRIO 2: Kausalität kappen
+              let brokeEdge = false;
+              for (const n of stuckNodes) {
+                  for (const depKey of n.resolvedDeps) {
+                      if (inDegree.get(depKey) > 0) {
+                          ignoredDependencies.push({ from: depKey, to: n.key });
+                          n.cards.forEach(c => warningCards.add(c.id));
+                          const depNode = nodesMap.get(depKey);
+                          if (depNode) depNode.cards.forEach(c => warningCards.add(c.id));
+                          
+                          const fromNames = depNode ? depNode.cards.map(c=>c.label||c.id).join(', ') : depKey;
+                          const toNames = n.cards.map(c=>c.label||c.id).join(', ');
+                          warningMessages.add(`Abhängigkeit [${fromNames}] ➔ [${toNames}] wurde entfernt.`);
+                          brokeEdge = true; break;
+                      }
+                  }
+                  if (brokeEdge) break;
+              }
+              if (!brokeEdge) {
+                  // Fallback falls alles andere fehlschlägt
+                  inDegree.set(stuckNodes[0].key, 0); queue.push(stuckNodes[0]);
+              }
           }
-      });
-  }
-
-  // =================================================================
-  // 3. GENERATIONEN BERECHNEN (Der Weg nach ganz oben)
-  // =================================================================
-  const depths = new Map();
-  const visiting = new Set();
-
-  function getDepth(nodeKey) {
-      // Wenn wir die Generation schon kennen, direkt zurückgeben
-      if (depths.has(nodeKey)) return depths.get(nodeKey);
-      
-      // Notfall-Bremse bei unendlichen Schleifen
-      if (visiting.has(nodeKey)) {
-          console.warn("Zirkel-Bezug (Zeitparadoxon) ignoriert bei:", nodeKey);
-          return 0;
+          // Schleife startet automatisch neu mit den neuen Regeln!
       }
-
-      visiting.add(nodeKey);
-      const n = nodes.get(nodeKey);
-      let maxDepth = 0;
-
-      // Wenn es Vorfahren gibt, frage alle nach ihrer Generation
-      if (n && n.depsResolved.size > 0) {
-          for (const depKey of n.depsResolved) {
-              const d = getDepth(depKey);
-              if (d > maxDepth) maxDepth = d; // Wir richten uns nach dem ÄLTESTEN Vorfahren
-          }
-      }
-
-      visiting.delete(nodeKey);
-      const myDepth = maxDepth + 1; // Ich bin eine Generation jünger als mein ältester Vorfahr
-      depths.set(nodeKey, myDepth);
-      return myDepth;
   }
 
-  // Generation für alle Blöcke ausrechnen
-  for (const key of nodes.keys()) {
-      getDepth(key);
-  }
-
-  // =================================================================
-  // 4. NACH GENERATION SORTIEREN
-  // =================================================================
-  const sortedNodes = Array.from(nodes.values()).sort((a, b) => {
-      return depths.get(a.key) - depths.get(b.key);
-  });
-
-  // =================================================================
-  // 5. PHYSISCHE PLATZIERUNG (Das Rastern)
-  // =================================================================
+  // 5. PHYSISCHE PLATZIERUNG
   let placedCards = [];
   let transferStations = [];
   let maxRow = 0;
@@ -189,52 +216,39 @@ function calculateGrid(boardData, people) {
   const rowEvents = {};
   const nodeRowByKey = new Map();
 
-  for (const node of sortedNodes) {
+  sortedNodes.forEach(node => {
       let depMaxRow = 0;
-      
-      // Regel 1: Kausalität. Die Karte MUSS physisch unter dem tiefsten Vorfahren liegen.
-      for (const depKey of node.depsResolved) {
+      node.resolvedDeps.forEach(depKey => {
           const r = nodeRowByKey.get(depKey);
           if (r !== undefined && r > depMaxRow) depMaxRow = r;
-      }
+      });
 
       let row = depMaxRow + 1;
-
-      // Regel 2: Gruppen-Synchronität. Die Karte MUSS warten, bis alle aus der Gruppe frei sind.
       const inv = Array.from(node.involved).filter(p => people.includes(p));
-      for (const p of inv) {
-          if (personNextRow[p] > row) row = personNextRow[p];
-      }
+      inv.forEach(p => { if (personNextRow[p] > row) row = personNextRow[p]; });
 
       if (row > maxRow) maxRow = row;
       if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
 
-      // Schienen für die beteiligten Personen ab dieser Reihe blockieren
-      for (const p of inv) {
-          personNextRow[p] = row + 1;
-          rowEvents[row].activePeople.add(p);
-      }
+      inv.forEach(p => { personNextRow[p] = row + 1; rowEvents[row].activePeople.add(p); });
       nodeRowByKey.set(node.key, row);
 
-      // Karten final eintragen
       node.cards.forEach(c => { placedCards.push({ ...c, row }); });
 
       if (node.isGroup) {
           rowEvents[row].groups.push({ name: node.name, involved: inv });
           transferStations.push({ name: node.name, row, involved: inv });
       }
-  }
+  });
 
-  // =================================================================
-  // 6. ZEITPLAN-BERECHNUNG (Sicher durch Try-Catch)
-  // =================================================================
+  // 6. ZEITPLAN BERECHNUNG
   const personLastEnd = {};
   people.forEach(p => { personLastEnd[p] = 0; });
   const nodeSimResults = new Map();
 
-  for (const node of sortedNodes) {
+  sortedNodes.forEach(node => {
       let maxDepEnd = 0;
-      node.depsResolved.forEach(depKey => {
+      node.resolvedDeps.forEach(depKey => {
           const res = nodeSimResults.get(depKey);
           if (res && res.end > maxDepEnd) maxDepEnd = res.end;
       });
@@ -276,11 +290,9 @@ function calculateGrid(boardData, people) {
           const pc = placedCards.find(placed => placed.id === c.id);
           if (pc) { pc.simStart = start; pc.simEnd = end; }
       });
-  }
+  });
 
-  // =================================================================
   // 7. GLEIS-LAYOUT & KOORDINATEN
-  // =================================================================
   const rowLanes = { 0: [...people] };
   let currentLanes = [...people];
   for (let r = 1; r <= maxRow + 1; r++) {
@@ -309,7 +321,7 @@ function calculateGrid(boardData, people) {
     people.forEach(p => trackPoints[p].push({ x: personCurrentX[p] || MARGIN_H, y: MARGIN_TOP + r * ROW_HEIGHT }));
   }
 
-  return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints };
+  return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints, warnings: { cards: warningCards, messages: warningMessages } };
 }
 
 function createTrackPath(pts) {
@@ -323,7 +335,7 @@ function createTrackPath(pts) {
   return d;
 }
 
-// ── 3. RENDERN MIT FEHLER-AIRBAG ───────────────────────────────────────────────
+// ── 3. RENDERN MIT WARN-SYMBOLEN ───────────────────────────────────────────────
 window.renderUBahnMap = function() {
   try {
       _currentView = 'map'; 
@@ -343,7 +355,13 @@ window.renderUBahnMap = function() {
       }
       
       _lastGrid = calculateGrid(boardData, people);
-      const { placedCards, transferStations, maxRows, trackPoints } = _lastGrid;
+      const { placedCards, transferStations, maxRows, trackPoints, warnings } = _lastGrid;
+
+      // DEADLOCK TOAST ANZEIGEN
+      if (warnings.messages.size > 0 && typeof window.showToast === 'function') {
+          const msgList = Array.from(warnings.messages).map(m => `• ${m}`).join('\n');
+          window.showToast(`⚠️ Deadlock behoben:\n${msgList}`, 'warning');
+      }
       
       const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
       const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
@@ -384,6 +402,11 @@ window.renderUBahnMap = function() {
       placedCards.forEach(k => {
         const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
         const active = isInProgress(k);
+        
+        // DAS IST DAS NEUE GELBE WARN-ICON FÜR DEADLOCK-KARTEN
+        const hasWarning = warnings.cards.has(k.id) || warnings.cards.has(k.label);
+        const warningBadge = hasWarning ? `<div style="position:absolute; top:-8px; left:-8px; background:#facc15; color:#854d0e; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px; border:2px solid var(--surface); z-index:20; box-shadow:0 2px 4px rgba(0,0,0,0.3);" title="⚠️ Logik-Konflikt vom System aufgelöst">⚠️</div>` : '';
+
         if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pt.y-30}px;width:60px;height:60px;border:3px solid ${color};z-index:1003;transition:opacity 0.25s ease;"></div>`;
         
         html += `
@@ -396,6 +419,7 @@ window.renderUBahnMap = function() {
                  style="position:relative; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4)${active ? `,0 0 18px ${color}99` : ''}; transition:all 0.25s ease;">
               ${esc(k.label)}
               ${isHigh ? `<span style="position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid var(--surface); z-index:10;"></span>` : ''}
+              ${warningBadge}
             </div>
           </div>`;
       });
@@ -430,12 +454,18 @@ window.renderUBahnPerson = function(workerName) {
         let dotW = members.length ? 64 : 44;
         let isHigh = k.prio === 'hoch';
         const active = k.colName && k.colName.toLowerCase().includes('bearb');
+
+        // WARN BADGE AUCH IN PERSONEN ANSICHT
+        const hasWarning = _lastGrid?.warnings?.cards?.has(k.id) || _lastGrid?.warnings?.cards?.has(k.label);
+        const warningBadge = hasWarning ? `<div style="position:absolute; top:-6px; left:-6px; background:#facc15; color:#854d0e; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:11px; border:2px solid var(--surface); z-index:20; box-shadow:0 2px 4px rgba(0,0,0,0.3);" title="⚠️ Logik-Konflikt gelöst">⚠️</div>` : '';
+
         if (active) stationsHtml += `<div class="ubahn-pulse-ring" style="position:absolute;left:${X_LINE-(dotW/2)-8}px;top:${currentY-30}px;width:${dotW+16}px;height:60px;border:3px solid ${color};border-radius:30px;z-index:1001;"></div>`;
         stationsHtml += `
           <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
                style="position:absolute; left:${X_LINE-(dotW/2)}px; top:${currentY-22}px; width:${dotW}px; height:44px; border-radius:22px; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--text); cursor:pointer; z-index:1002; box-shadow:${active ? `0 0 18px ${color}99` : 'none'};">
             ${esc(k.label)}
             ${isHigh ? `<span style="position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid var(--surface); z-index:10;"></span>` : ''}
+            ${warningBadge}
           </div>`;
         stationsHtml += `<div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})' onmouseenter="this.style.borderColor='${color}';this.style.boxShadow='0 4px 20px ${color}33'" onmouseleave="this.style.borderColor='var(--border)';this.style.boxShadow='none'" style="position:absolute; left:${X_LINE+50}px; top:${currentY-26}px; width:340px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; z-index:1001; cursor:pointer; transition:border-color 0.2s, box-shadow 0.2s;"><div style="font-size:14px; font-weight:700;">${esc(k.titel)}</div>${members.length ? `<div style="margin-top:10px; display:flex; gap:5px;">${members.map(m => `<span style="width:10px; height:10px; border-radius:50%; background:${lineColors[m]}; border:1px solid #fff;" title="${esc(m)}"></span>`).join('')}</div>` : ''}</div>`;
         currentY += ROW_HEIGHT + (members.length ? 40 : 0);
@@ -743,7 +773,6 @@ window.openUBahnModal = function() {
   renderUBahnMap();
 };
 
-// ── DIE NEUE FEHLERFREIE HOVER LOGIK ──
 window.ubahnHoverCard = function(label) {
   if (!_data || !_data.allCardsFlat) return;
   const allCards = _data.allCardsFlat;
