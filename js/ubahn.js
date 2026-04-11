@@ -542,7 +542,7 @@ window.showUBahnCardDetail = function(label) {
         onfocus="this.style.borderBottomColor='${color}'" onblur2="this.style.borderBottomColor='transparent'"
       >${esc(card.titel)}</textarea>
 
-      <div style="margin-top:14px;">
+     <div style="margin-top:14px;">
         <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Beschreibung</div>
         <textarea id="ubahn-desc-input"
           data-cardid="${card.id}" data-colid="${currentColId}"
@@ -552,6 +552,21 @@ window.showUBahnCardDetail = function(label) {
           style="width:100%;font-size:13px;line-height:1.6;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);resize:vertical;outline:none;padding:10px 12px;font-family:inherit;transition:border-color .2s;${editStyle}"
           onfocus="this.style.borderColor='${color}'" onblur2="this.style.borderColor='var(--border)'"
         >${esc(description)}</textarea>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Geschätzte Bearbeitungszeit</div>
+        <div style="display:flex; gap:10px;">
+          <div style="flex:1;">
+            <input type="number" id="ubahn-time-d" data-cardid="${card.id}" data-colid="${currentColId}" onchange="window.ubahn_saveTime(this)" value="${liveCard?.timeEstimate?.d || ''}" min="0" placeholder="Tage" ${isLocked ? 'disabled' : ''} style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid ${isLocked?'var(--border)':color};background:rgba(var(--panel-rgb),1);color:${isLocked?'var(--text-muted)':'var(--text)'};font-size:13px;font-family:inherit;outline:none;">
+          </div>
+          <div style="flex:1;">
+            <input type="number" id="ubahn-time-h" data-cardid="${card.id}" data-colid="${currentColId}" onchange="window.ubahn_saveTime(this)" value="${liveCard?.timeEstimate?.h || ''}" min="0" max="23" placeholder="Std" ${isLocked ? 'disabled' : ''} style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid ${isLocked?'var(--border)':color};background:rgba(var(--panel-rgb),1);color:${isLocked?'var(--text-muted)':'var(--text)'};font-size:13px;font-family:inherit;outline:none;">
+          </div>
+          <div style="flex:1;">
+            <input type="number" id="ubahn-time-m" data-cardid="${card.id}" data-colid="${currentColId}" onchange="window.ubahn_saveTime(this)" value="${liveCard?.timeEstimate?.m || ''}" min="0" max="59" placeholder="Min" ${isLocked ? 'disabled' : ''} style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid ${isLocked?'var(--border)':color};background:rgba(var(--panel-rgb),1);color:${isLocked?'var(--text-muted)':'var(--text)'};font-size:13px;font-family:inherit;outline:none;">
+          </div>
+        </div>
       </div>
 
       ${groupPartners.length ? `
