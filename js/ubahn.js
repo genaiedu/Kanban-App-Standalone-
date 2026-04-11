@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Kausalität & WIP-Wächter
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Parallelgleis (Weichen) Edition
 import { S, moveCard, getCards, updateCard } from './state.js';
 
 const PALETTE = [
@@ -85,7 +85,7 @@ function prepareBoardData() {
   return { boardData, people, lineColors: colors, allCardsFlat };
 }
 
-// ── DIE KAUSALITÄTS-MASCHINE MIT DEADLOCK-BREAKER ──
+// ── DIE PARALLEL-GLEIS MASCHINE ──
 function calculateGrid(boardData, people) {
   const allCards = boardData.flatMap(col => col.karten).filter(Boolean);
 
@@ -99,6 +99,7 @@ function calculateGrid(boardData, people) {
   let graphResolved = false;
   let safeGuardOuter = 0;
 
+  // 1. ZIRKELBEZÜGE BRECHEN UND KNOTEN BILDEN
   while (!graphResolved && safeGuardOuter < 15) {
       safeGuardOuter++;
       nodesMap.clear();
@@ -134,16 +135,8 @@ function calculateGrid(boardData, people) {
       let inDegree = new Map();
       let adjList = new Map();
 
-      nodes.forEach(n => {
-          inDegree.set(n.key, n.resolvedDeps.size);
-          adjList.set(n.key, []);
-      });
-
-      nodes.forEach(n => {
-          n.resolvedDeps.forEach(depKey => {
-              if (adjList.has(depKey)) adjList.get(depKey).push(n.key);
-          });
-      });
+      nodes.forEach(n => { inDegree.set(n.key, n.resolvedDeps.size); adjList.set(n.key, []); });
+      nodes.forEach(n => { n.resolvedDeps.forEach(depKey => { if (adjList.has(depKey)) adjList.get(depKey).push(n.key); }); });
 
       let queue = [];
       nodes.forEach(n => { if (inDegree.get(n.key) === 0) queue.push(n); });
@@ -166,7 +159,6 @@ function calculateGrid(boardData, people) {
       } else {
           const stuckNodes = nodes.filter(n => inDegree.get(n.key) > 0);
           const groupNode = stuckNodes.find(n => n.isGroup);
-
           if (groupNode) {
               dissolvedGroups.add(groupNode.name);
               groupNode.cards.forEach(c => warningCards.add(c.id));
@@ -178,32 +170,38 @@ function calculateGrid(boardData, people) {
                       if (inDegree.get(depKey) > 0) {
                           ignoredDependencies.push({ from: depKey, to: n.key });
                           n.cards.forEach(c => warningCards.add(c.id));
-                          const depNode = nodesMap.get(depKey);
-                          if (depNode) depNode.cards.forEach(c => warningCards.add(c.id));
-                          
-                          const fromNames = depNode ? depNode.cards.map(c=>c.label||c.id).join(', ') : depKey;
-                          const toNames = n.cards.map(c=>c.label||c.id).join(', ');
-                          warningMessages.add(`Abhängigkeit [${fromNames}] ➔ [${toNames}] ignoriert (Deadlock).`);
+                          warningMessages.add(`Eine Abhängigkeit wurde ignoriert (Zirkelbezug aufgelöst).`);
                           brokeEdge = true; break;
                       }
                   }
                   if (brokeEdge) break;
               }
-              if (!brokeEdge) {
-                  inDegree.set(stuckNodes[0].key, 0); queue.push(stuckNodes[0]);
-              }
+              if (!brokeEdge) { inDegree.set(stuckNodes[0].key, 0); queue.push(stuckNodes[0]); }
           }
       }
   }
 
+  // 2. PARALLEL-GLEISE VORBEREITEN (Weichen-System)
+  const MAX_LANES = 4; // Maximal erlaubte Parallelaufgaben pro Person
+  const personLanes = {};
+  const laneNextRow = {};
+  const laneUsage = {};
+  
+  people.forEach(p => {
+      const primaryLane = `${p}_0`;
+      personLanes[p] = [primaryLane];
+      laneNextRow[primaryLane] = 1;
+      laneUsage[primaryLane] = [];
+  });
+
   let placedCards = [];
   let transferStations = [];
   let maxRow = 0;
-  const personNextRow = {};
-  people.forEach(p => { personNextRow[p] = 1; });
   const rowEvents = {};
   const nodeRowByKey = new Map();
+  const nodeAssignedLanes = new Map();
 
+  // 3. PHYSISCHE PLATZIERUNG MIT WEICHEN-LOGIK
   sortedNodes.forEach(node => {
       let depMaxRow = 0;
       node.resolvedDeps.forEach(depKey => {
@@ -211,26 +209,54 @@ function calculateGrid(boardData, people) {
           if (r !== undefined && r > depMaxRow) depMaxRow = r;
       });
 
-      let row = depMaxRow + 1;
+      let baseRow = depMaxRow + 1;
+      let row = baseRow;
       const inv = Array.from(node.involved).filter(p => people.includes(p));
-      inv.forEach(p => { if (personNextRow[p] > row) row = personNextRow[p]; });
+
+      // Finde die frühstmögliche Reihe, in der JEDER eine freie (oder neue) Weiche hat
+      inv.forEach(p => {
+          const minNext = personLanes[p].length < MAX_LANES ? 1 : Math.min(...personLanes[p].map(l => laneNextRow[l]));
+          if (minNext > row) row = minNext;
+      });
 
       if (row > maxRow) maxRow = row;
-      if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
+      if (!rowEvents[row]) rowEvents[row] = { groups: [], activeLanes: new Set() };
 
-      inv.forEach(p => { personNextRow[p] = row + 1; rowEvents[row].activePeople.add(p); });
+      const assignedLanes = {};
+      inv.forEach(p => {
+          // Suche das erste freie Gleis dieser Person
+          let chosenLane = personLanes[p].find(l => laneNextRow[l] <= row);
+          
+          // Wenn alle Gleise belegt sind, baue eine Weiche (Parallelgleis)
+          if (!chosenLane) {
+              chosenLane = `${p}_${personLanes[p].length}`;
+              personLanes[p].push(chosenLane);
+              laneNextRow[chosenLane] = 1;
+              laneUsage[chosenLane] = [];
+          }
+          
+          assignedLanes[p] = chosenLane;
+          laneNextRow[chosenLane] = row + 1;
+          laneUsage[chosenLane].push(row);
+          rowEvents[row].activeLanes.add(chosenLane);
+      });
+
       nodeRowByKey.set(node.key, row);
+      nodeAssignedLanes.set(node.key, assignedLanes);
 
-      node.cards.forEach(c => { placedCards.push({ ...c, row }); });
+      node.cards.forEach(c => { 
+          placedCards.push({ ...c, row, assignedLane: assignedLanes[c.wer] }); 
+      });
 
       if (node.isGroup) {
-          rowEvents[row].groups.push({ name: node.name, involved: inv });
-          transferStations.push({ name: node.name, row, involved: inv });
+          rowEvents[row].groups.push({ name: node.name, involvedLanes: Object.values(assignedLanes) });
+          transferStations.push({ name: node.name, row, involvedLanes: Object.values(assignedLanes) });
       }
   });
 
-  const personLastEnd = {};
-  people.forEach(p => { personLastEnd[p] = 0; });
+  // 4. ZEITPLAN BERECHNUNG (Parallelzeiten)
+  const laneLastEnd = {};
+  Object.values(personLanes).flat().forEach(l => laneLastEnd[l] = 0);
   const nodeSimResults = new Map();
 
   sortedNodes.forEach(node => {
@@ -242,7 +268,10 @@ function calculateGrid(boardData, people) {
 
       let maxWorkerReady = 0;
       const inv = Array.from(node.involved).filter(p => people.includes(p));
-      inv.forEach(p => { if (personLastEnd[p] > maxWorkerReady) maxWorkerReady = personLastEnd[p]; });
+      const aLanes = nodeAssignedLanes.get(node.key);
+      inv.forEach(p => { 
+          if (laneLastEnd[aLanes[p]] > maxWorkerReady) maxWorkerReady = laneLastEnd[aLanes[p]]; 
+      });
 
       let start = Math.max(maxDepEnd, maxWorkerReady, 0);
       const transit = start > 0 ? 0.3 : 0;
@@ -271,7 +300,7 @@ function calculateGrid(boardData, people) {
 
       const end = start + maxDuration;
       nodeSimResults.set(node.key, { start, end });
-      inv.forEach(p => { personLastEnd[p] = end; });
+      inv.forEach(p => { laneLastEnd[aLanes[p]] = end; });
 
       node.cards.forEach(c => {
           const pc = placedCards.find(placed => placed.id === c.id);
@@ -279,18 +308,35 @@ function calculateGrid(boardData, people) {
       });
   });
 
-  const rowLanes = { 0: [...people] };
-  let currentLanes = [...people];
+  // 5. GLEIS-LAYOUT (Clusterung mit Parallel-Gleisen)
+  const rowLanes = { 0: people.map(p => `${p}_0`) };
+  let currentLanes = [...rowLanes[0]];
+  const allLanesFlat = Object.values(personLanes).flat();
+
   for (let r = 1; r <= maxRow + 1; r++) {
+    // Neu erstellte Weichen in die Fahrspur einklinken
+    const spawnedHere = allLanesFlat.filter(l => laneUsage[l] && Math.min(...laneUsage[l]) === r);
+    spawnedHere.forEach(l => {
+        const parent = `${l.split('_')[0]}_0`;
+        const pIdx = currentLanes.indexOf(parent);
+        if (pIdx !== -1) currentLanes.splice(pIdx + 1, 0, l);
+        else currentLanes.push(l);
+    });
+
     if (rowEvents[r] && rowEvents[r].groups.length > 0) {
-      const personCluster = {};
+      const laneCluster = {};
       const clusterAvg = {};
-      currentLanes.forEach(p => { personCluster[p] = p; }); 
-      rowEvents[r].groups.forEach(grp => { grp.involved.forEach(p => { personCluster[p] = grp.name; }); });
-      currentLanes.forEach(p => {
-        const cluster = personCluster[p];
+      currentLanes.forEach(l => { laneCluster[l] = l; }); 
+      
+      const grpCards = placedCards.filter(c => c.row === r && c.gruppe);
+      grpCards.forEach(c => { if(c.assignedLane) laneCluster[c.assignedLane] = c.gruppe; });
+
+      currentLanes.forEach(l => {
+        const cluster = laneCluster[l];
         if (!clusterAvg[cluster]) clusterAvg[cluster] = { sum: 0, count: 0, members: [] };
-        clusterAvg[cluster].sum += currentLanes.indexOf(p); clusterAvg[cluster].count++; clusterAvg[cluster].members.push(p);
+        clusterAvg[cluster].sum += currentLanes.indexOf(l);
+        clusterAvg[cluster].count++;
+        clusterAvg[cluster].members.push(l);
       });
       const clusters = Object.keys(clusterAvg).map(k => ({ id: k, avg: clusterAvg[k].count > 0 ? clusterAvg[k].sum / clusterAvg[k].count : 0, members: clusterAvg[k].members }));
       clusters.sort((a, b) => a.avg - b.avg);
@@ -299,15 +345,39 @@ function calculateGrid(boardData, people) {
     rowLanes[r] = [...currentLanes];
   }
 
-  const trackPoints = {};
-  people.forEach(p => trackPoints[p] = []);
-  const personCurrentX = {};
+  // 6. WEICHEN-KOORDINATEN (Branching & Merging Berechnung)
+  const rawX = {};
   for (let r = 0; r <= maxRow + 1; r++) {
-    if (rowLanes[r]) rowLanes[r].forEach((p, i) => { personCurrentX[p] = MARGIN_H + i * TRACK_SPACING; });
-    people.forEach(p => trackPoints[p].push({ x: personCurrentX[p] || MARGIN_H, y: MARGIN_TOP + r * ROW_HEIGHT }));
+      rawX[r] = {};
+      if (rowLanes[r]) {
+          rowLanes[r].forEach((l, i) => rawX[r][l] = MARGIN_H + i * TRACK_SPACING);
+      }
   }
 
-  return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints, warnings: { cards: warningCards, messages: warningMessages } };
+  const trackPoints = {};
+  allLanesFlat.forEach(l => trackPoints[l] = []);
+  
+  for (let r = 0; r <= maxRow + 1; r++) {
+      allLanesFlat.forEach(l => {
+          const parent = `${l.split('_')[0]}_0`;
+          let targetX = MARGIN_H;
+          if (l === parent) {
+              targetX = rawX[r][l] || MARGIN_H;
+          } else {
+              const usage = laneUsage[l] || [];
+              const first = usage.length ? Math.min(...usage) : Infinity;
+              const last = usage.length ? Math.max(...usage) : -Infinity;
+              
+              // Weiche splittet sich auf und fädelt sich wieder ein!
+              if (r < first) targetX = rawX[r][parent] || MARGIN_H;
+              else if (r > last) targetX = rawX[r][parent] || MARGIN_H;
+              else targetX = rawX[r][l] || rawX[r][parent] || MARGIN_H;
+          }
+          trackPoints[l].push({ x: targetX, y: MARGIN_TOP + r * ROW_HEIGHT });
+      });
+  }
+
+  return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints, personLanes, warnings: { cards: warningCards, messages: warningMessages } };
 }
 
 function createTrackPath(pts) {
@@ -321,7 +391,7 @@ function createTrackPath(pts) {
   return d;
 }
 
-// ── RENDERN MIT WARN-SYMBOLEN UND WIP-WÄCHTER ───────────────────────────────────────────────
+// ── RENDERN DER PARALLELGLEISE ───────────────────────────────────────────────
 window.renderUBahnMap = function() {
   try {
       _currentView = 'map'; 
@@ -341,29 +411,33 @@ window.renderUBahnMap = function() {
       }
       
       _lastGrid = calculateGrid(boardData, people);
-      const { placedCards, transferStations, maxRows, trackPoints, warnings } = _lastGrid;
+      const { placedCards, transferStations, maxRows, trackPoints, personLanes, warnings } = _lastGrid;
 
-      // --- NEU: WIP-LIMIT WÄCHTER ---
+      // WIP-LIMIT WÄCHTER
       const activeTasksCount = allCardsFlat.filter(c => c.colName && c.colName.toLowerCase().includes('bearb')).length;
       const wipLimit = Math.floor(people.length * 1.5);
-      
       if (activeTasksCount > wipLimit) {
           warnings.messages.add(`WIP-Limit überschritten! Max. ${wipLimit} aktive Aufgaben empfohlen (aktuell ${activeTasksCount}).`);
       }
 
-      // ZENTRALE WARNUNG ANZEIGEN
       if (warnings.messages.size > 0 && typeof window.showToast === 'function') {
           const msgList = Array.from(warnings.messages).map(m => `• ${m}`).join('\n');
           window.showToast(`⚠️ Hinweise zum Plan:\n${msgList}`, 'warning');
       }
       
-      const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
+      const allLanesFlat = Object.values(personLanes).flat();
+      const mapW = (allLanesFlat.length - 1) * TRACK_SPACING + MARGIN_H * 2;
       const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
+      // HINTERGRUND-GLEISE (Jede Weiche wird gezeichnet)
       let svg = `<svg id="ubahn-svg-layer" width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;transition:opacity 0.25s ease;">`;
-      people.forEach(p => {
-        svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
-        svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
+      allLanesFlat.forEach(l => {
+        const p = l.split('_')[0];
+        const isMain = l.endsWith('_0');
+        const opacity = isMain ? '0.85' : '0.4'; // Parallelgleise sind etwas dezenter
+        
+        svg += `<path d="${createTrackPath(trackPoints[l])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
+        svg += `<path d="${createTrackPath(trackPoints[l])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="${opacity}"/>`;
       });
       svg += `</svg>`;
 
@@ -374,15 +448,17 @@ window.renderUBahnMap = function() {
         .ubahn-pulse-ring { position:absolute; border-radius:50%; pointer-events:none; animation: ubahn-pulse 1.8s ease-out infinite; }
       </style>`;
       
+      // KÖPFE & ENDPUNKTE (Nur auf den Hauptgleisen '_0')
       people.forEach(p => {
-        const sPt = trackPoints[p][0], ePt = trackPoints[p][maxRows], color = lineColors[p];
+        const mainLane = `${p}_0`;
+        const sPt = trackPoints[mainLane][0], ePt = trackPoints[mainLane][maxRows], color = lineColors[p];
         html += `<button onclick='window.renderUBahnPerson(${JSON.stringify(p)})' style="position:absolute;left:${sPt.x - 60}px;top:${sPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:1005;"><div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;font-weight:900;font-size:12px;color:var(--text);box-shadow:0 4px 16px ${color}44;">${esc(p)}</div></button>`;
         html += `<div style="position:absolute;left:${sPt.x-12}px;top:${sPt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
         html += `<div style="position:absolute;left:${ePt.x-12}px;top:${ePt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
       });
 
       transferStations.forEach(s => {
-        const xs = s.involved.map(p => trackPoints[p][s.row].x);
+        const xs = s.involvedLanes.map(l => trackPoints[l][s.row].x);
         const xMin = Math.min(...xs), xMax = Math.max(...xs);
         if (xMax <= xMin) return;
         const y = s.row * ROW_HEIGHT + MARGIN_TOP;
@@ -394,7 +470,9 @@ window.renderUBahnMap = function() {
       });
 
       placedCards.forEach(k => {
-        const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
+        // Station wird auf der zugewiesenen WEICHE gerendert!
+        const pt = trackPoints[k.assignedLane][k.row];
+        const color = lineColors[k.wer], isHigh = k.prio === 'hoch';
         const active = isInProgress(k);
         
         const hasWarning = warnings.cards.has(k.id) || warnings.cards.has(k.label);
@@ -500,7 +578,8 @@ function _ubahnScrollToCard(label) {
   if (!_lastGrid || !_data) return;
   const placed = _lastGrid.placedCards.find(c => c.label === label);
   if (!placed) return;
-  const pt = _lastGrid.trackPoints[placed.wer]?.[placed.row];
+  // Scrolle zur zugewiesenen WEICHE der Karte
+  const pt = _lastGrid.trackPoints[placed.assignedLane]?.[placed.row];
   if (!pt) return;
   const container = document.getElementById('ubahn-content');
   if (!container) return;
