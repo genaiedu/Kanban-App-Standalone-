@@ -157,124 +157,85 @@ function topoSortCards(cards) {
 function calculateGrid(boardData, people) {
   const allCards = boardData.flatMap(col => col.karten);
   
-  // =================================================================
-  // PASS 1: MAKRO-KNOTEN (Gruppen als unzerstörbare Blöcke bündeln)
-  // =================================================================
-  const macroNodes = [];
-  const macroNodeMap = new Map();
-  
-  allCards.forEach(card => {
-      let key = card.gruppe ? `group_${card.gruppe}` : `card_${card.id}`;
-      let node = macroNodeMap.get(key);
-      if (!node) {
-          node = { key, isGroup: !!card.gruppe, name: card.gruppe, cards: [], deps: new Set(), involved: new Set() };
-          macroNodes.push(node);
-          macroNodeMap.set(key, node);
-      }
-      node.cards.push(card);
-      if (card.deps) card.deps.forEach(d => node.deps.add(d)); 
-      if (card.wer) node.involved.add(card.wer); 
-  });
+  // Nutzt deine bestehende topoSortCards Funktion, um T zwingend vor U zu sortieren!
+  const sortedCards = topoSortCards(allCards);
 
-  // Doppelte Absicherung für Suche nach ID und Label
-  allCards.forEach(card => {
-      const node = macroNodeMap.get(card.gruppe ? `group_${card.gruppe}` : `card_${card.id}`);
-      macroNodeMap.set(card.id, node);
-      if (card.label) macroNodeMap.set(card.label, node);
-  });
-
-  // =================================================================
-  // PASS 2: STRIKTE PLATZIERUNG (Der garantierte Logik-Fix)
-  // =================================================================
-  const placedNodes = new Set();
-  let remainingNodes = [...macroNodes];
-  let maxRow = 0;
-  const personNextRow = {};
-  people.forEach(p => personNextRow[p] = 1);
-  const cardRowById = {};
-  const rowEvents = {};
   let placedCards = [];
   let transferStations = [];
+  let processed = new Set();
+  const personNextRow = {};
+  people.forEach(p => personNextRow[p] = 1);
+  let maxRow = 0;
 
-  let safeguard = 0;
-  // Schleife läuft, bis alle Karten platziert sind (Max. 2000 Runden zum Schutz)
-  while (remainingNodes.length > 0 && safeguard < 2000) {
-      safeguard++;
-      let placedAny = false;
-
-      for (let i = 0; i < remainingNodes.length; i++) {
-          const node = remainingNodes[i];
-          let allDepsMet = true;
-          let depMaxRow = 0;
-
-          // STRIKTE PRÜFUNG: Sind wirklich ALLE Abhängigkeiten im Netz?
-          for (const dep of node.deps) {
-              const depNode = macroNodeMap.get(dep);
-              if (depNode) {
-                  if (!placedNodes.has(depNode.key)) {
-                      allDepsMet = false; break; // Nein? Block überspringen & warten!
-                  } else {
-                      const depCard = depNode.cards[0];
-                      const r = cardRowById[depCard.id];
-                      if (r !== undefined && r > depMaxRow) depMaxRow = r;
-                  }
-              }
-          }
-
-          if (allDepsMet) {
-              // Ja! Block kann platziert werden.
-              const inv = Array.from(node.involved).filter(p => people.includes(p));
-              let row = depMaxRow + 1; // Muss STRIKT nach der letzten Voraussetzung kommen!
-              inv.forEach(p => { if (personNextRow[p] > row) row = personNextRow[p]; });
-
-              if (row > maxRow) maxRow = row;
-              if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
-              
-              inv.forEach(p => {
-                  personNextRow[p] = row + 1;
-                  rowEvents[row].activePeople.add(p);
-              });
-
-              node.cards.forEach(c => {
-                  cardRowById[c.id] = row;
-                  if (c.label) cardRowById[c.label] = row;
-                  placedCards.push({ ...c, row });
-              });
-
-              if (node.isGroup && !rowEvents[row].groups.find(g => g.name === node.name)) {
-                  rowEvents[row].groups.push({ name: node.name, involved: inv });
-                  transferStations.push({ name: node.name, row, involved: inv });
-              }
-
-              placedNodes.add(node.key);
-              remainingNodes.splice(i, 1);
-              placedAny = true;
-              i--; 
-          }
-      }
-
-      // Notfall-Anker (Falls jemand aus Versehen einen Kreis gebaut hat: A wartet auf B, B auf A)
-      if (!placedAny && remainingNodes.length > 0) {
-          const node = remainingNodes.shift();
-          const inv = Array.from(node.involved).filter(p => people.includes(p));
-          let row = 1;
-          inv.forEach(p => { if (personNextRow[p] > row) row = personNextRow[p]; });
-
-          if (row > maxRow) maxRow = row;
-          if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
-          inv.forEach(p => { personNextRow[p] = row + 1; rowEvents[row].activePeople.add(p); });
-
-          node.cards.forEach(c => { cardRowById[c.id] = row; if (c.label) cardRowById[c.label] = row; placedCards.push({ ...c, row }); });
-          if (node.isGroup && !rowEvents[row].groups.find(g => g.name === node.name)) {
-              rowEvents[row].groups.push({ name: node.name, involved: inv });
-              transferStations.push({ name: node.name, row, involved: inv });
-          }
-          placedNodes.add(node.key);
-      }
-  }
+  const cardRowById = {};
+  const rowEvents = {};
 
   // =================================================================
-  // PASS 3: ZEITPLAN & CRASH-VERHINDERUNG (Der sichere Daten-Fetch)
+  // PASS 1: REIHENFOLGE-LOGIK (Der "Gruppen-Sprecher" - jetzt fehlerfrei)
+  // =================================================================
+  sortedCards.forEach((card, index) => {
+    if (processed.has(card.id)) return;
+
+    const groupMembers = card.gruppe 
+      ? allCards.filter(c => c.gruppe === card.gruppe) 
+      : [card];
+
+    if (card.gruppe) {
+      // PRÜFUNG: Ist das hier das LETZTE Mitglied der Gruppe in der Liste?
+      // Nur das letzte Mitglied darf die Gruppe ins Netz setzen. Das garantiert, 
+      // dass alle Voraussetzungen (wie Station T) vorher abgearbeitet wurden.
+      const isLastMember = groupMembers.every(m => {
+        const mIndex = sortedCards.findIndex(sc => sc.id === m.id);
+        return mIndex === -1 || mIndex <= index; 
+      });
+      if (!isLastMember) return; // Warten auf den Letzten
+    }
+
+    let inv = Array.from(new Set(groupMembers.map(c => c.wer))).filter(p => people.includes(p));
+    if (!inv.length) return;
+
+    const allGroupDeps = groupMembers.flatMap(m => m.deps || []);
+    let depMaxRow = 0;
+    
+    // Die späteste Reihe aller Vorbedingungen finden
+    allGroupDeps.forEach(depId => {
+        const r = cardRowById[depId];
+        if (typeof r === 'number' && r > depMaxRow) {
+            depMaxRow = r;
+        }
+    });
+
+    // Platzierung berechnen: Muss NACH der spätesten Voraussetzung kommen
+    let row = depMaxRow + 1;
+    inv.forEach(p => {
+        if (personNextRow[p] > row) row = personNextRow[p];
+    });
+
+    if (row > maxRow) maxRow = row;
+    if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
+
+    inv.forEach(p => {
+        personNextRow[p] = row + 1;
+        rowEvents[row].activePeople.add(p);
+    });
+
+    // Alle Karten der Gruppe eintragen
+    groupMembers.forEach(gc => {
+        cardRowById[gc.id] = row;
+        if (gc.label) cardRowById[gc.label] = row;
+        placedCards.push({ ...gc, row });
+        processed.add(gc.id);
+    });
+
+    // Gruppen-Pille (Umsteigebahnhof) registrieren
+    if (card.gruppe && !rowEvents[row].groups.find(g => g.name === card.gruppe)) {
+        rowEvents[row].groups.push({ name: card.gruppe, involved: [...inv] });
+        transferStations.push({ name: card.gruppe, row, involved: [...inv] });
+    }
+  });
+
+  // =================================================================
+  // PASS 2: ZEITPLAN-BERECHNUNG (Crash-sicher bei leeren Daten!)
   // =================================================================
   const personLastEnd = {};
   people.forEach(p => personLastEnd[p] = 0);
@@ -284,41 +245,45 @@ function calculateGrid(boardData, people) {
     if (cardSimResults[pCard.id]) return;
 
     const groupMembers = pCard.gruppe 
-      ? placedCards.filter(c => c.gruppe === pCard.gruppe)
+      ? placedCards.filter(c => c.gruppe === pCard.gruppe) 
       : [pCard];
 
-    // SICHERHEIT: Der Crash-sichere Weg, um Live-Daten zu holen
+    // SICHERHEIT: Der kugelsichere Weg, um Live-Daten zu holen (kein .flat() mehr!)
     let liveC = pCard;
     if (typeof S !== 'undefined' && S.cards) {
         for (const colId in S.cards) {
-            if (Array.isArray(S.cards[colId])) { // <-- Verhindert den Absturz bei leeren Spalten!
+            if (Array.isArray(S.cards[colId])) { 
                 const found = S.cards[colId].find(c => c.id === pCard.id);
                 if (found) { liveC = found; break; }
             }
         }
     }
-    
+
     const est = liveC.timeEstimate || {};
     let d = parseFloat(est.d) || 0;
     let h = parseFloat(est.h) || 0;
     let m = parseFloat(est.m) || 0;
-    
+
     let duration = (d * 8) + h + (m / 60);
     if (isNaN(duration) || duration <= 0) duration = 1.5;
 
     const allDeps = groupMembers.flatMap(m => m.deps || []);
     let maxDepEnd = 0;
     allDeps.forEach(depId => {
-      if (cardSimResults[depId]) maxDepEnd = Math.max(maxDepEnd, cardSimResults[depId].end || 0);
+      if (cardSimResults[depId]) {
+          maxDepEnd = Math.max(maxDepEnd, cardSimResults[depId].end || 0);
+      }
     });
 
     const inv = Array.from(new Set(groupMembers.map(m => m.wer)));
     let maxWorkerReady = 0;
-    inv.forEach(m => maxWorkerReady = Math.max(maxWorkerReady, personLastEnd[m] || 0));
+    inv.forEach(m => {
+        maxWorkerReady = Math.max(maxWorkerReady, personLastEnd[m] || 0);
+    });
 
     const start = Math.max(maxDepEnd, maxWorkerReady, 0);
     const transit = start > 0 ? 0.3 : 0;
-    
+
     groupMembers.forEach(m => {
       m.simStart = start + transit;
       m.simEnd = m.simStart + duration;
@@ -329,21 +294,32 @@ function calculateGrid(boardData, people) {
   });
 
   // =================================================================
-  // PASS 4 & 5: LAYOUT UND KOORDINATEN
+  // PASS 3: LAYOUT UND KOORDINATEN (Gleiche Optik wie immer)
   // =================================================================
   const rowLanes = { 0: [...people] };
   let currentLanes = [...people];
+  
   for (let r = 1; r <= maxRow + 1; r++) {
     if (rowEvents[r] && rowEvents[r].groups.length > 0) {
       const personCluster = {}; const clusterAvg = {};
-      currentLanes.forEach(p => personCluster[p] = p); 
+      currentLanes.forEach(p => personCluster[p] = p);
       rowEvents[r].groups.forEach(grp => grp.involved.forEach(p => personCluster[p] = grp.name));
+      
       currentLanes.forEach(p => {
         const cl = personCluster[p];
         if (!clusterAvg[cl]) clusterAvg[cl] = { sum: 0, count: 0, members: [] };
-        clusterAvg[cl].sum += currentLanes.indexOf(p); clusterAvg[cl].count++; clusterAvg[cl].members.push(p);
+        clusterAvg[cl].sum += currentLanes.indexOf(p);
+        clusterAvg[cl].count++;
+        clusterAvg[cl].members.push(p);
       });
-      const clusters = Object.keys(clusterAvg).map(k => ({ id: k, avg: clusterAvg[k].sum / clusterAvg[k].count, members: clusterAvg[k].members })).sort((a,b) => a.avg - b.avg);
+      
+      // SICHERHEIT: Teilen durch Null verhindern (falls count mal 0 sein sollte)
+      const clusters = Object.keys(clusterAvg).map(k => ({
+          id: k,
+          avg: clusterAvg[k].count > 0 ? clusterAvg[k].sum / clusterAvg[k].count : 0,
+          members: clusterAvg[k].members
+      })).sort((a,b) => a.avg - b.avg);
+
       currentLanes = clusters.flatMap(c => c.members.sort((a,b) => currentLanes.indexOf(a) - currentLanes.indexOf(b)));
     }
     rowLanes[r] = [...currentLanes];
@@ -352,9 +328,14 @@ function calculateGrid(boardData, people) {
   const trackPoints = {};
   people.forEach(p => trackPoints[p] = []);
   const personCurrentX = {};
+  
   for (let r = 0; r <= maxRow + 1; r++) {
-    if (rowLanes[r]) rowLanes[r].forEach((p, i) => personCurrentX[p] = MARGIN_H + i * TRACK_SPACING);
-    people.forEach(p => trackPoints[p].push({ x: personCurrentX[p], y: MARGIN_TOP + r * ROW_HEIGHT }));
+    if (rowLanes[r]) {
+        rowLanes[r].forEach((p, i) => personCurrentX[p] = MARGIN_H + i * TRACK_SPACING);
+    }
+    people.forEach(p => {
+        trackPoints[p].push({ x: personCurrentX[p] || MARGIN_H, y: MARGIN_TOP + r * ROW_HEIGHT });
+    });
   }
 
   return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints };
