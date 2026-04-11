@@ -73,60 +73,92 @@ window.updateUBahnRowHeight = function(val) {
 function prepareBoardData() {
   const peopleSet = new Set(), boardData = [], allCardsFlatRaw = [];
   
-  // 1. Alle Karten initial sammeln
-  S.columns.forEach(col => {
-    const colCards = (S.cards[col.id] || []).filter(c => c && c.assignee);
-    colCards.forEach(card => {
-      allCardsFlatRaw.push({ 
-        id: card.id, label: card.label || '?', titel: card.text, 
-        wer: card.assignee, prio: card.priority || 'mittel', 
-        deps: card.dependencies || [], gruppe: card.groupId || null, 
-        colName: col.name, description: card.description || '' 
-      });
-    });
-  });
+  // 1. Karten-Daten extrem robust und fehlerresistent sammeln
+  for (const colId in S.cards) {
+    const col = S.columns.find(c => c.id === colId);
+    const cardsInCol = S.cards[colId] || [];
+    
+    cardsInCol.forEach(card => {
+      if (card && card.assignee) {
+        // IDs und Labels "wasserdicht" machen (trimmen, uppercase, null-safe)
+        const safeId = String(card.id || '').trim().toUpperCase();
+        const safeLabel = String(card.label || '').trim().toUpperCase();
+        
+        // Dependencies wasserdicht filtern (leere Strings oder Null-Werte entfernen)
+        const rawDeps = Array.isArray(card.dependencies) ? card.dependencies : [];
+        const safeDeps = rawDeps
+          .map(d => String(d || '').trim().toUpperCase())
+          .filter(d => d !== '');
 
-  // 2. NEU: Alle Nachfolger-Referenzen (Abhängigkeiten) ermitteln
+        allCardsFlatRaw.push({ 
+          id: safeId, 
+          label: safeLabel, 
+          titel: card.text, 
+          wer: String(card.assignee).trim(), 
+          prio: card.priority || 'mittel', 
+          deps: safeDeps, 
+          gruppe: card.groupId || null, 
+          colName: col?.name || '', 
+          description: card.description || '',
+          timeEstimate: card.timeEstimate || {}
+        });
+      }
+    });
+  }
+
+  // 2. Alle Nachfolger-Referenzen aus dem gereinigten Datensatz ermitteln
   const allDependencies = new Set();
   allCardsFlatRaw.forEach(card => {
-    if (card.deps) {
-      card.deps.forEach(d => allDependencies.add(String(d).trim().toUpperCase()));
-    }
+    card.deps.forEach(dep => allDependencies.add(dep));
   });
 
-  // 3. NEU: Isolierte Tasks herausfiltern
+  // 3. Der unerbittliche Filter
   const allCardsFlat = allCardsFlatRaw.filter(card => {
-    const hasVorganger = card.deps && card.deps.length > 0;
-    const normLabel = String(card.label).trim().toUpperCase();
-    const normId = String(card.id).trim().toUpperCase();
-    const hasNachfolger = allDependencies.has(normLabel) || allDependencies.has(normId);
+    // Bedingung A: Ist die Karte in der Spalte "Voraussetzungen"? -> SOFORT RAUS
+    const colNameLower = String(card.colName).toLowerCase();
+    if (colNameLower.includes('voraussetzung')) {
+      return false; 
+    }
     
-    // Ausnahme: Gruppenarbeiten behalten wir, da sie "Umsteigebahnhöfe" 
-    // sind und auch ohne formelle Abhängigkeiten logistisch wichtig sind.
-    const isGroupWork = card.gruppe !== null && card.gruppe !== undefined; 
+    // Bedingung B: Hat die Karte weder Nachfolger noch Vorgänger?
+    const hasVorganger = card.deps.length > 0;
+    const hasNachfolger = (card.label !== '' && allDependencies.has(card.label)) || 
+                          (card.id !== '' && allDependencies.has(card.id));
+    
+    const isIsolated = !hasVorganger && !hasNachfolger;
+    
+    // Wenn die Karte isoliert ist, fliegt sie raus.
+    if (isIsolated) {
+      // Eine einzige Ausnahme: Echte Gruppenarbeiten (Umsteigebahnhöfe). 
+      // Wenn 2 Leute parallel an der gleichen Sache arbeiten, kreuzen sich ihre Linien, 
+      // auch wenn die Aufgabe davor und danach keine Abhängigkeiten hat.
+      // Wir prüfen hier, ob die Gruppe wirklich aus mehr als 1 Person besteht.
+      const isRealGroup = card.gruppe && allCardsFlatRaw.filter(c => c.gruppe === card.gruppe).length > 1;
+      
+      if (!isRealGroup) {
+        return false; // HARTER BANN: Karte ist isoliert und keine Gruppe -> RAUS
+      }
+    }
 
-    // Karte bleibt im Array, wenn sie Vorgänger, Nachfolger ODER eine Gruppenarbeit ist
-    return hasVorganger || hasNachfolger || isGroupWork;
+    // Wenn die Karte bis hierhin überlebt hat, darf sie ins Netz!
+    return true;
   });
 
-  // 4. Personen und Spalten basierend auf den GEFILTERTEN Karten zuweisen
+  // 4. Datenstrukturen für U-Bahn/Gantt final aufbauen
   allCardsFlat.forEach(card => peopleSet.add(card.wer));
   
   S.columns.forEach(col => {
-    // Nur Karten in die Spalten aufnehmen, die den Filter überlebt haben
-    const colCards = (S.cards[col.id] || []).filter(c => c && c.assignee && allCardsFlat.some(f => f.id === c.id));
-    if (colCards.length) {
+    const filteredCardsInCol = allCardsFlat.filter(f => f.colName === col.name);
+    if (filteredCardsInCol.length > 0) {
       boardData.push({ 
         spalte: col.name, 
-        karten: colCards.map(c => allCardsFlat.find(f => f.id === c.id)) 
+        karten: filteredCardsInCol 
       });
     }
   });
 
   const people = Array.from(peopleSet);
   const colors = {};
-  
-  // Farben zuweisen
   people.forEach((p, i) => { 
     colors[p] = i < PALETTE.length ? PALETTE[i] : `hsl(${Math.floor(Math.random() * 360)},70%,55%)`; 
   });
