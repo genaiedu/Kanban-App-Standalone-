@@ -1,6 +1,5 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Entkoppelte PRO Edition
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Kausalitäts-Edition (Kahn-Algorithmus)
 import { S, moveCard, getCards, updateCard } from './state.js';
-// KEIN harter Import von gantt.js mehr hier oben!
 
 const PALETTE = [
   "#ef4444","#3b82f6","#10b981","#f59e0b",
@@ -86,68 +85,84 @@ function prepareBoardData() {
   return { boardData, people, lineColors: colors, allCardsFlat };
 }
 
-// --- ALTE topoSortCards FUNKTION KOMPLETT LÖSCHEN ---
-
+// ── DIE NEUE KAUSALITÄTS-MASCHINE (Kahn-Algorithmus) ──
 function calculateGrid(boardData, people) {
   const allCards = boardData.flatMap(col => col.karten).filter(Boolean);
 
-  // =================================================================
-  // 1. MAKRO-KNOTEN BILDEN (Gruppen unzerstörbar zusammenschweißen)
-  // =================================================================
+  // 1. Makro-Knoten bilden (Gruppen werden zu einem unzerstörbaren Block)
   const macroNodes = new Map();
   const lookup = new Map();
 
   allCards.forEach(card => {
       const key = card.gruppe ? `group_${card.gruppe}` : `card_${card.id}`;
       if (!macroNodes.has(key)) {
-          macroNodes.set(key, { key, isGroup: !!card.gruppe, name: card.gruppe, cards: [], deps: new Set(), involved: new Set() });
+          macroNodes.set(key, { key, isGroup: !!card.gruppe, name: card.gruppe, cards: [], rawDeps: new Set(), resolvedDeps: new Set(), involved: new Set() });
       }
       const node = macroNodes.get(key);
       node.cards.push(card);
-      if (card.deps) card.deps.forEach(d => node.deps.add(d));
+      // Abhängigkeiten bereinigen (Leerzeichen entfernen, uppercase)
+      if (card.deps) card.deps.forEach(d => {
+          if(typeof d === 'string') node.rawDeps.add(d.trim().toUpperCase());
+      });
       if (card.wer) node.involved.add(card.wer);
 
-      // Lookup-Tabelle für Abhängigkeiten
-      lookup.set(card.id, key);
-      if (card.label) lookup.set(card.label, key);
+      lookup.set(String(card.id).trim().toUpperCase(), key);
+      if (card.label) lookup.set(String(card.label).trim().toUpperCase(), key);
   });
 
-  // Alle Abhängigkeiten übersetzen (Karte wartet jetzt auf Makro-Knoten)
+  // 2. Abhängigkeiten zwischen den Blöcken knüpfen
   const nodes = Array.from(macroNodes.values());
   nodes.forEach(node => {
-      const mappedDeps = new Set();
-      node.deps.forEach(dep => {
+      node.rawDeps.forEach(dep => {
           const targetKey = lookup.get(dep);
-          if (targetKey && targetKey !== node.key) mappedDeps.add(targetKey);
+          // Man kann nicht von der eigenen Gruppe abhängig sein
+          if (targetKey && targetKey !== node.key) {
+              node.resolvedDeps.add(targetKey);
+          }
       });
-      node.deps = mappedDeps;
   });
 
-  // =================================================================
-  // 2. ABSOLUT SICHERE SORTIERUNG (Verhindert T nach U!)
-  // =================================================================
-  const sortedNodes = [];
-  const visited = new Set();
-  const visiting = new Set();
+  // 3. KAHN-ALGORITHMUS (Erlaubt Platzierung NUR, wenn alle Vorfahren abgearbeitet sind)
+  let sortedNodes = [];
+  let inDegree = new Map();
+  let adjList = new Map();
 
-  function visitNode(nodeKey) {
-      if (visited.has(nodeKey)) return;
-      if (visiting.has(nodeKey)) return; // Verhindert Abstürze bei Logik-Kreisen
-      visiting.add(nodeKey);
-      
-      const node = macroNodes.get(nodeKey);
-      if (node) node.deps.forEach(depKey => visitNode(depKey));
-      
-      visiting.delete(nodeKey);
-      visited.add(nodeKey);
-      if (node) sortedNodes.push(node);
+  nodes.forEach(n => {
+      inDegree.set(n.key, n.resolvedDeps.size);
+      adjList.set(n.key, []);
+  });
+
+  nodes.forEach(n => {
+      n.resolvedDeps.forEach(depKey => {
+          if (adjList.has(depKey)) adjList.get(depKey).push(n.key);
+      });
+  });
+
+  let queue = [];
+  nodes.forEach(n => {
+      if (inDegree.get(n.key) === 0) queue.push(n);
+  });
+
+  let safeGuard = 0;
+  while (queue.length > 0 && safeGuard < 5000) {
+      safeGuard++;
+      const current = queue.shift();
+      sortedNodes.push(current);
+
+      adjList.get(current.key).forEach(dependentKey => {
+          let degree = inDegree.get(dependentKey) - 1;
+          inDegree.set(dependentKey, degree);
+          if (degree === 0) queue.push(macroNodes.get(dependentKey));
+      });
   }
 
-  nodes.forEach(node => visitNode(node.key));
+  // Notfall-Schutz gegen zirkuläre Logik (Kreise aufbrechen)
+  if (sortedNodes.length < nodes.length) {
+      console.warn("Zirkuläre Abhängigkeit entdeckt! Breche Kreis auf...");
+      nodes.forEach(n => { if (!sortedNodes.includes(n)) sortedNodes.push(n); });
+  }
 
-  // =================================================================
-  // 3. PASS 1: GRID PLATZIERUNG (Physische Reihen berechnen)
-  // =================================================================
+  // 4. PHYSISCHE PLATZIERUNG (Strenge Einhaltung der Reihen)
   let placedCards = [];
   let transferStations = [];
   let maxRow = 0;
@@ -157,18 +172,18 @@ function calculateGrid(boardData, people) {
   const nodeRowByKey = new Map();
 
   sortedNodes.forEach(node => {
-      // 1. In welcher Reihe liegt die allerletzte Vorbedingung?
       let depMaxRow = 0;
-      node.deps.forEach(depKey => {
+      // Suche die tiefste Reihe, in der ein Großvater/Vater liegt
+      node.resolvedDeps.forEach(depKey => {
           const r = nodeRowByKey.get(depKey);
           if (r !== undefined && r > depMaxRow) depMaxRow = r;
       });
 
-      const inv = Array.from(node.involved).filter(p => people.includes(p));
-      if (!inv.length) return;
-
-      // 2. Reihe festlegen: Zwingend NACH der letzten Vorbedingung!
+      // Zwingend UNTER den tiefsten Vorfahren!
       let row = depMaxRow + 1;
+
+      // Zwingend UNTER den vorherigen Aufgaben der Mitarbeiter!
+      const inv = Array.from(node.involved).filter(p => people.includes(p));
       inv.forEach(p => { if (personNextRow[p] > row) row = personNextRow[p]; });
 
       if (row > maxRow) maxRow = row;
@@ -185,16 +200,14 @@ function calculateGrid(boardData, people) {
       }
   });
 
-  // =================================================================
-  // 4. PASS 2: ZEIT-SIMULATION (Sicher & Ohne Abstürze)
-  // =================================================================
+  // 5. ZEITPLAN BERECHNUNG (Sicher durch Try-Catch)
   const personLastEnd = {};
   people.forEach(p => { personLastEnd[p] = 0; });
   const nodeSimResults = new Map();
 
   sortedNodes.forEach(node => {
       let maxDepEnd = 0;
-      node.deps.forEach(depKey => {
+      node.resolvedDeps.forEach(depKey => {
           const res = nodeSimResults.get(depKey);
           if (res && res.end > maxDepEnd) maxDepEnd = res.end;
       });
@@ -207,7 +220,6 @@ function calculateGrid(boardData, people) {
       const transit = start > 0 ? 0.3 : 0;
       start += transit;
 
-      // Längste definierte Zeit innerhalb der Gruppe finden (Standard: 1.5)
       let maxDuration = 1.5;
       node.cards.forEach(pCard => {
           let liveC = pCard;
@@ -226,47 +238,36 @@ function calculateGrid(boardData, people) {
           let h = parseFloat(est.h) || 0;
           let m = parseFloat(est.m) || 0;
           let dur = (d * 8) + h + (m / 60);
-          if (dur > 0 && dur !== 1.5 && dur > maxDuration) maxDuration = dur;
+          if (dur > 0 && dur > maxDuration) maxDuration = dur;
       });
 
       const end = start + maxDuration;
       nodeSimResults.set(node.key, { start, end });
       inv.forEach(p => { personLastEnd[p] = end; });
 
-      // Zeiten auf die platzierten Karten übertragen
       node.cards.forEach(c => {
           const pc = placedCards.find(placed => placed.id === c.id);
           if (pc) { pc.simStart = start; pc.simEnd = end; }
       });
   });
 
-  // =================================================================
-  // 5. PASS 3: GLEIS-LAYOUT & KOORDINATEN (Unverändert)
-  // =================================================================
+  // 6. GLEIS-LAYOUT & KOORDINATEN
   const rowLanes = { 0: [...people] };
   let currentLanes = [...people];
   for (let r = 1; r <= maxRow + 1; r++) {
     if (rowEvents[r] && rowEvents[r].groups.length > 0) {
       const personCluster = {};
       const clusterAvg = {};
-      currentLanes.forEach(p => { personCluster[p] = p; });
-      rowEvents[r].groups.forEach(grp => {
-        grp.involved.forEach(p => { personCluster[p] = grp.name; });
-      });
+      currentLanes.forEach(p => { personCluster[p] = p; }); 
+      rowEvents[r].groups.forEach(grp => { grp.involved.forEach(p => { personCluster[p] = grp.name; }); });
       currentLanes.forEach(p => {
         const cluster = personCluster[p];
         if (!clusterAvg[cluster]) clusterAvg[cluster] = { sum: 0, count: 0, members: [] };
-        clusterAvg[cluster].sum += currentLanes.indexOf(p);
-        clusterAvg[cluster].count++;
-        clusterAvg[cluster].members.push(p);
+        clusterAvg[cluster].sum += currentLanes.indexOf(p); clusterAvg[cluster].count++; clusterAvg[cluster].members.push(p);
       });
-      const clusters = Object.keys(clusterAvg).map(k => ({
-        id: k, avg: clusterAvg[k].count > 0 ? clusterAvg[k].sum / clusterAvg[k].count : 0, members: clusterAvg[k].members
-      }));
+      const clusters = Object.keys(clusterAvg).map(k => ({ id: k, avg: clusterAvg[k].count > 0 ? clusterAvg[k].sum / clusterAvg[k].count : 0, members: clusterAvg[k].members }));
       clusters.sort((a, b) => a.avg - b.avg);
-      currentLanes = clusters.flatMap(c => {
-        return c.members.sort((a, b) => currentLanes.indexOf(a) - currentLanes.indexOf(b));
-      });
+      currentLanes = clusters.flatMap(c => c.members.sort((a, b) => currentLanes.indexOf(a) - currentLanes.indexOf(b)));
     }
     rowLanes[r] = [...currentLanes];
   }
@@ -275,16 +276,13 @@ function calculateGrid(boardData, people) {
   people.forEach(p => trackPoints[p] = []);
   const personCurrentX = {};
   for (let r = 0; r <= maxRow + 1; r++) {
-    if (rowLanes[r]) {
-      rowLanes[r].forEach((p, i) => { personCurrentX[p] = MARGIN_H + i * TRACK_SPACING; });
-    }
-    people.forEach(p => {
-      trackPoints[p].push({ x: personCurrentX[p] || MARGIN_H, y: MARGIN_TOP + r * ROW_HEIGHT });
-    });
+    if (rowLanes[r]) rowLanes[r].forEach((p, i) => { personCurrentX[p] = MARGIN_H + i * TRACK_SPACING; });
+    people.forEach(p => trackPoints[p].push({ x: personCurrentX[p] || MARGIN_H, y: MARGIN_TOP + r * ROW_HEIGHT }));
   }
 
   return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints };
 }
+
 function createTrackPath(pts) {
   if (!pts.length) return '';
   let d = `M ${pts[0].x} ${pts[0].y}`;
@@ -379,15 +377,7 @@ window.renderUBahnMap = function() {
       console.error("U-Bahn Crash:", err);
       const container = document.getElementById('ubahn-content');
       if (container) {
-          container.innerHTML = `
-            <div style="padding: 40px; margin: 20px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 12px; color: #991b1b; font-family: sans-serif;">
-              <h2 style="margin-top:0; color: #b91c1c;">⚠️ Die U-Bahn ist entgleist!</h2>
-              <p>Ein interner Fehler im Code verhindert den Aufbau des Netzes.</p>
-              <div style="background: #fff; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 14px; margin-bottom: 20px;">
-                <strong>Details:</strong> <br> ${err.message}
-              </div>
-            </div>
-          `;
+          container.innerHTML = `<div style="padding:40px;margin:20px;background:#fee2e2;border:1px solid #ef4444;border-radius:12px;color:#991b1b;"><h2>⚠️ Fehler</h2><p>${err.message}</p></div>`;
       }
   }
 };
@@ -431,8 +421,9 @@ window.renderUBahnPerson = function(workerName) {
 
 // ── 6. DETAIL POPUP & ÖFFNEN ────────────────────────────────
 function _resolveCard(labelOrId) {
+  const target = String(labelOrId).trim().toUpperCase();
   for (const [colId, cards] of Object.entries(S.cards)) {
-    const c = cards.find(x => x.label === labelOrId || x.id === labelOrId);
+    const c = cards.find(x => (x.label||'').trim().toUpperCase() === target || String(x.id).trim().toUpperCase() === target);
     if (c) return { id: c.id, label: c.label, titel: c.text, wer: c.assignee, colName: S.columns.find(col => col.id === colId)?.name || '' };
   }
   return null;
@@ -447,10 +438,7 @@ window._ubahnNav = function(label) {
       inner.style.opacity = '0';
       inner.style.transform = 'scale(0.95)';
     }
-    setTimeout(() => {
-      window.showUBahnCardDetail(label);
-      _ubahnScrollToCard(label);
-    }, 150);
+    setTimeout(() => { window.showUBahnCardDetail(label); _ubahnScrollToCard(label); }, 150);
   } else {
     window.showUBahnCardDetail(label);
     _ubahnScrollToCard(label);
@@ -493,7 +481,7 @@ window.showUBahnCardDetail = function(label) {
   const description = liveCard?.description || card.description || '';
 
   const prereqs  = (card.deps || []).map(_resolveCard).filter(Boolean);
-  const enables  = _data.allCardsFlat.filter(c => (c.deps || []).includes(card.label)).map(c => _resolveCard(c.label)).filter(Boolean);
+  const enables  = _data.allCardsFlat.filter(c => (c.deps || []).map(d=>String(d).trim().toUpperCase()).includes(String(card.label).trim().toUpperCase())).map(c => _resolveCard(c.label)).filter(Boolean);
   const groupPartners = card.gruppe ? _data.allCardsFlat.filter(c => c.gruppe === card.gruppe && c.wer !== card.wer) : [];
 
   const prioBadge = {
@@ -501,10 +489,7 @@ window.showUBahnCardDetail = function(label) {
     niedrig: `<span style="background:#22c55e22;color:#22c55e;border:1px solid #22c55e66;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">▼ Niedrig</span>`,
   }[card.prio] || `<span style="background:var(--surface);color:var(--text-muted);border:1px solid var(--border);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">● Mittel</span>`;
 
-  const colOptions = S.columns.map(col =>
-    `<option value="${col.id}" ${col.id === currentColId ? 'selected' : ''}>${esc(col.name)}</option>`
-  ).join('');
-
+  const colOptions = S.columns.map(col => `<option value="${col.id}" ${col.id === currentColId ? 'selected' : ''}>${esc(col.name)}</option>`).join('');
   const hr = `<div style="border:none;border-top:1px solid var(--border);margin:14px 0;"></div>`;
   const editStyle = isLocked ? 'pointer-events:none;opacity:0.7;' : '';
 
@@ -729,30 +714,40 @@ window.openUBahnModal = function() {
   renderUBahnMap();
 };
 
+// ── DIE NEUE FEHLERFREIE HOVER LOGIK ──
 window.ubahnHoverCard = function(label) {
   if (!_data || !_data.allCardsFlat) return;
   const allCards = _data.allCardsFlat;
-  const hoveredCard = allCards.find(c => c.label === label);
+  const targetLabel = String(label).trim().toUpperCase();
+  const hoveredCard = allCards.find(c => (c.label||'').trim().toUpperCase() === targetLabel);
   if (!hoveredCard) return;
 
   function getGenerations(startLabel, direction) {
+    const startTarget = String(startLabel).trim().toUpperCase();
     const generations = new Map();
-    const queue = [{ label: startLabel, depth: 0 }];
-    const visited = new Set([startLabel]);
+    const queue = [{ label: startTarget, depth: 0 }];
+    const visited = new Set([startTarget]);
+
     while(queue.length > 0) {
       const { label: currLabel, depth } = queue.shift();
       if (depth > 0) generations.set(currLabel, depth);
+
       if (direction === 'up') { 
-        const card = allCards.find(c => c.label === currLabel);
+        const card = allCards.find(c => (c.label||'').trim().toUpperCase() === currLabel);
         if (card && card.deps) {
           card.deps.forEach(depLabel => {
-            if (!visited.has(depLabel)) { visited.add(depLabel); queue.push({ label: depLabel, depth: depth + 1 }); }
+            const normDep = String(depLabel).trim().toUpperCase();
+            if (!visited.has(normDep)) { visited.add(normDep); queue.push({ label: normDep, depth: depth + 1 }); }
           });
         }
       } else { 
-        const successors = allCards.filter(c => (c.deps || []).includes(currLabel));
+        const successors = allCards.filter(c => {
+           const normDeps = (c.deps || []).map(d => String(d).trim().toUpperCase());
+           return normDeps.includes(currLabel);
+        });
         successors.forEach(succ => {
-          if (!visited.has(succ.label)) { visited.add(succ.label); queue.push({ label: succ.label, depth: depth + 1 }); }
+          const succLabel = (succ.label||'').trim().toUpperCase();
+          if (succLabel && !visited.has(succLabel)) { visited.add(succLabel); queue.push({ label: succLabel, depth: depth + 1 }); }
         });
       }
     }
@@ -772,14 +767,16 @@ window.ubahnHoverCard = function(label) {
     const ring = document.getElementById(`ubahn-ring-${c.label}`);
     if (!node || !ring) return;
 
-    if (c.label === label) {
+    const normLabel = String(c.label).trim().toUpperCase();
+
+    if (normLabel === targetLabel) {
       node.style.opacity = '1'; ring.style.boxShadow = '0 0 25px rgba(255,255,255,0.7)'; ring.style.transform = 'scale(1.15)';
-    } else if (preGens.has(c.label)) {
-      const depth = preGens.get(c.label);
+    } else if (preGens.has(normLabel)) {
+      const depth = preGens.get(normLabel);
       const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3); 
       node.style.opacity = intensity.toString(); ring.style.borderColor = '#f59e0b'; ring.style.color = '#f59e0b'; ring.style.boxShadow = `0 0 ${20 * intensity}px rgba(245, 158, 11, ${intensity})`; ring.style.transform = depth === 1 ? 'scale(1.05)' : 'scale(1)';
-    } else if (succGens.has(c.label)) {
-      const depth = succGens.get(c.label);
+    } else if (succGens.has(normLabel)) {
+      const depth = succGens.get(normLabel);
       const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3); 
       node.style.opacity = intensity.toString(); ring.style.borderColor = '#10b981'; ring.style.color = '#10b981'; ring.style.boxShadow = `0 0 ${20 * intensity}px rgba(16, 185, 129, ${intensity})`; ring.style.transform = depth === 1 ? 'scale(1.05)' : 'scale(1)';
     } else {
@@ -804,24 +801,14 @@ window.ubahnLeaveCard = function() {
   });
 };
 
-// ── DIE NEUE RETTUNGS-FUNKTION (Dynamic Import) ──────────────────
 window.openGanttFromUBahn = async function() {
   if (!_lastGrid || !_data) {
     if (typeof window.showToast === 'function') window.showToast("Bitte warten, bis das Netz berechnet wurde.", "error");
     return;
   }
-  
   try {
-      // Lädt die Datei ERST JETZT, wo du klickst. 
-      // Wenn sie kaputt ist, stürzt nur der Gantt ab, aber niemals die U-Bahn!
       const ganttModule = await import('./gantt.js');
-      
-      if (ganttModule && ganttModule.showGanttView) {
-          ganttModule.showGanttView(_data, _lastGrid);
-      } else {
-          alert("Fehler: Die Datei gantt.js wurde gefunden, aber 'showGanttView' wurde nicht exportiert. Bitte das 'export' Wort checken!");
-      }
-  } catch(error) {
-      alert("KRITISCHER FEHLER:\nDein Browser weigert sich, die gantt.js zu laden.\nGrund: " + error.message);
-  }
+      if (ganttModule && ganttModule.showGanttView) { ganttModule.showGanttView(_data, _lastGrid); }
+      else { alert("Fehler: 'showGanttView' nicht exportiert in gantt.js."); }
+  } catch(error) { alert("KRITISCHER FEHLER:\n" + error.message); }
 };
