@@ -204,9 +204,28 @@ window.showExport = () => {
     lines.push(`  ${col.name.toUpperCase()}  (${cCards.length} Karte${cCards.length!==1?'n':''})`);
     lines.push(sep);
     if (!cCards.length) { lines.push('  (keine Karten)'); lines.push(''); continue; }
+    
     cCards.forEach((card, idx) => {
       const lbl = card.label ? `[${card.label}] ` : '';
       lines.push(`  ${idx + 1}. ${lbl}${card.text}`);
+      
+      // NEU: Beschreibung einfügen
+      if (card.description) {
+        // Macht Einrückungen bei mehrzeiligen Beschreibungen sauberer
+        const formattedDesc = card.description.replace(/\n/g, '\n                 ');
+        lines.push(`     Beschreibung: ${formattedDesc}`);
+      }
+      
+      // NEU: Bearbeitungszeit einfügen
+      if (card.timeEstimate && (card.timeEstimate.d > 0 || card.timeEstimate.h > 0 || card.timeEstimate.m > 0)) {
+        const te = card.timeEstimate;
+        const timeParts = [];
+        if (te.d > 0) timeParts.push(`${te.d}T`);
+        if (te.h > 0) timeParts.push(`${te.h}h`);
+        if (te.m > 0) timeParts.push(`${te.m}m`);
+        lines.push(`     Geschätzte Zeit: ${timeParts.join(' ')}`);
+      }
+
       if (card.priority) { const pMap = { hoch:'HOCH ▲', mittel:'MITTEL', niedrig:'NIEDRIG ▽' }; lines.push(`     Priorität:   ${pMap[card.priority] || card.priority}`); }
       if (card.assignee) lines.push(`     Zugewiesen:  ${card.assignee}`);
       if (card.due) lines.push(`     Fällig am:   ${fmtDate(card.due)}${dueStatus(card.due)}`);
@@ -255,7 +274,9 @@ window.showExport = () => {
       cards: (S.cards[col.id] || []).map(c => ({
         text: c.text, priority: c.priority, assignee: c.assignee, due: c.due, label: c.label,
         dependencies: c.dependencies || [], comments: c.comments || [],
-        groupId: c.groupId || '', startedAt: c.startedAt || '', finishedAt: c.finishedAt || '', order: c.order
+        groupId: c.groupId || '', startedAt: c.startedAt || '', finishedAt: c.finishedAt || '', order: c.order,
+        // NEU: Daten ins Backup-Objekt aufnehmen
+        description: c.description || '', timeEstimate: c.timeEstimate || { d: 0, h: 0, m: 0 }
       }))
     }))
   };
