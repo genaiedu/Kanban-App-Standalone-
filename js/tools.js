@@ -124,6 +124,7 @@ WICHTIGSTE REGELN FÜR DIE PLANUNG:
 15. Bei der Erstellung eines neuen Boards sortiere alle Karten in Vorraussetzungen und in Vorbereitung ein.
 16. Du darfst keine weiteren Mitarbeiter dazu erfinden indbesondere nicht so etwas wie "alle Mitarbeiter" Eine einzelne Karte muss immer exekt einer Person zugeordnet werden und auch bei einer Gruppenaufgabe eine spezielle Aufgabe für diese Person enthalten.
 17. Falls der aktuelle Stand des Boardes bereits gegen einer dieser Regeln verstösst gebe eine Warnung aus und mache Vorschläge zur Bereinigung.
+18. Ausfürliche Beschreibungen der Aufgaben bitte auch immer mit angeben woran man erkannen kann, dass die aufgabe gut gelöst wurde.
 
 AKTUELLER STAND DES BOARDS:
 ${currentBoardStateText}
