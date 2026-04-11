@@ -87,8 +87,15 @@ window.showAiPrompt = () => {
         const depsStr  = (c.dependencies && c.dependencies.length > 0) ? ` (Abhängig von: ${c.dependencies.map(d => `[${d}]`).join(', ')})` : '';
         const grpStr   = c.groupId ? ` (Gruppe: ${c.groupId})` : '';
         const whoStr   = c.assignee ? ` [Zuständig: ${c.assignee}]` : ' [Zuständig: offen]';
+        
+        // NEU: Dem KI-Assistenten die aktuell eingetragene Zeit mitteilen
+        let timeStr = '';
+        if (c.timeEstimate && (c.timeEstimate.d > 0 || c.timeEstimate.h > 0 || c.timeEstimate.m > 0)) {
+          timeStr = ` [Bearbeitungszeit: ${c.timeEstimate.d}T ${c.timeEstimate.h}h ${c.timeEstimate.m}m]`;
+        }
+        
         const descStr  = c.description ? `\n      📝 ${c.description}` : '';
-        currentBoardStateText += `   - ${lbl}${c.text}${whoStr}${depsStr}${grpStr}${descStr}\n`;
+        currentBoardStateText += `   - ${lbl}${c.text}${whoStr}${timeStr}${depsStr}${grpStr}${descStr}\n`;
       });
     }
     
@@ -97,7 +104,7 @@ window.showAiPrompt = () => {
     }
   }
 
-  // Der aktualisierte Prompt mit deinen neuen Regeln
+  // Der aktualisierte Prompt mit Zeit-Regel
   const prompt = `Du bist ein Projektassistent für das Kanban-Board "${boardName}".
 
 WICHTIGSTE REGELN FÜR DIE PLANUNG:
@@ -106,10 +113,11 @@ WICHTIGSTE REGELN FÜR DIE PLANUNG:
 3. FERTIG-SPALTE: Diese Spalte ist tabu und wird von dir nicht beplant.
 4. VORAUSSETZUNGEN: Plane vorbereitende Aufgaben in einer Spalte ganz links ein.
 5. LÜCKENLOSES NETZ: Schaffe für alle Karten, die direkt mit dem Produkt zu tun haben, ein möglichst lückenloses Netz von Abhängigkeiten (deps). Jede Produkt-Aufgabe muss logisch im Arbeitsfluss verknüpft sein.
-6. BOARD-ADMINISTRATION für Grüppen ab 6 Mitgliedern: Integriere in jedes Board zwingend eine Karte für die Person, die dieses Board selbst administriert und aktuell hält.
-7. KEINE ABHÄNGIGKEIT BEI ADMIN: Die Board-Administrations-Karte darf KEINE direkten Abhängigkeiten (deps) zu Produkt-Aufgaben haben, da das Board nur Mittel zum Zweck und nicht Teil des Produkts ist.
+6. BOARD-ADMINISTRATION für Gruppen ab 6 Mitgliedern: Integriere in jedes Board zwingend eine Karte für die Person, die dieses Board selbst administriert.
+7. KEINE ABHÄNGIGKEIT BEI ADMIN: Die Board-Administrations-Karte darf KEINE direkten Abhängigkeiten (deps) zu Produkt-Aufgaben haben.
 8. VERKETTUNGEN: Nutze das Feld "gruppe" für Karten, die vertikal zusammengehören.
-9. BESCHREIBUNG: Füge für jede nicht-triviale Aufgabe eine detaillierte Erläuterung im Feld 'beschreibung' hinzu (2–5 Sätze: Was ist zu tun, worauf ist zu achten, welches Ergebnis wird erwartet?). Bestehende Beschreibungen unbedingt übernehmen und nur verbessern, niemals löschen.
+9. BESCHREIBUNG: Füge für jede nicht-triviale Aufgabe eine detaillierte Erläuterung im Feld 'beschreibung' hinzu (2–5 Sätze). Bestehende Beschreibungen unbedingt übernehmen!
+10. BEARBEITUNGSZEIT: Schätze für jede Aufgabe die REINE NETTO-ARBEITSZEIT in Tagen (d), Stunden (h) und Minuten (m). Berechne KEINE Enddaten/Fälligkeiten daraus, da der Projektstart variabel ist!
 
 AKTUELLER STAND DES BOARDS:
 ${currentBoardStateText}
@@ -135,7 +143,8 @@ Gib ein JSON-Array aus, wobei jedes Objekt eine Spalte repräsentiert:
       "wer": "Zuständige Person",
       "deps": ["Label1", "Label2"],
       "gruppe": "Optionaler Gruppenname",
-      "beschreibung": "Detaillierte Erläuterung: Was ist zu tun, worauf ist zu achten, welches Ergebnis wird erwartet? (2–5 Sätze, bei einfachen Aufgaben weglassen)"
+      "beschreibung": "Detaillierte Erläuterung (2-5 Sätze)...",
+      "zeit": { "d": 0, "h": 2, "m": 30 }
     }
   ]
 }`;
@@ -327,7 +336,11 @@ function parseExportText(raw) {
         due: card.deadline || card.due || '', assignee: card.wer || card.assignee || '',
         dependencies: Array.isArray(card.deps || card.dependencies) ? (card.deps || card.dependencies) : [],
         groupId: card.gruppe || card.groupId || '',
+        
+        // NEU: Import für Beschreibung und Zeit-Schätzung aus der KI-Antwort
         description: card.beschreibung || card.description || '',
+        timeEstimate: card.zeit || card.timeEstimate || { d: 0, h: 0, m: 0 },
+        
         comments: card.comments || [], startedAt: card.startedAt || '', finishedAt: card.finishedAt || ''
       }))
     }));
