@@ -194,6 +194,8 @@ export function createCard(boardId, colId, fields) {
     priority: fields.priority || '',
     assignee: fields.assignee || '',
     due: fields.due || '',
+    description: fields.description || '',
+    timeEstimate: fields.timeEstimate || { d: 0, h: 0, m: 0 },
     label: fields.label || '',
     order: fields.order ?? (col.cards ? col.cards.length : 0),
     startedAt: fields.startedAt || '',
