@@ -397,15 +397,23 @@ window.confirmImport = () => {
         const newCol = createColumn(newBoard.id, { name: importCol.name, color: importCol.color || '#5c6ef8', order: importCol.order ?? colOrder++, wipLimit: importCol.wipLimit || 0 });
         let cardOrder = 0;
         for (const card of (importCol.cards || [])) {
-          createCard(newBoard.id, newCol.id, { text: card.text || 'Ohne Titel', priority: card.priority || '', assignee: card.assignee || '', due: card.due || '', label: card.label || '', dependencies: card.dependencies || [], groupId: card.groupId || '', description: card.description || '', comments: card.comments || [], order: card.order ?? cardOrder++, startedAt: card.startedAt || '', finishedAt: card.finishedAt || '' });
+          // NEU: timeEstimate hinzugefügt
+          createCard(newBoard.id, newCol.id, { 
+            text: card.text || 'Ohne Titel', priority: card.priority || '', assignee: card.assignee || '', 
+            due: card.due || '', label: card.label || '', dependencies: card.dependencies || [], 
+            groupId: card.groupId || '', description: card.description || '', 
+            timeEstimate: card.timeEstimate || { d: 0, h: 0, m: 0 }, // <-- HIER EINGEFÜGT
+            comments: card.comments || [], order: card.order ?? cardOrder++, 
+            startedAt: card.startedAt || '', finishedAt: card.finishedAt || '' 
+          });
           importedCardsCount++;
         }
       }
       closeModal('modal-import');
       showToast(`✅ Backup als neues Board wiederhergestellt!`);
       S.boards = getBoards();
-      renderBoardsList();
-      setTimeout(() => selectBoard(newBoard.id), 300);
+      if (typeof renderBoardsList === 'function') renderBoardsList();
+      setTimeout(() => { if (typeof selectBoard === 'function') selectBoard(newBoard.id); }, 300);
 
     } else {
       btn.textContent = 'Lösche alte Daten & speichere neu…';
@@ -433,7 +441,14 @@ window.confirmImport = () => {
           if (!card || !card.text) continue;
           let cardLabel = card.label;
           if (!cardLabel) { cardLabel = window.numberToLabel ? window.numberToLabel(currentCounter) : `K${currentCounter}`; currentCounter++; }
-          createCard(S.currentBoard.id, newCol.id, { text: card.text, priority: card.priority || '', assignee: card.assignee || '', due: card.due || '', label: cardLabel, dependencies: card.dependencies || [], groupId: card.groupId || '', description: card.description || '', order: cardOrder++, startedAt: card.startedAt || '', finishedAt: card.finishedAt || '' });
+          // NEU: timeEstimate hinzugefügt
+          createCard(S.currentBoard.id, newCol.id, { 
+            text: card.text, priority: card.priority || '', assignee: card.assignee || '', 
+            due: card.due || '', label: cardLabel, dependencies: card.dependencies || [], 
+            groupId: card.groupId || '', description: card.description || '', 
+            timeEstimate: card.timeEstimate || { d: 0, h: 0, m: 0 }, // <-- HIER EINGEFÜGT
+            order: cardOrder++, startedAt: card.startedAt || '', finishedAt: card.finishedAt || '' 
+          });
           importedCardsCount++;
         }
       }
@@ -442,7 +457,6 @@ window.confirmImport = () => {
       const updatedCols = getColumns(S.currentBoard.id);
       for (const col of updatedCols) {
         if (window.isFinishedColumn && window.isFinishedColumn(col)) {
-          // updateColumn nicht direkt verfügbar über state, nutze import
           import('./storage.js').then(({ updateColumn }) => updateColumn(S.currentBoard.id, col.id, { order: orderOffset++ }));
         }
       }
@@ -450,7 +464,7 @@ window.confirmImport = () => {
       S.currentBoard.cardCounter = currentCounter;
       closeModal('modal-import');
       showToast(`✅ KI-Planung erfolgreich! ${importedCardsCount} Karte(n) importiert.`);
-      setTimeout(() => loadColumns(), 200);
+      setTimeout(() => { if (typeof loadColumns === 'function') loadColumns(); }, 200);
     }
   } catch(e) {
     console.error('Fehler beim Importieren:', e);
@@ -459,6 +473,7 @@ window.confirmImport = () => {
   btn.disabled = false;
   btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M20 6 9 17l-5-5"/></svg> Jetzt importieren';
 };
+
 
 // ── AGENDA ────────────────────────────────────────────
 window.showAgenda = () => {
