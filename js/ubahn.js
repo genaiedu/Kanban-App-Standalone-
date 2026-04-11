@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Perfekte Parallelgleise (Max 2)
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Kausalitäts-Edition (Kahn-Algorithmus)
 import { S, moveCard, getCards, updateCard } from './state.js';
 
 const PALETTE = [
@@ -85,210 +85,163 @@ function prepareBoardData() {
   return { boardData, people, lineColors: colors, allCardsFlat };
 }
 
-// ── DIE KAUSALITÄTS-MASCHINE MIT HARTEM 2-GLEIS LIMIT ──
+// ── DIE NEUE KAUSALITÄTS-MASCHINE (Kahn-Algorithmus) ──
+// ── DIE "STAMMBAUM" KAUSALITÄTS-MASCHINE (Vom User definiert) ──
 function calculateGrid(boardData, people) {
   const allCards = boardData.flatMap(col => col.karten).filter(Boolean);
 
-  let dissolvedGroups = new Set();
-  let ignoredDependencies = [];
-  let warningCards = new Set();
-  let warningMessages = new Set();
-  
-  let sortedNodes = [];
-  let nodesMap = new Map();
-  let graphResolved = false;
-  let safeGuardOuter = 0;
+  // =================================================================
+  // 1. KARTEN BÜNDELN (Gruppenarbeiten zu einem Knoten verschmelzen)
+  // =================================================================
+  const nodes = new Map();
+  const lookup = new Map();
 
-  // 1. ZIRKELBEZÜGE BRECHEN
-  while (!graphResolved && safeGuardOuter < 15) {
-      safeGuardOuter++;
-      nodesMap.clear();
-      const lookup = new Map();
-
-      allCards.forEach(card => {
-          const isGroup = card.gruppe && !dissolvedGroups.has(card.gruppe);
-          const key = isGroup ? `group_${card.gruppe}` : `card_${card.id}`;
-          if (!nodesMap.has(key)) {
-              nodesMap.set(key, { key, isGroup, name: card.gruppe, cards: [], rawDeps: new Set(), resolvedDeps: new Set(), involved: new Set() });
-          }
-          const node = nodesMap.get(key);
-          node.cards.push(card);
-          if (card.deps) card.deps.forEach(d => { if(typeof d === 'string') node.rawDeps.add(d.trim().toUpperCase()); });
-          if (card.wer) node.involved.add(card.wer);
-
-          lookup.set(String(card.id).trim().toUpperCase(), key);
-          if (card.label) lookup.set(String(card.label).trim().toUpperCase(), key);
-      });
-
-      const nodes = Array.from(nodesMap.values());
-      nodes.forEach(node => {
-          node.rawDeps.forEach(rawDep => {
-              const targetKey = lookup.get(rawDep);
-              if (targetKey && targetKey !== node.key) {
-                  const isIgnored = ignoredDependencies.some(ign => ign.from === targetKey && ign.to === node.key);
-                  if (!isIgnored) node.resolvedDeps.add(targetKey);
-              }
-          });
-      });
-
-      sortedNodes = [];
-      let inDegree = new Map();
-      let adjList = new Map();
-
-      nodes.forEach(n => { inDegree.set(n.key, n.resolvedDeps.size); adjList.set(n.key, []); });
-      nodes.forEach(n => { n.resolvedDeps.forEach(depKey => { if (adjList.has(depKey)) adjList.get(depKey).push(n.key); }); });
-
-      let queue = [];
-      nodes.forEach(n => { if (inDegree.get(n.key) === 0) queue.push(n); });
-
-      let safeGuardInner = 0;
-      while (queue.length > 0 && safeGuardInner < 5000) {
-          safeGuardInner++;
-          const current = queue.shift();
-          sortedNodes.push(current);
-
-          adjList.get(current.key).forEach(dependentKey => {
-              let degree = inDegree.get(dependentKey) - 1;
-              inDegree.set(dependentKey, degree);
-              if (degree === 0) queue.push(nodesMap.get(dependentKey));
+  allCards.forEach(c => {
+      const key = c.gruppe ? `GROUP_${c.gruppe}` : `CARD_${c.id}`;
+      if (!nodes.has(key)) {
+          nodes.set(key, { 
+              key, 
+              isGroup: !!c.gruppe, 
+              name: c.gruppe, 
+              cards: [], 
+              involved: new Set(), 
+              depsRaw: new Set(), 
+              depsResolved: new Set() 
           });
       }
+      const n = nodes.get(key);
+      n.cards.push(c);
+      if (c.wer) n.involved.add(c.wer);
+      if (c.deps) c.deps.forEach(d => n.depsRaw.add(String(d).trim().toUpperCase()));
 
-      if (sortedNodes.length === nodes.length) {
-          graphResolved = true;
-      } else {
-          const stuckNodes = nodes.filter(n => inDegree.get(n.key) > 0);
-          const groupNode = stuckNodes.find(n => n.isGroup);
-          if (groupNode) {
-              dissolvedGroups.add(groupNode.name);
-              groupNode.cards.forEach(c => warningCards.add(c.id));
-              warningMessages.add(`Gruppenarbeit "${groupNode.name}" wurde aufgelöst (Deadlock).`);
-          } else {
-              let brokeEdge = false;
-              for (const n of stuckNodes) {
-                  for (const depKey of n.resolvedDeps) {
-                      if (inDegree.get(depKey) > 0) {
-                          ignoredDependencies.push({ from: depKey, to: n.key });
-                          n.cards.forEach(c => warningCards.add(c.id));
-                          warningMessages.add(`Eine Abhängigkeit wurde ignoriert (Zirkelbezug aufgelöst).`);
-                          brokeEdge = true; break;
-                      }
-                  }
-                  if (brokeEdge) break;
-              }
-              if (!brokeEdge) { inDegree.set(stuckNodes[0].key, 0); queue.push(stuckNodes[0]); }
-          }
-      }
-  }
-
-  // 2. PARALLEL-GLEISE VORBEREITEN (Hartes Limit: Max 2)
-  const MAX_LANES = 2; 
-  const personLanes = {};
-  const laneNextRow = {};
-  const laneUsage = {};
-  
-  people.forEach(p => {
-      const primaryLane = `${p}_0`;
-      personLanes[p] = [primaryLane];
-      laneNextRow[primaryLane] = 1;
-      laneUsage[primaryLane] = [];
+      // Lookup-Tabelle für fehlertolerantes Finden
+      lookup.set(String(c.id).trim().toUpperCase(), key);
+      if (c.label) lookup.set(String(c.label).trim().toUpperCase(), key);
   });
 
+  // =================================================================
+  // 2. STAMMBAUM VERKNÜPFEN (Wer ist der direkte Vater?)
+  // =================================================================
+  for (const n of nodes.values()) {
+      n.depsRaw.forEach(rawDep => {
+          const targetKey = lookup.get(rawDep);
+          // Man kann nicht sein eigener Großvater sein
+          if (targetKey && targetKey !== n.key) {
+              n.depsResolved.add(targetKey);
+          }
+      });
+  }
+
+  // =================================================================
+  // 3. GENERATIONEN BERECHNEN (Der Weg nach ganz oben)
+  // =================================================================
+  const depths = new Map();
+  const visiting = new Set();
+
+  function getDepth(nodeKey) {
+      // Wenn wir die Generation schon kennen, direkt zurückgeben
+      if (depths.has(nodeKey)) return depths.get(nodeKey);
+      
+      // Notfall-Bremse bei unendlichen Schleifen
+      if (visiting.has(nodeKey)) {
+          console.warn("Zirkel-Bezug (Zeitparadoxon) ignoriert bei:", nodeKey);
+          return 0;
+      }
+
+      visiting.add(nodeKey);
+      const n = nodes.get(nodeKey);
+      let maxDepth = 0;
+
+      // Wenn es Vorfahren gibt, frage alle nach ihrer Generation
+      if (n && n.depsResolved.size > 0) {
+          for (const depKey of n.depsResolved) {
+              const d = getDepth(depKey);
+              if (d > maxDepth) maxDepth = d; // Wir richten uns nach dem ÄLTESTEN Vorfahren
+          }
+      }
+
+      visiting.delete(nodeKey);
+      const myDepth = maxDepth + 1; // Ich bin eine Generation jünger als mein ältester Vorfahr
+      depths.set(nodeKey, myDepth);
+      return myDepth;
+  }
+
+  // Generation für alle Blöcke ausrechnen
+  for (const key of nodes.keys()) {
+      getDepth(key);
+  }
+
+  // =================================================================
+  // 4. NACH GENERATION SORTIEREN
+  // =================================================================
+  const sortedNodes = Array.from(nodes.values()).sort((a, b) => {
+      return depths.get(a.key) - depths.get(b.key);
+  });
+
+  // =================================================================
+  // 5. PHYSISCHE PLATZIERUNG (Das Rastern)
+  // =================================================================
   let placedCards = [];
   let transferStations = [];
   let maxRow = 0;
+  const personNextRow = {};
+  people.forEach(p => { personNextRow[p] = 1; });
   const rowEvents = {};
   const nodeRowByKey = new Map();
-  const nodeAssignedLanes = new Map();
 
-  // 3. PLATZIERUNG MIT VERHINDERUNG VON DRITTEN SPUREN
-  sortedNodes.forEach(node => {
+  for (const node of sortedNodes) {
       let depMaxRow = 0;
-      node.resolvedDeps.forEach(depKey => {
+      
+      // Regel 1: Kausalität. Die Karte MUSS physisch unter dem tiefsten Vorfahren liegen.
+      for (const depKey of node.depsResolved) {
           const r = nodeRowByKey.get(depKey);
           if (r !== undefined && r > depMaxRow) depMaxRow = r;
-      });
+      }
 
       let row = depMaxRow + 1;
-      const inv = Array.from(node.involved).filter(p => people.includes(p));
 
-      // Finde die frühstmögliche Reihe, in der JEDER maximal 2 Spuren hat
-      let validRowFound = false;
-      while (!validRowFound) {
-          let allHaveSpace = true;
-          for (const p of inv) {
-              let hasFreeLane = false;
-              // Prüfe, ob eine der existierenden Spuren in dieser Reihe frei ist
-              for (const lane of personLanes[p]) {
-                  if (laneNextRow[lane] <= row) { hasFreeLane = true; break; }
-              }
-              // Wenn nicht, darf eine neue gebaut werden? (Max 2)
-              if (!hasFreeLane && personLanes[p].length < MAX_LANES) {
-                  hasFreeLane = true;
-              }
-              if (!hasFreeLane) {
-                  allHaveSpace = false;
-                  break;
-              }
-          }
-          if (allHaveSpace) {
-              validRowFound = true;
-          } else {
-              row++; // Eine Reihe weiter nach unten rücken und warten
-          }
+      // Regel 2: Gruppen-Synchronität. Die Karte MUSS warten, bis alle aus der Gruppe frei sind.
+      const inv = Array.from(node.involved).filter(p => people.includes(p));
+      for (const p of inv) {
+          if (personNextRow[p] > row) row = personNextRow[p];
       }
 
       if (row > maxRow) maxRow = row;
-      if (!rowEvents[row]) rowEvents[row] = { groups: [], activeLanes: new Set() };
+      if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
 
-      const assignedLanes = {};
-      inv.forEach(p => {
-          let chosenLane = personLanes[p].find(l => laneNextRow[l] <= row);
-          
-          if (!chosenLane) {
-              chosenLane = `${p}_${personLanes[p].length}`;
-              personLanes[p].push(chosenLane);
-              laneNextRow[chosenLane] = 1;
-              laneUsage[chosenLane] = [];
-          }
-          
-          assignedLanes[p] = chosenLane;
-          laneNextRow[chosenLane] = row + 1;
-          laneUsage[chosenLane].push(row);
-          rowEvents[row].activeLanes.add(chosenLane);
-      });
-
+      // Schienen für die beteiligten Personen ab dieser Reihe blockieren
+      for (const p of inv) {
+          personNextRow[p] = row + 1;
+          rowEvents[row].activePeople.add(p);
+      }
       nodeRowByKey.set(node.key, row);
-      nodeAssignedLanes.set(node.key, assignedLanes);
 
-      node.cards.forEach(c => { 
-          placedCards.push({ ...c, row, assignedLane: assignedLanes[c.wer] }); 
-      });
+      // Karten final eintragen
+      node.cards.forEach(c => { placedCards.push({ ...c, row }); });
 
       if (node.isGroup) {
-          rowEvents[row].groups.push({ name: node.name, involvedLanes: Object.values(assignedLanes) });
-          transferStations.push({ name: node.name, row, involvedLanes: Object.values(assignedLanes) });
+          rowEvents[row].groups.push({ name: node.name, involved: inv });
+          transferStations.push({ name: node.name, row, involved: inv });
       }
-  });
+  }
 
-  // 4. ZEITPLAN BERECHNUNG (Parallelzeiten)
-  const laneLastEnd = {};
-  Object.values(personLanes).flat().forEach(l => laneLastEnd[l] = 0);
+  // =================================================================
+  // 6. ZEITPLAN-BERECHNUNG (Sicher durch Try-Catch)
+  // =================================================================
+  const personLastEnd = {};
+  people.forEach(p => { personLastEnd[p] = 0; });
   const nodeSimResults = new Map();
 
-  sortedNodes.forEach(node => {
+  for (const node of sortedNodes) {
       let maxDepEnd = 0;
-      node.resolvedDeps.forEach(depKey => {
+      node.depsResolved.forEach(depKey => {
           const res = nodeSimResults.get(depKey);
           if (res && res.end > maxDepEnd) maxDepEnd = res.end;
       });
 
       let maxWorkerReady = 0;
       const inv = Array.from(node.involved).filter(p => people.includes(p));
-      const aLanes = nodeAssignedLanes.get(node.key);
-      inv.forEach(p => { 
-          if (laneLastEnd[aLanes[p]] > maxWorkerReady) maxWorkerReady = laneLastEnd[aLanes[p]]; 
-      });
+      inv.forEach(p => { if (personLastEnd[p] > maxWorkerReady) maxWorkerReady = personLastEnd[p]; });
 
       let start = Math.max(maxDepEnd, maxWorkerReady, 0);
       const transit = start > 0 ? 0.3 : 0;
@@ -317,54 +270,29 @@ function calculateGrid(boardData, people) {
 
       const end = start + maxDuration;
       nodeSimResults.set(node.key, { start, end });
-      inv.forEach(p => { laneLastEnd[aLanes[p]] = end; });
+      inv.forEach(p => { personLastEnd[p] = end; });
 
       node.cards.forEach(c => {
           const pc = placedCards.find(placed => placed.id === c.id);
           if (pc) { pc.simStart = start; pc.simEnd = end; }
       });
-  });
+  }
 
-  // 5. GLEIS-LAYOUT (Akkordeon-Prinzip: Gleise schließen sich wieder)
-  const rowLanes = { 0: people.map(p => `${p}_0`) };
-  let currentLanes = [...rowLanes[0]];
-  const allLanesFlat = Object.values(personLanes).flat();
-
+  // =================================================================
+  // 7. GLEIS-LAYOUT & KOORDINATEN
+  // =================================================================
+  const rowLanes = { 0: [...people] };
+  let currentLanes = [...people];
   for (let r = 1; r <= maxRow + 1; r++) {
-    // a) ABGELAUFENE GLEISE ENTFERNEN (Damit das Brett nicht ewig nach rechts wächst!)
-    currentLanes = currentLanes.filter(l => {
-        if (l.endsWith('_0')) return true; // Hauptgleis bleibt immer
-        const usage = laneUsage[l] || [];
-        const last = usage.length > 0 ? Math.max(...usage) : -1;
-        return r <= last; // Gleis verschwindet ab der Reihe nach seiner letzten Nutzung
-    });
-
-    // b) NEUE GLEISE EINFÄDELN
-    const spawnedHere = allLanesFlat.filter(l => {
-        const usage = laneUsage[l] || [];
-        return usage.length > 0 && Math.min(...usage) === r;
-    });
-    spawnedHere.forEach(l => {
-        const parent = `${l.split('_')[0]}_0`;
-        const pIdx = currentLanes.indexOf(parent);
-        if (pIdx !== -1) currentLanes.splice(pIdx + 1, 0, l);
-        else currentLanes.push(l);
-    });
-
     if (rowEvents[r] && rowEvents[r].groups.length > 0) {
-      const laneCluster = {};
+      const personCluster = {};
       const clusterAvg = {};
-      currentLanes.forEach(l => { laneCluster[l] = l; }); 
-      
-      const grpCards = placedCards.filter(c => c.row === r && c.gruppe);
-      grpCards.forEach(c => { if(c.assignedLane) laneCluster[c.assignedLane] = c.gruppe; });
-
-      currentLanes.forEach(l => {
-        const cluster = laneCluster[l];
+      currentLanes.forEach(p => { personCluster[p] = p; }); 
+      rowEvents[r].groups.forEach(grp => { grp.involved.forEach(p => { personCluster[p] = grp.name; }); });
+      currentLanes.forEach(p => {
+        const cluster = personCluster[p];
         if (!clusterAvg[cluster]) clusterAvg[cluster] = { sum: 0, count: 0, members: [] };
-        clusterAvg[cluster].sum += currentLanes.indexOf(l);
-        clusterAvg[cluster].count++;
-        clusterAvg[cluster].members.push(l);
+        clusterAvg[cluster].sum += currentLanes.indexOf(p); clusterAvg[cluster].count++; clusterAvg[cluster].members.push(p);
       });
       const clusters = Object.keys(clusterAvg).map(k => ({ id: k, avg: clusterAvg[k].count > 0 ? clusterAvg[k].sum / clusterAvg[k].count : 0, members: clusterAvg[k].members }));
       clusters.sort((a, b) => a.avg - b.avg);
@@ -373,38 +301,15 @@ function calculateGrid(boardData, people) {
     rowLanes[r] = [...currentLanes];
   }
 
-  // 6. WEICHEN-KOORDINATEN
-  const rawX = {};
-  for (let r = 0; r <= maxRow + 1; r++) {
-      rawX[r] = {};
-      if (rowLanes[r]) {
-          rowLanes[r].forEach((l, i) => rawX[r][l] = MARGIN_H + i * TRACK_SPACING);
-      }
-  }
-
   const trackPoints = {};
-  allLanesFlat.forEach(l => trackPoints[l] = []);
-  
+  people.forEach(p => trackPoints[p] = []);
+  const personCurrentX = {};
   for (let r = 0; r <= maxRow + 1; r++) {
-      allLanesFlat.forEach(l => {
-          const parent = `${l.split('_')[0]}_0`;
-          let targetX = MARGIN_H;
-          if (l === parent) {
-              targetX = rawX[r][l] || MARGIN_H;
-          } else {
-              const usage = laneUsage[l] || [];
-              const first = usage.length ? Math.min(...usage) : Infinity;
-              const last = usage.length ? Math.max(...usage) : -Infinity;
-              
-              if (r < first) targetX = rawX[r][parent] || MARGIN_H;
-              else if (r > last) targetX = rawX[r][parent] || MARGIN_H;
-              else targetX = rawX[r][l] || rawX[r][parent] || MARGIN_H;
-          }
-          trackPoints[l].push({ x: targetX, y: MARGIN_TOP + r * ROW_HEIGHT });
-      });
+    if (rowLanes[r]) rowLanes[r].forEach((p, i) => { personCurrentX[p] = MARGIN_H + i * TRACK_SPACING; });
+    people.forEach(p => trackPoints[p].push({ x: personCurrentX[p] || MARGIN_H, y: MARGIN_TOP + r * ROW_HEIGHT }));
   }
 
-  return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints, personLanes, warnings: { cards: warningCards, messages: warningMessages }, laneUsage };
+  return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints };
 }
 
 function createTrackPath(pts) {
@@ -418,7 +323,7 @@ function createTrackPath(pts) {
   return d;
 }
 
-// ── RENDERN DER PARALLELGLEISE ───────────────────────────────────────────────
+// ── 3. RENDERN MIT FEHLER-AIRBAG ───────────────────────────────────────────────
 window.renderUBahnMap = function() {
   try {
       _currentView = 'map'; 
@@ -438,35 +343,15 @@ window.renderUBahnMap = function() {
       }
       
       _lastGrid = calculateGrid(boardData, people);
-      const { placedCards, transferStations, maxRows, trackPoints, personLanes, warnings, laneUsage } = _lastGrid;
-
-      // WIP-LIMIT WÄCHTER
-      const activeTasksCount = allCardsFlat.filter(c => c.colName && c.colName.toLowerCase().includes('bearb')).length;
-      const wipLimit = Math.floor(people.length * 1.5);
-      if (activeTasksCount > wipLimit) {
-          warnings.messages.add(`WIP-Limit überschritten! Max. ${wipLimit} aktive Aufgaben empfohlen (aktuell ${activeTasksCount}).`);
-      }
-
-      if (warnings.messages.size > 0 && typeof window.showToast === 'function') {
-          const msgList = Array.from(warnings.messages).map(m => `• ${m}`).join('\n');
-          window.showToast(`⚠️ Hinweise zum Plan:\n${msgList}`, 'warning');
-      }
+      const { placedCards, transferStations, maxRows, trackPoints } = _lastGrid;
       
-      const allLanesFlat = Object.values(personLanes).flat();
-      
-      // Nur Spuren berücksichtigen, die auch wirklich benutzt wurden
-      const activeLanesFlat = allLanesFlat.filter(l => l.endsWith('_0') || (laneUsage[l] && laneUsage[l].length > 0));
-
-      const mapW = (activeLanesFlat.length - 1) * TRACK_SPACING + MARGIN_H * 2;
+      const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
       const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
-      // HINTERGRUND-GLEISE (Kein Geister-Stapeln mehr)
       let svg = `<svg id="ubahn-svg-layer" width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;transition:opacity 0.25s ease;">`;
-      activeLanesFlat.forEach(l => {
-        const p = l.split('_')[0];
-        // Beide Gleise sehen jetzt völlig identisch aus (Deckkraft 0.85)
-        svg += `<path d="${createTrackPath(trackPoints[l])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
-        svg += `<path d="${createTrackPath(trackPoints[l])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
+      people.forEach(p => {
+        svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
+        svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
       });
       svg += `</svg>`;
 
@@ -478,15 +363,14 @@ window.renderUBahnMap = function() {
       </style>`;
       
       people.forEach(p => {
-        const mainLane = `${p}_0`;
-        const sPt = trackPoints[mainLane][0], ePt = trackPoints[mainLane][maxRows], color = lineColors[p];
+        const sPt = trackPoints[p][0], ePt = trackPoints[p][maxRows], color = lineColors[p];
         html += `<button onclick='window.renderUBahnPerson(${JSON.stringify(p)})' style="position:absolute;left:${sPt.x - 60}px;top:${sPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:1005;"><div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;font-weight:900;font-size:12px;color:var(--text);box-shadow:0 4px 16px ${color}44;">${esc(p)}</div></button>`;
         html += `<div style="position:absolute;left:${sPt.x-12}px;top:${sPt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
         html += `<div style="position:absolute;left:${ePt.x-12}px;top:${ePt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
       });
 
       transferStations.forEach(s => {
-        const xs = s.involvedLanes.map(l => trackPoints[l][s.row].x);
+        const xs = s.involved.map(p => trackPoints[p][s.row].x);
         const xMin = Math.min(...xs), xMax = Math.max(...xs);
         if (xMax <= xMin) return;
         const y = s.row * ROW_HEIGHT + MARGIN_TOP;
@@ -498,13 +382,8 @@ window.renderUBahnMap = function() {
       });
 
       placedCards.forEach(k => {
-        const pt = trackPoints[k.assignedLane][k.row];
-        const color = lineColors[k.wer], isHigh = k.prio === 'hoch';
+        const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
         const active = isInProgress(k);
-        
-        const hasWarning = warnings.cards.has(k.id) || warnings.cards.has(k.label);
-        const warningBadge = hasWarning ? `<div style="position:absolute; top:-8px; left:-8px; background:#facc15; color:#854d0e; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px; border:2px solid var(--surface); z-index:20; box-shadow:0 2px 4px rgba(0,0,0,0.3);" title="⚠️ Logik-Konflikt vom System aufgelöst">⚠️</div>` : '';
-
         if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pt.y-30}px;width:60px;height:60px;border:3px solid ${color};z-index:1003;transition:opacity 0.25s ease;"></div>`;
         
         html += `
@@ -517,7 +396,6 @@ window.renderUBahnMap = function() {
                  style="position:relative; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4)${active ? `,0 0 18px ${color}99` : ''}; transition:all 0.25s ease;">
               ${esc(k.label)}
               ${isHigh ? `<span style="position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid var(--surface); z-index:10;"></span>` : ''}
-              ${warningBadge}
             </div>
           </div>`;
       });
@@ -552,17 +430,12 @@ window.renderUBahnPerson = function(workerName) {
         let dotW = members.length ? 64 : 44;
         let isHigh = k.prio === 'hoch';
         const active = k.colName && k.colName.toLowerCase().includes('bearb');
-
-        const hasWarning = _lastGrid?.warnings?.cards?.has(k.id) || _lastGrid?.warnings?.cards?.has(k.label);
-        const warningBadge = hasWarning ? `<div style="position:absolute; top:-6px; left:-6px; background:#facc15; color:#854d0e; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:11px; border:2px solid var(--surface); z-index:20; box-shadow:0 2px 4px rgba(0,0,0,0.3);" title="⚠️ Logik-Konflikt gelöst">⚠️</div>` : '';
-
         if (active) stationsHtml += `<div class="ubahn-pulse-ring" style="position:absolute;left:${X_LINE-(dotW/2)-8}px;top:${currentY-30}px;width:${dotW+16}px;height:60px;border:3px solid ${color};border-radius:30px;z-index:1001;"></div>`;
         stationsHtml += `
           <div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
                style="position:absolute; left:${X_LINE-(dotW/2)}px; top:${currentY-22}px; width:${dotW}px; height:44px; border-radius:22px; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; color:var(--text); cursor:pointer; z-index:1002; box-shadow:${active ? `0 0 18px ${color}99` : 'none'};">
             ${esc(k.label)}
             ${isHigh ? `<span style="position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid var(--surface); z-index:10;"></span>` : ''}
-            ${warningBadge}
           </div>`;
         stationsHtml += `<div onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})' onmouseenter="this.style.borderColor='${color}';this.style.boxShadow='0 4px 20px ${color}33'" onmouseleave="this.style.borderColor='var(--border)';this.style.boxShadow='none'" style="position:absolute; left:${X_LINE+50}px; top:${currentY-26}px; width:340px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; z-index:1001; cursor:pointer; transition:border-color 0.2s, box-shadow 0.2s;"><div style="font-size:14px; font-weight:700;">${esc(k.titel)}</div>${members.length ? `<div style="margin-top:10px; display:flex; gap:5px;">${members.map(m => `<span style="width:10px; height:10px; border-radius:50%; background:${lineColors[m]}; border:1px solid #fff;" title="${esc(m)}"></span>`).join('')}</div>` : ''}</div>`;
         currentY += ROW_HEIGHT + (members.length ? 40 : 0);
@@ -605,7 +478,7 @@ function _ubahnScrollToCard(label) {
   if (!_lastGrid || !_data) return;
   const placed = _lastGrid.placedCards.find(c => c.label === label);
   if (!placed) return;
-  const pt = _lastGrid.trackPoints[placed.assignedLane]?.[placed.row];
+  const pt = _lastGrid.trackPoints[placed.wer]?.[placed.row];
   if (!pt) return;
   const container = document.getElementById('ubahn-content');
   if (!container) return;
@@ -870,6 +743,7 @@ window.openUBahnModal = function() {
   renderUBahnMap();
 };
 
+// ── DIE NEUE FEHLERFREIE HOVER LOGIK ──
 window.ubahnHoverCard = function(label) {
   if (!_data || !_data.allCardsFlat) return;
   const allCards = _data.allCardsFlat;
