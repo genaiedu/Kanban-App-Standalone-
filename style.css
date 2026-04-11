@@ -2283,3 +2283,62 @@ body.theme-light #user-sidebar-info:hover {
   border-top: none !important;
   margin-bottom: 16px !important; /* <--- NEU: Mehr Abstand zur nächsten Karte */
 }
+
+/* --- GANTT & GLASSMISMUS OPTIMIERUNG --- */
+
+/* Der Hauptcontainer des Gantt-Diagramms */
+#gantt-overlay {
+    /* Sanftes Einblenden des Overlays */
+    animation: ganttFadeIn 0.3s ease-out;
+}
+
+.gantt-modal {
+    background: rgba(var(--panel-rgb), 0.7) !important; /* Nutzt deine RGB-Variable für Transparenz */
+    backdrop-filter: blur(12px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Stil für die Task-Balken im Gantt */
+.gantt-task-bar {
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s !important;
+    cursor: pointer;
+}
+
+.gantt-task-bar:hover {
+    transform: scaleY(1.1) scaleX(1.02);
+    z-index: 100 !important;
+    box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.4);
+    filter: brightness(1.2);
+}
+
+/* Custom Scrollbar für den Zeitstrahl (damit es "Pro" aussieht) */
+#gantt-scroll-area::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+#gantt-scroll-area::-webkit-scrollbar-track {
+    background: rgba(var(--panel-rgb), 0.2);
+    border-radius: 10px;
+}
+
+#gantt-scroll-area::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 10px;
+}
+
+#gantt-scroll-area::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+/* Hilfsklasse für das Zeitgitter im Hintergrund */
+.gantt-grid-lines {
+    background-image: linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 100%; /* Muss mit hourWidth im JS übereinstimmen */
+}
+
+@keyframes ganttFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
