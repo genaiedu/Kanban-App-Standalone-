@@ -165,53 +165,51 @@ function calculateGrid(boardData, people) {
   const allCards = boardData.flatMap(col => col.karten);
   const sortedCards = topoSortCards(allCards);
 
-  // --- PASS 1: REIHENFOLGE & GRUPPEN (KORRIGIERT) ---
+  // --- PASS 1: REIHENFOLGE & GRUPPEN (ROBUSTE VERSION) ---
   sortedCards.forEach(card => {
-    if (processed.has(card.label)) return;
+    // Wenn die Karte (oder ihre Gruppe) schon platziert wurde, überspringen
+    if (processed.has(card.id)) return;
 
-    // 1. Alle Mitglieder der Gruppe finden
+    // 1. Alle Mitglieder der Gruppe finden (oder nur die Einzelkarte)
     const groupMembers = card.gruppe 
       ? allCards.filter(c => c.gruppe === card.gruppe)
       : [card];
 
-    // 2. PRÜFUNG: Sind wirklich ALLE Abhängigkeiten ALLER Gruppenmitglieder bereits platziert?
-    // Falls nicht, überspringen wir diese Karte vorerst (sie kommt später in sortedCards nochmal dran)
+    // 2. Wer ist involviert? (Alle Personen der Gruppe sammeln)
+    let inv = Array.from(new Set(groupMembers.map(c => c.wer))).filter(p => people.includes(p));
+    if (!inv.length) return;
+
+    // 3. Alle Abhängigkeiten der gesamten Gruppe sammeln
     const allGroupDeps = groupMembers.flatMap(m => m.deps || []);
-    const allDepsReady = allGroupDeps.every(depId => cardRowById[depId] !== undefined);
-    
-    if (!allDepsReady && card.gruppe) {
-       // Wenn die Gruppe noch nicht bereit ist, warten wir auf das nächste Mitglied in sortedCards
-       return; 
-    }
 
-    // 3. Wenn wir hier sind, wird die Karte (oder die ganze Gruppe) platziert
-    let inv = card.gruppe
-      ? Array.from(new Set(groupMembers.map(c => c.wer)))
-      : [card.wer];
-    inv = inv.filter(p => people.includes(p));
-
-    // 4. Die frühestmögliche Reihe für die gesamte Gruppe berechnen
+    // 4. Die frühestmögliche Reihe berechnen
+    // (Muss unterhalb aller Vorläufer liegen)
     const depMinRow = allGroupDeps.reduce((m, depId) => {
       const r = cardRowById[depId];
       return r !== undefined ? Math.max(m, r + 1) : m;
     }, 1); 
 
+    // (Darf nicht mit der vorherigen Aufgabe der beteiligten Personen kollidieren)
     const row = Math.max(depMinRow, ...inv.map(p => personNextRow[p]));
+    
+    // 5. Grid-Status aktualisieren
     if (row > maxRow) maxRow = row;
-
     if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
+    
     inv.forEach(p => {
        personNextRow[p] = row + 1;
        rowEvents[row].activePeople.add(p);
     });
 
+    // 6. Karten final platzieren
     if (card.gruppe) {
       groupMembers.forEach(gc => { 
         cardRowById[gc.id] = row; 
-        cardRowById[gc.label] = row; 
+        cardRowById[gc.label] = row; // Für die Suche per Label
         placedCards.push({ ...gc, row }); 
-        processed.add(gc.label); 
+        processed.add(gc.id); // Wichtig: ID als Anker nutzen
       });
+      // Umsteigebahnhof (Pille) nur einmal pro Gruppe einbauen
       if (!rowEvents[row].groups.find(g => g.name === card.gruppe)) {
           rowEvents[row].groups.push({ name: card.gruppe, involved: [...inv] });
           transferStations.push({ name: card.gruppe, row, involved: [...inv] });
@@ -220,7 +218,7 @@ function calculateGrid(boardData, people) {
       cardRowById[card.id] = row;
       cardRowById[card.label] = row;
       placedCards.push({ ...card, row });
-      processed.add(card.label);
+      processed.add(card.id);
     }
   });
 
