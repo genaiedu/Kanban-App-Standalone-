@@ -136,6 +136,7 @@ DEINE AUFGABE:
 
 AUSGABEFORMAT (STRENGES JSON):
 Gib ein JSON-Array aus, wobei jedes Objekt eine Spalte repräsentiert:
+Dies ist ein Beispiel:
 {
   "spalte": "Name der Spalte",
   "karten": [
