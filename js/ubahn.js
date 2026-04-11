@@ -1,4 +1,4 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Deadlock-Resolution Edition
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Kausalität & WIP-Wächter
 import { S, moveCard, getCards, updateCard } from './state.js';
 
 const PALETTE = [
@@ -85,7 +85,7 @@ function prepareBoardData() {
   return { boardData, people, lineColors: colors, allCardsFlat };
 }
 
-// ── INTELLIGENTE KAUSALITÄTS-MASCHINE MIT DEADLOCK-BREAKER ──
+// ── DIE KAUSALITÄTS-MASCHINE MIT DEADLOCK-BREAKER ──
 function calculateGrid(boardData, people) {
   const allCards = boardData.flatMap(col => col.karten).filter(Boolean);
 
@@ -99,13 +99,11 @@ function calculateGrid(boardData, people) {
   let graphResolved = false;
   let safeGuardOuter = 0;
 
-  // DIE LÖSUNGS-SCHLEIFE: Baut das Netz so lange um, bis es fehlerfrei aufgeht
   while (!graphResolved && safeGuardOuter < 15) {
       safeGuardOuter++;
       nodesMap.clear();
       const lookup = new Map();
 
-      // 1. KARTEN BÜNDELN (Unter Berücksichtigung aufgelöster Gruppen!)
       allCards.forEach(card => {
           const isGroup = card.gruppe && !dissolvedGroups.has(card.gruppe);
           const key = isGroup ? `group_${card.gruppe}` : `card_${card.id}`;
@@ -121,20 +119,17 @@ function calculateGrid(boardData, people) {
           if (card.label) lookup.set(String(card.label).trim().toUpperCase(), key);
       });
 
-      // 2. ABHÄNGIGKEITEN KNÜPFEN (Unter Berücksichtigung ignorierter Kausalitäten!)
       const nodes = Array.from(nodesMap.values());
       nodes.forEach(node => {
           node.rawDeps.forEach(rawDep => {
               const targetKey = lookup.get(rawDep);
               if (targetKey && targetKey !== node.key) {
-                  // Prüfen, ob diese Linie in einer vorherigen Runde vom System gekappt wurde
                   const isIgnored = ignoredDependencies.some(ign => ign.from === targetKey && ign.to === node.key);
                   if (!isIgnored) node.resolvedDeps.add(targetKey);
               }
           });
       });
 
-      // 3. KAHN-ALGORITHMUS
       sortedNodes = [];
       let inDegree = new Map();
       let adjList = new Map();
@@ -166,21 +161,17 @@ function calculateGrid(boardData, people) {
           });
       }
 
-      // 4. PARADOXON AUSWERTUNG
       if (sortedNodes.length === nodes.length) {
-          graphResolved = true; // Juhu! Kein Deadlock mehr!
+          graphResolved = true;
       } else {
-          // DEADLOCK ENTDECKT! Wer steckt fest?
           const stuckNodes = nodes.filter(n => inDegree.get(n.key) > 0);
           const groupNode = stuckNodes.find(n => n.isGroup);
 
           if (groupNode) {
-              // PRIO 1: Gruppenarbeit sprengen
               dissolvedGroups.add(groupNode.name);
               groupNode.cards.forEach(c => warningCards.add(c.id));
-              warningMessages.add(`Gruppenarbeit "${groupNode.name}" wurde aufgelöst.`);
+              warningMessages.add(`Gruppenarbeit "${groupNode.name}" wurde aufgelöst (Deadlock).`);
           } else {
-              // PRIO 2: Kausalität kappen
               let brokeEdge = false;
               for (const n of stuckNodes) {
                   for (const depKey of n.resolvedDeps) {
@@ -192,22 +183,19 @@ function calculateGrid(boardData, people) {
                           
                           const fromNames = depNode ? depNode.cards.map(c=>c.label||c.id).join(', ') : depKey;
                           const toNames = n.cards.map(c=>c.label||c.id).join(', ');
-                          warningMessages.add(`Abhängigkeit [${fromNames}] ➔ [${toNames}] wurde entfernt.`);
+                          warningMessages.add(`Abhängigkeit [${fromNames}] ➔ [${toNames}] ignoriert (Deadlock).`);
                           brokeEdge = true; break;
                       }
                   }
                   if (brokeEdge) break;
               }
               if (!brokeEdge) {
-                  // Fallback falls alles andere fehlschlägt
                   inDegree.set(stuckNodes[0].key, 0); queue.push(stuckNodes[0]);
               }
           }
-          // Schleife startet automatisch neu mit den neuen Regeln!
       }
   }
 
-  // 5. PHYSISCHE PLATZIERUNG
   let placedCards = [];
   let transferStations = [];
   let maxRow = 0;
@@ -241,7 +229,6 @@ function calculateGrid(boardData, people) {
       }
   });
 
-  // 6. ZEITPLAN BERECHNUNG
   const personLastEnd = {};
   people.forEach(p => { personLastEnd[p] = 0; });
   const nodeSimResults = new Map();
@@ -292,7 +279,6 @@ function calculateGrid(boardData, people) {
       });
   });
 
-  // 7. GLEIS-LAYOUT & KOORDINATEN
   const rowLanes = { 0: [...people] };
   let currentLanes = [...people];
   for (let r = 1; r <= maxRow + 1; r++) {
@@ -335,7 +321,7 @@ function createTrackPath(pts) {
   return d;
 }
 
-// ── 3. RENDERN MIT WARN-SYMBOLEN ───────────────────────────────────────────────
+// ── RENDERN MIT WARN-SYMBOLEN UND WIP-WÄCHTER ───────────────────────────────────────────────
 window.renderUBahnMap = function() {
   try {
       _currentView = 'map'; 
@@ -357,10 +343,18 @@ window.renderUBahnMap = function() {
       _lastGrid = calculateGrid(boardData, people);
       const { placedCards, transferStations, maxRows, trackPoints, warnings } = _lastGrid;
 
-      // DEADLOCK TOAST ANZEIGEN
+      // --- NEU: WIP-LIMIT WÄCHTER ---
+      const activeTasksCount = allCardsFlat.filter(c => c.colName && c.colName.toLowerCase().includes('bearb')).length;
+      const wipLimit = Math.floor(people.length * 1.5);
+      
+      if (activeTasksCount > wipLimit) {
+          warnings.messages.add(`WIP-Limit überschritten! Max. ${wipLimit} aktive Aufgaben empfohlen (aktuell ${activeTasksCount}).`);
+      }
+
+      // ZENTRALE WARNUNG ANZEIGEN
       if (warnings.messages.size > 0 && typeof window.showToast === 'function') {
           const msgList = Array.from(warnings.messages).map(m => `• ${m}`).join('\n');
-          window.showToast(`⚠️ Deadlock behoben:\n${msgList}`, 'warning');
+          window.showToast(`⚠️ Hinweise zum Plan:\n${msgList}`, 'warning');
       }
       
       const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
@@ -403,7 +397,6 @@ window.renderUBahnMap = function() {
         const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
         const active = isInProgress(k);
         
-        // DAS IST DAS NEUE GELBE WARN-ICON FÜR DEADLOCK-KARTEN
         const hasWarning = warnings.cards.has(k.id) || warnings.cards.has(k.label);
         const warningBadge = hasWarning ? `<div style="position:absolute; top:-8px; left:-8px; background:#facc15; color:#854d0e; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px; border:2px solid var(--surface); z-index:20; box-shadow:0 2px 4px rgba(0,0,0,0.3);" title="⚠️ Logik-Konflikt vom System aufgelöst">⚠️</div>` : '';
 
@@ -455,7 +448,6 @@ window.renderUBahnPerson = function(workerName) {
         let isHigh = k.prio === 'hoch';
         const active = k.colName && k.colName.toLowerCase().includes('bearb');
 
-        // WARN BADGE AUCH IN PERSONEN ANSICHT
         const hasWarning = _lastGrid?.warnings?.cards?.has(k.id) || _lastGrid?.warnings?.cards?.has(k.label);
         const warningBadge = hasWarning ? `<div style="position:absolute; top:-6px; left:-6px; background:#facc15; color:#854d0e; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:11px; border:2px solid var(--surface); z-index:20; box-shadow:0 2px 4px rgba(0,0,0,0.3);" title="⚠️ Logik-Konflikt gelöst">⚠️</div>` : '';
 
