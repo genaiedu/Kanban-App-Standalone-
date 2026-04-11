@@ -1,6 +1,6 @@
-// js/ubahn.js — U-Bahn Streckennetz (Agenda) - PRO Edition mit Snapshot & Rollback
+// js/ubahn.js — U-Bahn Streckennetz (Agenda) - Entkoppelte PRO Edition
 import { S, moveCard, getCards, updateCard } from './state.js';
-import { showGanttView } from './gantt.js';
+// KEIN harter Import von gantt.js mehr hier oben!
 
 const PALETTE = [
   "#ef4444","#3b82f6","#10b981","#f59e0b",
@@ -18,7 +18,7 @@ let _anim = null;
 let _currentView = 'map';
 let _currentPerson = null;
 let _cardSnapshots = [];
-let _lastGrid = null; // Grid-Ergebnis für Scroll-to-card // Speichert den DOM-Zustand des Boards
+let _lastGrid = null;
 
 function esc(text) {
   if (typeof window.escHtml === 'function') return window.escHtml(text);
@@ -26,7 +26,6 @@ function esc(text) {
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));
 }
 
-// ── 0. FULL-LENGTH EXPORT ───────────────────────────────────
 window.exportUBahnAsImage = function() {
   const originalContent = document.getElementById('ubahn-content');
   if (!originalContent) return;
@@ -39,7 +38,6 @@ window.exportUBahnAsImage = function() {
   printWindow.document.close();
 };
 
-// ── 1. KONTROLL-PANEL ────────────────────────────────────────
 function ensureControls() {
   if (document.getElementById('ubahn-controls-panel')) return;
   const modal = document.getElementById('modal-ubahn-inner');
@@ -48,17 +46,14 @@ function ensureControls() {
   panel.id = 'ubahn-controls-panel';
   panel.className = 'no-print';
   panel.style.cssText = `position: absolute; left: 20px; top: 100px; background: rgba(var(--panel-rgb),1); border: 1px solid var(--border); width: 56px; padding: 22px 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; gap: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); z-index: 10001;`;
-panel.innerHTML = `
+  panel.innerHTML = `
     <button onclick="window.exportUBahnAsImage()" style="background:var(--surface2); border:1px solid var(--border); width:38px; height:38px; border-radius:50%; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Plan exportieren">
       <i data-lucide="download" style="width:20px; height:20px;"></i>
     </button>
-    
     <button onclick="window.openGanttFromUBahn()" style="background:var(--surface2); border:1px solid var(--border); width:38px; height:38px; border-radius:50%; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; margin-top:10px;" title="Projekt-Analyse (Gantt)">
       <i data-lucide="layout-dashboard" style="width:20px; height:20px; color:var(--accent);"></i>
     </button>
-
     <div style="height:1px; width:24px; background:var(--border); margin:15px 0;"></div>
-    
     <div style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:1px;">Abstand</div>
     <div style="height: 140px; display: flex; align-items: center;">
       <input type="range" min="60" max="450" value="${ROW_HEIGHT}" oninput="window.updateUBahnRowHeight(this.value)" style="width: 130px; transform: rotate(-90deg); cursor: pointer; accent-color: var(--accent); margin: 0; background:transparent;">
@@ -71,15 +66,15 @@ panel.innerHTML = `
 
 window.updateUBahnRowHeight = function(val) {
   ROW_HEIGHT = parseInt(val);
-  document.getElementById('val-row').textContent = val + 'px';
+  const valRow = document.getElementById('val-row');
+  if(valRow) valRow.textContent = val + 'px';
   if (_currentView === 'map') renderUBahnMap(); else renderUBahnPerson(_currentPerson);
 };
 
-// ── 2. GRID LOGIK ────────────────────────────────────────────
 function prepareBoardData() {
   const peopleSet = new Set(), boardData = [], allCardsFlat = [];
   S.columns.forEach(col => {
-    const colCards = (S.cards[col.id] || []).filter(c => c.assignee);
+    const colCards = (S.cards[col.id] || []).filter(c => c && c.assignee);
     colCards.forEach(card => {
       peopleSet.add(card.assignee);
       allCardsFlat.push({ id: card.id, label: card.label || '?', titel: card.text, wer: card.assignee, prio: card.priority || 'mittel', deps: card.dependencies || [], gruppe: card.groupId || null, colName: col.name, description: card.description || '' });
@@ -91,433 +86,313 @@ function prepareBoardData() {
   return { boardData, people, lineColors: colors, allCardsFlat };
 }
 
-// Topologische Sortierung: Abhängigkeiten strikt auflösen (mit Pfad-Tracking für Warnungen)
 function topoSortCards(cards) {
-  // Map aufbauen: Erlaubt Suche nach ID UND Label!
   const byKey = new Map();
   cards.forEach(c => {
+    if (!c) return;
     if (c.id) byKey.set(c.id, c);
     if (c.label) byKey.set(c.label, c);
   });
-
   const visited = new Set();
   const visiting = new Set(); 
   const result = [];
 
-  // Rekursive Suchfunktion (gibt den aktuellen "Pfad" mit, um Zirkel zu protokollieren)
   function visit(card, path = []) {
-    // Wenn schon final verarbeitet, überspringen
+    if (!card) return;
     if (visited.has(card.id)) return;
-    
-    // Zirkuläre Abhängigkeit entdeckt (A -> B -> A)! 
-    if (visiting.has(card.id)) {
-      // Den kompletten Kreis-Pfad als Text zusammenbauen
-      const cyclePath = [...path, card.label || card.id].join(' ➔ ');
-      
-      console.warn("Zirkuläre Abhängigkeit ignoriert:", cyclePath);
-      // Rotes Toast-Popup auf dem Bildschirm für den Nutzer
-      if (typeof window.showToast === 'function') {
-        window.showToast(`⚠️ Logik-Fehler: Zirkel ignoriert (${cyclePath})`, 'error');
-      }
-      return; 
-    }
-    
-    visiting.add(card.id); // Karte wird gerade untersucht
-    
-    // Aktuelle Karte an den Pfad anhängen für die nächste Ebene
+    if (visiting.has(card.id)) return; 
+    visiting.add(card.id);
     const currentPath = [...path, card.label || card.id];
-
-    // 1. Abhängigkeiten der Karte sammeln
     let allDeps = [...(card.deps || [])];
-
-    // 2. Gruppen-Partner prüfen: Die Karte muss auch auf die Abhängigkeiten der Gruppe warten
     if (card.gruppe) {
-      const groupPartners = cards.filter(c => c.gruppe === card.gruppe && c.id !== card.id);
+      const groupPartners = cards.filter(c => c && c.gruppe === card.gruppe && c.id !== card.id);
       groupPartners.forEach(partner => {
         if (partner.deps) allDeps.push(...partner.deps);
       });
     }
-
-    // Abhängigkeiten besuchen und den Pfad weiterreichen
     allDeps.forEach(depKey => { 
       const d = byKey.get(depKey); 
       if (d) visit(d, currentPath); 
     });
-
     visiting.delete(card.id);
     visited.add(card.id);
     result.push(card);
   }
-
-  // Rekursion für alle Karten starten
   cards.forEach(c => visit(c));
   return result;
 }
 
 function calculateGrid(boardData, people) {
-  // 1. Alle Karten sicher in ein flaches Array sammeln
-  const allCards = [];
-  boardData.forEach(col => {
-      if (col.karten && Array.isArray(col.karten)) {
-          col.karten.forEach(c => allCards.push(c));
-      }
-  });
-
-  // 2. Deine bewährte topologische Sortierung (garantiert T vor U in der Liste)
-  const sortedCards = topoSortCards(allCards);
-
-  const placedCards = [];
-  const transferStations = [];
-  const processed = new Set();
-  const processedGroups = new Set();
-  
+  let placedCards = [], transferStations = [], processed = new Set();
   const personNextRow = {};
-  people.forEach(p => { personNextRow[p] = 1; });
+  people.forEach(p => personNextRow[p] = 1);
   let maxRow = 0;
-
   const cardRowById = {};
   const rowEvents = {};
 
-  // =================================================================
-  // PASS 1: SICHERE PLATZIERUNG (Der "Warten auf den Letzten" Trick)
-  // =================================================================
-  for (let i = 0; i < sortedCards.length; i++) {
-      const card = sortedCards[i];
-      if (processed.has(card.id)) continue;
+  const allCards = boardData.flatMap(col => col.karten).filter(Boolean);
+  const sortedCards = topoSortCards(allCards);
 
-      let groupMembers = [card];
-      
-      // Wenn es eine Gruppe ist, prüfen wir, ob wir schon alle Mitglieder gesehen haben
-      if (card.gruppe) {
-          if (processedGroups.has(card.gruppe)) continue;
-          
-          groupMembers = allCards.filter(c => c.gruppe === card.gruppe);
-          
-          // Finde den höchsten Index (den "Letzten") dieser Gruppe in der sortierten Liste
-          let maxIndex = -1;
-          groupMembers.forEach(m => {
-              const idx = sortedCards.findIndex(sc => sc.id === m.id);
-              if (idx > maxIndex) maxIndex = idx;
-          });
-          
-          // Wenn wir noch nicht beim letzten Mitglied angekommen sind -> überspringen & warten!
-          if (i < maxIndex) {
-              continue; 
-          }
-          processedGroups.add(card.gruppe);
+  // --- PASS 1: REIHENFOLGE (T VOR U GESETZ) ---
+  sortedCards.forEach((card, index) => {
+    if (processed.has(card.label) || processed.has(card.id)) return;
+
+    if (card.gruppe) {
+        const groupMembers = allCards.filter(c => c.gruppe === card.gruppe);
+        const isLast = groupMembers.every(m => {
+            const idx = sortedCards.findIndex(sc => sc.id === m.id);
+            return idx === -1 || idx <= index;
+        });
+        if (!isLast) return; 
+    }
+
+    let inv = card.gruppe
+      ? Array.from(new Set(allCards.filter(c => c.gruppe === card.gruppe).map(c => c.wer)))
+      : [card.wer];
+    inv = inv.filter(p => people.includes(p));
+    if (!inv.length) return;
+
+    const allDeps = card.gruppe
+      ? allCards.filter(c => c.gruppe === card.gruppe).flatMap(c => c.deps || [])
+      : (card.deps || []);
+
+    const depMinRow = allDeps.reduce((m, depId) => {
+      const r = cardRowById[depId];
+      return r !== undefined ? Math.max(m, r + 1) : m;
+    }, 1); 
+
+    const row = Math.max(depMinRow, ...inv.map(p => personNextRow[p]));
+    if (row > maxRow) maxRow = row;
+
+    if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
+    inv.forEach(p => {
+       personNextRow[p] = row + 1;
+       rowEvents[row].activePeople.add(p);
+    });
+
+    if (card.gruppe) {
+      const groupCards = allCards.filter(c => c.gruppe === card.gruppe);
+      groupCards.forEach(gc => { cardRowById[gc.id] = row; cardRowById[gc.label] = row; placedCards.push({ ...gc, row }); processed.add(gc.id); });
+      if (!rowEvents[row].groups.find(g => g.name === card.gruppe)) {
+          rowEvents[row].groups.push({ name: card.gruppe, involved: [...inv] });
+          transferStations.push({ name: card.gruppe, row, involved: [...inv] });
       }
+    } else {
+      cardRowById[card.id] = row;
+      cardRowById[card.label] = row;
+      placedCards.push({ ...card, row });
+      processed.add(card.id);
+    }
+  });
 
-      // Welche Personen sind beteiligt?
-      const invSet = new Set();
-      groupMembers.forEach(c => {
-          if (people.includes(c.wer)) invSet.add(c.wer);
-      });
-      const inv = Array.from(invSet);
-      
-      if (inv.length === 0) {
-          groupMembers.forEach(c => processed.add(c.id));
-          continue;
-      }
-
-      // Die höchste Reihe aller Voraussetzungen berechnen
-      let depMaxRow = 0;
-      groupMembers.forEach(m => {
-          const deps = m.deps || [];
-          deps.forEach(depId => {
-              const r = cardRowById[depId];
-              if (typeof r === 'number' && r > depMaxRow) {
-                  depMaxRow = r;
-              }
-          });
-      });
-
-      // Die tatsächliche Reihe muss NACH den Voraussetzungen kommen
-      let row = depMaxRow + 1;
-      inv.forEach(p => {
-          if (personNextRow[p] > row) row = personNextRow[p];
-      });
-
-      if (row > maxRow) maxRow = row;
-      if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
-
-      inv.forEach(p => {
-          personNextRow[p] = row + 1;
-          rowEvents[row].activePeople.add(p);
-      });
-
-      // Karten final registrieren
-      groupMembers.forEach(gc => {
-          cardRowById[gc.id] = row;
-          if (gc.label) cardRowById[gc.label] = row;
-          // Object.assign ist der sicherste Weg zum Kopieren
-          placedCards.push(Object.assign({}, gc, { row: row }));
-          processed.add(gc.id);
-      });
-
-      // Gruppen-Station registrieren
-      if (card.gruppe) {
-          let existingGroup = rowEvents[row].groups.find(g => g.name === card.gruppe);
-          if (!existingGroup) {
-              rowEvents[row].groups.push({ name: card.gruppe, involved: inv });
-              transferStations.push({ name: card.gruppe, row: row, involved: inv });
-          }
-      }
-  }
-
-  // =================================================================
-  // PASS 2: ZEITPLAN-BERECHNUNG (Mit Try-Catch gegen Daten-Crashes)
-  // =================================================================
+  // --- PASS 2: ZEITPLAN-BERECHNUNG ---
   const personLastEnd = {};
-  people.forEach(p => { personLastEnd[p] = 0; });
+  people.forEach(p => personLastEnd[p] = 0);
   const cardSimResults = {};
 
-  placedCards.sort((a, b) => a.row - b.row);
-  
-  for (let i = 0; i < placedCards.length; i++) {
-      const pCard = placedCards[i];
-      if (cardSimResults[pCard.id]) continue;
+  placedCards.sort((a,b) => a.row - b.row).forEach(pCard => {
+    if (cardSimResults[pCard.id]) return;
 
-      let groupMembers = [pCard];
-      if (pCard.gruppe) {
-          groupMembers = placedCards.filter(c => c.gruppe === pCard.gruppe);
-      }
+    const groupMembers = pCard.gruppe 
+      ? placedCards.filter(c => c.gruppe === pCard.gruppe)
+      : [pCard];
 
-      // Holt Livedaten, aber crasht nicht, wenn S oder Spalten fehlen
-      let liveC = pCard;
-      try {
-          if (typeof S !== 'undefined' && S.cards) {
-              for (const colId in S.cards) {
-                  const colArr = S.cards[colId];
-                  if (Array.isArray(colArr)) {
-                      const found = colArr.find(c => c.id === pCard.id);
-                      if (found) { liveC = found; break; }
-                  }
-              }
-          }
-      } catch (e) {
-          console.warn("Livedaten-Abruf übersprungen", e);
-      }
+    let liveC = pCard;
+    if (typeof S !== 'undefined' && S.cards) {
+        for (const colId in S.cards) {
+            if (Array.isArray(S.cards[colId])) {
+                const found = S.cards[colId].find(c => c.id === pCard.id);
+                if (found) { liveC = found; break; }
+            }
+        }
+    }
 
-      const est = liveC.timeEstimate || {};
-      let d = parseFloat(est.d) || 0;
-      let h = parseFloat(est.h) || 0;
-      let m = parseFloat(est.m) || 0;
-      
-      let duration = (d * 8) + h + (m / 60);
-      if (isNaN(duration) || duration <= 0) duration = 1.5;
+    const est = liveC.timeEstimate || {};
+    let d = parseFloat(est.d) || 0;
+    let h = parseFloat(est.h) || 0;
+    let m = parseFloat(est.m) || 0;
+    
+    let duration = (d * 8) + h + (m / 60);
+    if (isNaN(duration) || duration <= 0) duration = 1.5;
 
-      let maxDepEnd = 0;
-      groupMembers.forEach(m => {
-          const deps = m.deps || [];
-          deps.forEach(depId => {
-              const res = cardSimResults[depId];
-              if (res && res.end > maxDepEnd) {
-                  maxDepEnd = res.end;
-              }
-          });
-      });
+    const allDeps = groupMembers.flatMap(m => m.deps || []);
+    let maxDepEnd = 0;
+    allDeps.forEach(depId => {
+      if (cardSimResults[depId]) maxDepEnd = Math.max(maxDepEnd, cardSimResults[depId].end || 0);
+    });
 
-      let maxWorkerReady = 0;
-      const invSet = new Set();
-      groupMembers.forEach(m => invSet.add(m.wer));
-      invSet.forEach(wer => {
-          if (personLastEnd[wer] > maxWorkerReady) {
-              maxWorkerReady = personLastEnd[wer];
-          }
-      });
+    const invWorkers = Array.from(new Set(groupMembers.map(m => m.wer)));
+    let maxWorkerReady = 0;
+    invWorkers.forEach(w => { maxWorkerReady = Math.max(maxWorkerReady, personLastEnd[w] || 0); });
 
-      let start = maxDepEnd > maxWorkerReady ? maxDepEnd : maxWorkerReady;
-      if (isNaN(start) || start < 0) start = 0;
-      
-      const transit = start > 0 ? 0.3 : 0;
+    const start = Math.max(maxDepEnd, maxWorkerReady, 0);
+    const transit = start > 0 ? 0.3 : 0;
+    
+    groupMembers.forEach(m => {
+      m.simStart = start + transit;
+      m.simEnd = m.simStart + duration;
+      cardSimResults[m.id] = { start: m.simStart, end: m.simEnd };
+      if(m.label) cardSimResults[m.label] = { start: m.simStart, end: m.simEnd };
+      personLastEnd[m.wer] = m.simEnd;
+    });
+  });
 
-      groupMembers.forEach(m => {
-          m.simStart = start + transit;
-          m.simEnd = m.simStart + duration;
-          cardSimResults[m.id] = { start: m.simStart, end: m.simEnd };
-          if (m.label) cardSimResults[m.label] = { start: m.simStart, end: m.simEnd };
-          personLastEnd[m.wer] = m.simEnd;
-      });
-  }
-
-  // =================================================================
-  // PASS 3: LAYOUT (Gleiche bewährte Logik, aber sicher verpackt)
-  // =================================================================
+  // --- PASS 3: GLEIS-LAYOUT ---
   const rowLanes = { 0: [...people] };
   let currentLanes = [...people];
-  
   for (let r = 1; r <= maxRow + 1; r++) {
-      if (rowEvents[r] && rowEvents[r].groups.length > 0) {
-          const personCluster = {};
-          const clusterAvg = {};
-          
-          currentLanes.forEach(p => { personCluster[p] = p; });
-          
-          rowEvents[r].groups.forEach(grp => {
-              grp.involved.forEach(p => { personCluster[p] = grp.name; });
-          });
-          
-          currentLanes.forEach((p, index) => {
-              const cl = personCluster[p];
-              if (!clusterAvg[cl]) {
-                  clusterAvg[cl] = { sum: 0, count: 0, members: [] };
-              }
-              clusterAvg[cl].sum += index;
-              clusterAvg[cl].count += 1;
-              clusterAvg[cl].members.push(p);
-          });
-          
-          const clusters = Object.keys(clusterAvg).map(k => {
-              return {
-                  id: k,
-                  avg: clusterAvg[k].count > 0 ? clusterAvg[k].sum / clusterAvg[k].count : 0,
-                  members: clusterAvg[k].members
-              };
-          });
-          
-          clusters.sort((a, b) => a.avg - b.avg);
-          
-          let newLanes = [];
-          clusters.forEach(c => {
-              const sortedMembers = c.members.sort((a, b) => currentLanes.indexOf(a) - currentLanes.indexOf(b));
-              sortedMembers.forEach(m => newLanes.push(m));
-          });
-          currentLanes = newLanes;
-      }
-      rowLanes[r] = [...currentLanes];
+    if (rowEvents[r] && rowEvents[r].groups.length > 0) {
+      const personCluster = {};
+      const clusterAvg = {};
+      currentLanes.forEach(p => { personCluster[p] = p; }); 
+      rowEvents[r].groups.forEach(grp => {
+        grp.involved.forEach(p => { personCluster[p] = grp.name; });
+      });
+      currentLanes.forEach(p => {
+        const cluster = personCluster[p];
+        if (!clusterAvg[cluster]) clusterAvg[cluster] = { sum: 0, count: 0, members: [] };
+        clusterAvg[cluster].sum += currentLanes.indexOf(p);
+        clusterAvg[cluster].count++;
+        clusterAvg[cluster].members.push(p);
+      });
+      const clusters = Object.keys(clusterAvg).map(k => ({
+        id: k, avg: clusterAvg[k].count > 0 ? clusterAvg[k].sum / clusterAvg[k].count : 0, members: clusterAvg[k].members
+      }));
+      clusters.sort((a, b) => a.avg - b.avg);
+      currentLanes = clusters.flatMap(c => {
+        return c.members.sort((a, b) => currentLanes.indexOf(a) - currentLanes.indexOf(b));
+      });
+    }
+    rowLanes[r] = [...currentLanes];
   }
 
   const trackPoints = {};
-  people.forEach(p => { trackPoints[p] = []; });
+  people.forEach(p => trackPoints[p] = []);
   const personCurrentX = {};
-  
   for (let r = 0; r <= maxRow + 1; r++) {
-      if (rowLanes[r]) {
-          rowLanes[r].forEach((p, i) => {
-              personCurrentX[p] = MARGIN_H + i * TRACK_SPACING;
-          });
-      }
-      people.forEach(p => {
-          let px = personCurrentX[p];
-          if (px === undefined) px = MARGIN_H; // Absoluter Fallback
-          trackPoints[p].push({ x: px, y: MARGIN_TOP + r * ROW_HEIGHT });
-      });
+    if (rowLanes[r]) {
+      rowLanes[r].forEach((p, i) => { personCurrentX[p] = MARGIN_H + i * TRACK_SPACING; });
+    }
+    people.forEach(p => {
+      trackPoints[p].push({ x: personCurrentX[p] || MARGIN_H, y: MARGIN_TOP + r * ROW_HEIGHT });
+    });
   }
 
   return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints };
 }
 
-// ── 3. RENDERN ───────────────────────────────────────────────
-// ── GEWÜNSCHTE RENDER-FUNKTION FÜR DIE U-BAHN KARTE ──
+function createTrackPath(pts) {
+  if (!pts.length) return '';
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i-1], c = pts[i];
+    if (p.x !== c.x) { const mY = (p.y + c.y) / 2; d += ` C ${p.x} ${mY}, ${c.x} ${mY}, ${c.x} ${c.y}`; }
+    else d += ` L ${c.x} ${c.y}`;
+  }
+  return d;
+}
+
+// ── 3. RENDERN MIT FEHLER-AIRBAG ───────────────────────────────────────────────
 window.renderUBahnMap = function() {
-  _currentView = 'map'; 
-  _currentPerson = null;
-  
-  ensureControls(); // Stellt sicher, dass Regler etc. da sind
-  document.getElementById('ubahn-back-btn').style.display = 'none';
-  const container = document.getElementById('ubahn-content');
-  
-  // Daten sammeln und Grid berechnen
-  _data = prepareBoardData();
-  const { boardData, people, lineColors, allCardsFlat } = _data;
-  if (!people.length) return;
-  
-  _lastGrid = calculateGrid(boardData, people);
-  const { placedCards, transferStations, maxRows, trackPoints } = _lastGrid;
-  
-  // Maße für die Canvas-Fläche
-  const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
-  const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
+  try {
+      _currentView = 'map'; 
+      _currentPerson = null;
+      
+      ensureControls();
+      const backBtn = document.getElementById('ubahn-back-btn');
+      if(backBtn) backBtn.style.display = 'none';
+      const container = document.getElementById('ubahn-content');
+      if(!container) throw new Error("Element 'ubahn-content' wurde im HTML nicht gefunden.");
+      
+      _data = prepareBoardData();
+      const { boardData, people, lineColors, allCardsFlat } = _data;
+      if (!people.length) {
+          container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);">Keine Personen mit Aufgaben gefunden.</div>`;
+          return;
+      }
+      
+      _lastGrid = calculateGrid(boardData, people);
+      const { placedCards, transferStations, maxRows, trackPoints } = _lastGrid;
+      
+      const mapW = (people.length - 1) * TRACK_SPACING + MARGIN_H * 2;
+      const mapH = maxRows * ROW_HEIGHT + MARGIN_TOP + 100;
 
-  // 1. SVG LAYER (Hintergrund-Schienen)
-  let svg = `<svg id="ubahn-svg-layer" width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;transition:opacity 0.25s ease;">`;
-  
-  // Zeichnet die dicken grauen Betonschienen und die farbigen Linien darauf
-  people.forEach(p => {
-    svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
-    svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
-  });
-  svg += `</svg>`;
+      let svg = `<svg id="ubahn-svg-layer" width="${mapW}" height="${mapH}" style="position:absolute;inset:0;pointer-events:none;z-index:1;transition:opacity 0.25s ease;">`;
+      people.forEach(p => {
+        svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="var(--surface)" stroke-width="26" stroke-linejoin="round" stroke-linecap="round" opacity="1"/>`;
+        svg += `<path d="${createTrackPath(trackPoints[p])}" fill="none" stroke="${lineColors[p]}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
+      });
+      svg += `</svg>`;
 
-  // Helper für den Status-Check
-  const isInProgress = c => c.colName && c.colName.toLowerCase().includes('bearb');
+      const isInProgress = c => c.colName && c.colName.toLowerCase().includes('bearb');
 
-  // 2. HTML LAYER VORBEREITEN (Animationen & Namen)
-  let html = `<style>
-    @keyframes ubahn-pulse {
-      0%   { transform:scale(1);   opacity:0.85; }
-      60%  { transform:scale(1.9); opacity:0; }
-      100% { transform:scale(1.9); opacity:0; }
-    }
-    .ubahn-pulse-ring {
-      position:absolute; border-radius:50%; pointer-events:none;
-      animation: ubahn-pulse 1.8s ease-out infinite;
-    }
-  </style>`;
-  
-  // Namen der Personen an Start- und Endpunkten platzieren
-  people.forEach(p => {
-    const sPt = trackPoints[p][0], ePt = trackPoints[p][maxRows], color = lineColors[p];
-    html += `<button onclick='window.renderUBahnPerson(${JSON.stringify(p)})' style="position:absolute;left:${sPt.x - 60}px;top:${sPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:1005;"><div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;font-weight:900;font-size:12px;color:var(--text);box-shadow:0 4px 16px ${color}44;">${esc(p)}</div></button>`;
-    html += `<div style="position:absolute;left:${sPt.x-12}px;top:${sPt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
-    html += `<div style="position:absolute;left:${ePt.x-12}px;top:${ePt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
-  });
+      let html = `<style>
+        @keyframes ubahn-pulse { 0% { transform:scale(1); opacity:0.85; } 60% { transform:scale(1.9); opacity:0; } 100% { transform:scale(1.9); opacity:0; } }
+        .ubahn-pulse-ring { position:absolute; border-radius:50%; pointer-events:none; animation: ubahn-pulse 1.8s ease-out infinite; }
+      </style>`;
+      
+      people.forEach(p => {
+        const sPt = trackPoints[p][0], ePt = trackPoints[p][maxRows], color = lineColors[p];
+        html += `<button onclick='window.renderUBahnPerson(${JSON.stringify(p)})' style="position:absolute;left:${sPt.x - 60}px;top:${sPt.y - 70}px;width:120px;text-align:center;background:none;border:none;cursor:pointer;z-index:1005;"><div style="display:inline-block;background:var(--surface);border:4px solid ${color};border-radius:14px;padding:7px 12px;font-weight:900;font-size:12px;color:var(--text);box-shadow:0 4px 16px ${color}44;">${esc(p)}</div></button>`;
+        html += `<div style="position:absolute;left:${sPt.x-12}px;top:${sPt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
+        html += `<div style="position:absolute;left:${ePt.x-12}px;top:${ePt.y-12}px;width:24px;height:24px;border-radius:50%;background:var(--surface);border:4px solid ${color};z-index:2;"></div>`;
+      });
 
-  // 3. GRUPPEN-PILLEN (nur bei echten Umsteigebahnhöfen mit mehreren Personen auf verschiedenen Gleisen)
-  transferStations.forEach(s => {
-    const xs = s.involved.map(p => trackPoints[p][s.row].x);
-    const xMin = Math.min(...xs), xMax = Math.max(...xs);
+      transferStations.forEach(s => {
+        const xs = s.involved.map(p => trackPoints[p][s.row].x);
+        const xMin = Math.min(...xs), xMax = Math.max(...xs);
+        if (xMax <= xMin) return;
+        const y = s.row * ROW_HEIGHT + MARGIN_TOP;
+        const width = (xMax - xMin) + 64;
+        const lineWidth = (xMax - xMin);
 
-    // Nur zeichnen wenn mindestens 2 Personen auf unterschiedlichen Gleisen
-    if (xMax <= xMin) return;
+        html += `<div class="ubahn-pill" style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:#ffffff; border:2px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none; transition:background 0.25s ease, border-color 0.25s ease;"></div>`;
+        html += `<div style="position:absolute; left:${xMin}px; top:${y - 4}px; width:${lineWidth}px; height:8px; background:#2d3748; z-index:1001; pointer-events:none;"></div>`;
+      });
 
-    const y = s.row * ROW_HEIGHT + MARGIN_TOP;
-    const width = (xMax - xMin) + 64;
-    const lineWidth = (xMax - xMin);
-
-    // Die Kapsel (Hintergrund): Fest auf Weiß für den "Plan-Look"
-    html += `
-      <div class="ubahn-pill" style="position:absolute; left:${xMin - 32}px; top:${y - 26}px; width:${width}px; height:52px; background:#ffffff; border:2px solid #000; border-radius:26px; box-shadow:0 4px 15px rgba(0,0,0,0.4); z-index:1000; pointer-events:none; transition:background 0.25s ease, border-color 0.25s ease;"></div>
-    `;
-
-    // Die dunkle Verbindungsschiene (Liegt ÜBER dem Weiß der Pille)
-    html += `
-      <div style="position:absolute; left:${xMin}px; top:${y - 4}px; width:${lineWidth}px; height:8px; background:#2d3748; z-index:1001; pointer-events:none;"></div>
-    `;
-  });
-
-  // 4. EINZELNE STATIONEN (Bahnhöfe)
-  placedCards.forEach(k => {
-    const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
-    const active = isInProgress(k);
-    
-    // Pulsierender Ring für Karten in Bearbeitung
-    if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pt.y-30}px;width:60px;height:60px;border:3px solid ${color};z-index:1003;transition:opacity 0.25s ease;"></div>`;
-    
-    // Der klickbare Bahnhofs-Ring (originale Darstellung)
-    html += `
-      <div id="ubahn-node-${k.label}" class="ubahn-station"
-           onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
-           onmouseenter='window.ubahnHoverCard(${JSON.stringify(k.label)})'
-           onmouseleave='window.ubahnLeaveCard()'
-           style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;justify-content:center;align-items:center;cursor:pointer;z-index:1004;transition:opacity 0.25s ease;">
-        <div id="ubahn-ring-${k.label}" data-color="${color}" data-active="${active}"
-             style="position:relative; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4)${active ? `,0 0 18px ${color}99` : ''}; transition:all 0.25s ease;">
-          ${esc(k.label)}
-          ${isHigh ? `<span style="position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid var(--surface); z-index:10;"></span>` : ''}
-        </div>
-      </div>`;
-  });
-  
-  // 5. FINALES RENDERING IN DEN CONTAINER
-  container.innerHTML = `<div style="position:relative;width:${mapW}px;height:${mapH}px;margin:0 auto;">${svg}${html}</div>`;
+      placedCards.forEach(k => {
+        const pt = trackPoints[k.wer][k.row], color = lineColors[k.wer], isHigh = k.prio === 'hoch';
+        const active = isInProgress(k);
+        if (active) html += `<div class="ubahn-pulse-ring" style="position:absolute;left:${pt.x-30}px;top:${pt.y-30}px;width:60px;height:60px;border:3px solid ${color};z-index:1003;transition:opacity 0.25s ease;"></div>`;
+        
+        html += `
+          <div id="ubahn-node-${k.label}" class="ubahn-station"
+               onclick='window.showUBahnCardDetail(${JSON.stringify(k.label)})'
+               onmouseenter='window.ubahnHoverCard(${JSON.stringify(k.label)})'
+               onmouseleave='window.ubahnLeaveCard()'
+               style="position:absolute;left:${pt.x-90}px;top:${pt.y-22}px;width:180px;display:flex;justify-content:center;align-items:center;cursor:pointer;z-index:1004;transition:opacity 0.25s ease;">
+            <div id="ubahn-ring-${k.label}" data-color="${color}" data-active="${active}"
+                 style="position:relative; width:44px; height:44px; border-radius:50%; background:var(--surface); border:4px solid ${color}; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--text); box-shadow:0 4px 14px rgba(0,0,0,0.4)${active ? `,0 0 18px ${color}99` : ''}; transition:all 0.25s ease;">
+              ${esc(k.label)}
+              ${isHigh ? `<span style="position:absolute; top:-4px; right:-4px; width:12px; height:12px; background:#ef4444; border-radius:50%; border:2px solid var(--surface); z-index:10;"></span>` : ''}
+            </div>
+          </div>`;
+      });
+      
+      container.innerHTML = `<div style="position:relative;width:${mapW}px;height:${mapH}px;margin:0 auto;">${svg}${html}</div>`;
+      
+  } catch (err) {
+      console.error("U-Bahn Crash:", err);
+      const container = document.getElementById('ubahn-content');
+      if (container) {
+          container.innerHTML = `
+            <div style="padding: 40px; margin: 20px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 12px; color: #991b1b; font-family: sans-serif;">
+              <h2 style="margin-top:0; color: #b91c1c;">⚠️ Die U-Bahn ist entgleist!</h2>
+              <p>Ein interner Fehler im Code verhindert den Aufbau des Netzes.</p>
+              <div style="background: #fff; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 14px; margin-bottom: 20px;">
+                <strong>Details:</strong> <br> ${err.message}
+              </div>
+            </div>
+          `;
+      }
+  }
 };
 
-// ── 4. PERSONEN ANSICHT ──────────────────────────────────────
 window.renderUBahnPerson = function(workerName) {
   _currentView = 'person'; _currentPerson = workerName;
   ensureControls();
-  document.getElementById('ubahn-back-btn').style.display = 'inline-flex';
+  const backBtn = document.getElementById('ubahn-back-btn');
+  if(backBtn) backBtn.style.display = 'inline-flex';
   const container = document.getElementById('ubahn-content');
   const { boardData, allCardsFlat, lineColors } = _data;
   const color = lineColors[workerName], myCards = allCardsFlat.filter(c => c.wer === workerName);
@@ -550,9 +425,7 @@ window.renderUBahnPerson = function(workerName) {
   container.innerHTML = `<div style="position:relative; padding:24px; min-height:${currentY+100}px;">${svg}${stationsHtml}</div>`;
 };
 
-
 // ── 6. DETAIL POPUP & ÖFFNEN ────────────────────────────────
-// Hilfsfunktion: Karten-Info aus S.cards nachschlagen (per Label, so wie deps gespeichert sind)
 function _resolveCard(labelOrId) {
   for (const [colId, cards] of Object.entries(S.cards)) {
     const c = cards.find(x => x.label === labelOrId || x.id === labelOrId);
@@ -561,7 +434,6 @@ function _resolveCard(labelOrId) {
   return null;
 }
 
-// Navigation zu einer anderen Karte (mit Übergangsanimation)
 window._ubahnNav = function(label) {
   const overlay = document.getElementById('ubahn-card-overlay');
   if (overlay) {
@@ -581,7 +453,6 @@ window._ubahnNav = function(label) {
   }
 };
 
-// Karte im Hintergrund ins Zentrum scrollen
 function _ubahnScrollToCard(label) {
   if (!_lastGrid || !_data) return;
   const placed = _lastGrid.placedCards.find(c => c.label === label);
@@ -593,7 +464,6 @@ function _ubahnScrollToCard(label) {
   container.scrollTo({ left: pt.x - container.clientWidth / 2, top: pt.y - container.clientHeight / 2, behavior: 'smooth' });
 }
 
-// Mini-Karte (anklickbar, navigiert zu dieser Karte)
 function _miniCard(info) {
   const c = _data.lineColors[info.wer] || 'var(--border)';
   return `<div onclick='window._ubahnNav(${JSON.stringify(info.label)})'
@@ -615,7 +485,6 @@ window.showUBahnCardDetail = function(label) {
   const currentCol   = S.columns.find(c => c.id === currentColId);
   const isLocked     = currentCol && window.isFinishedColumn ? window.isFinishedColumn(currentCol) : false;
 
-  // Description from live S.cards (most up to date)
   const liveCard = (S.cards[currentColId] || []).find(c => c.id === card.id);
   const description = liveCard?.description || card.description || '';
 
@@ -633,7 +502,6 @@ window.showUBahnCardDetail = function(label) {
   ).join('');
 
   const hr = `<div style="border:none;border-top:1px solid var(--border);margin:14px 0;"></div>`;
-
   const editStyle = isLocked ? 'pointer-events:none;opacity:0.7;' : '';
 
   document.getElementById('ubahn-card-overlay')?.remove();
@@ -737,7 +605,6 @@ window.showUBahnCardDetail = function(label) {
   document.body.appendChild(overlay);
 };
 
-// Label speichern (mit Eindeutigkeitsprüfung + Deps-Update)
 window.ubahn_saveLabel = function(input) {
   const newLabel = input.value.trim().toUpperCase().replace(/\s+/g, '');
   const oldLabel = input.dataset.original;
@@ -745,7 +612,6 @@ window.ubahn_saveLabel = function(input) {
   const colId    = input.dataset.colid;
   if (!newLabel) { input.value = oldLabel; return; }
   if (newLabel === oldLabel) return;
-  // Eindeutigkeit prüfen
   for (const [cid, cards] of Object.entries(S.cards)) {
     for (const c of cards) {
       if (c.id !== cardId && c.label === newLabel) {
@@ -756,7 +622,6 @@ window.ubahn_saveLabel = function(input) {
       }
     }
   }
-  // Alle Abhängigkeiten in anderen Karten aktualisieren
   for (const [cid, cards] of Object.entries(S.cards)) {
     for (const c of cards) {
       if ((c.dependencies || []).includes(oldLabel)) {
@@ -773,7 +638,6 @@ window.ubahn_saveLabel = function(input) {
   if (typeof window.showToast === 'function') window.showToast(`Label: ${oldLabel} → ${newLabel}`);
 };
 
-// Titel speichern
 window.ubahn_saveTitle = function(textarea) {
   const text   = textarea.value.trim();
   const cardId = textarea.dataset.cardid;
@@ -784,28 +648,23 @@ window.ubahn_saveTitle = function(textarea) {
   if (_data) { _data = prepareBoardData(); if (_currentView === 'map') window.renderUBahnMap(); else if (_currentView === 'person') window.renderUBahnPerson(_currentPerson); }
 };
 
-// Beschreibung speichern
 window.ubahn_saveDescription = function(textarea) {
   const description = textarea.value;
   const cardId = textarea.dataset.cardid;
   const colId  = textarea.dataset.colid;
   updateCard(S.currentBoard.id, colId, cardId, { description });
-  // S.cards im Speicher aktualisieren, damit der Wert beim nächsten Öffnen korrekt angezeigt wird
   if (typeof window.loadCards === 'function') window.loadCards(colId);
   if (_data) _data = prepareBoardData();
 };
 
-// Kartendetail von Hauptboard aus öffnen (ohne U-Bahn offen zu haben)
 window.openCardDetail = function(cardId, colId) {
   if (!_data) _data = prepareBoardData();
   if (!_lastGrid) _lastGrid = calculateGrid(_data.boardData, _data.people);
   const card = _data.allCardsFlat.find(c => c.id === cardId);
   if (!card) {
-    // Karte ist nicht in allCardsFlat (z.B. kein Assignee) — direkt aus S.cards holen
     const raw = (S.cards[colId] || []).find(c => c.id === cardId);
     if (!raw) return;
     const col = S.columns.find(c => c.id === colId);
-    // Temporären Eintrag in allCardsFlat hinzufügen
     const tmp = { id: raw.id, label: raw.label || '?', titel: raw.text, wer: raw.assignee || '–', prio: raw.priority || 'mittel', deps: raw.dependencies || [], gruppe: raw.groupId || null, colName: col?.name || '', description: raw.description || '' };
     if (!_data.lineColors[tmp.wer]) _data.lineColors[tmp.wer] = '#6366f1';
     _data.allCardsFlat.push(tmp);
@@ -815,7 +674,6 @@ window.openCardDetail = function(cardId, colId) {
   }
 };
 
-// Karte in neue Spalte verschieben (aus U-Bahn-Popup heraus)
 window.ubahn_moveCard = async function(cardId, fromColId, toColId) {
   if (fromColId === toColId) return;
   const fromCol = S.columns.find(c => c.id === fromColId);
@@ -834,7 +692,6 @@ window.ubahn_moveCard = async function(cardId, fromColId, toColId) {
   if (typeof window.pushUndo === 'function') window.pushUndo('Karte verschoben (U-Bahn)');
   const now = new Date().toISOString();
 
-  // Alle Karten der Gruppe mitverschieben
   const srcCard = (S.cards[fromColId]||[]).find(c => c.id === cardId);
   const toMove = srcCard?.groupId
     ? (S.cards[fromColId]||[]).filter(c => c.groupId === srcCard.groupId)
@@ -848,7 +705,6 @@ window.ubahn_moveCard = async function(cardId, fromColId, toColId) {
   if (typeof window.loadCards === 'function') { window.loadCards(fromColId); window.loadCards(toColId); }
   document.getElementById('ubahn-card-overlay')?.remove();
   if (typeof window.renderBoard === 'function') window.renderBoard();
-  // U-Bahn neu rendern
   if (_currentView === 'map') window.renderUBahnMap(); else window.renderUBahnPerson(_currentPerson);
 };
 
@@ -869,63 +725,43 @@ window.openUBahnModal = function() {
   renderUBahnMap();
 };
 
-// ── 7. HOVER RÖNTGEN-BLICK (ABHÄNGIGKEITEN) ──────────────────
 window.ubahnHoverCard = function(label) {
   if (!_data || !_data.allCardsFlat) return;
-
   const allCards = _data.allCardsFlat;
   const hoveredCard = allCards.find(c => c.label === label);
   if (!hoveredCard) return;
 
-  // Hilfsfunktion: Sucht den kompletten Baum ab und berechnet die "Generation" (Tiefe)
   function getGenerations(startLabel, direction) {
     const generations = new Map();
     const queue = [{ label: startLabel, depth: 0 }];
     const visited = new Set([startLabel]);
-
     while(queue.length > 0) {
       const { label: currLabel, depth } = queue.shift();
-
       if (depth > 0) generations.set(currLabel, depth);
-
       if (direction === 'up') { 
-        // Rückwärts: Voraussetzungen (Ancestors)
         const card = allCards.find(c => c.label === currLabel);
         if (card && card.deps) {
           card.deps.forEach(depLabel => {
-            if (!visited.has(depLabel)) {
-              visited.add(depLabel);
-              queue.push({ label: depLabel, depth: depth + 1 });
-            }
+            if (!visited.has(depLabel)) { visited.add(depLabel); queue.push({ label: depLabel, depth: depth + 1 }); }
           });
         }
       } else { 
-        // Vorwärts: Gibt folgendes frei (Descendants)
         const successors = allCards.filter(c => (c.deps || []).includes(currLabel));
         successors.forEach(succ => {
-          if (!visited.has(succ.label)) {
-            visited.add(succ.label);
-            queue.push({ label: succ.label, depth: depth + 1 });
-          }
+          if (!visited.has(succ.label)) { visited.add(succ.label); queue.push({ label: succ.label, depth: depth + 1 }); }
         });
       }
     }
     return generations;
   }
 
-  // Komplette Stammbäume berechnen
   const preGens = getGenerations(label, 'up');
   const succGens = getGenerations(label, 'down');
 
-  // Hintergrund-Linien stark abdunkeln
   const svgLayer = document.getElementById('ubahn-svg-layer');
   if (svgLayer) svgLayer.style.opacity = '0.15';
 
-  // Alle Gruppenarbeits-Pillen abdunkeln
-  document.querySelectorAll('.ubahn-pill').forEach(p => {
-    p.style.background = '#888';
-    p.style.borderColor = '#555';
-  });
+  document.querySelectorAll('.ubahn-pill').forEach(p => { p.style.background = '#888'; p.style.borderColor = '#555'; });
 
   allCards.forEach(c => {
     const node = document.getElementById(`ubahn-node-${c.label}`);
@@ -933,35 +769,16 @@ window.ubahnHoverCard = function(label) {
     if (!node || !ring) return;
 
     if (c.label === label) {
-      // 0. Die aktuell anvisierte Karte (Zentrum)
-      node.style.opacity = '1';
-      ring.style.boxShadow = '0 0 25px rgba(255,255,255,0.7)';
-      ring.style.transform = 'scale(1.15)';
-      
+      node.style.opacity = '1'; ring.style.boxShadow = '0 0 25px rgba(255,255,255,0.7)'; ring.style.transform = 'scale(1.15)';
     } else if (preGens.has(c.label)) {
-      // 1. Voraussetzungen (ORANGE) - Je weiter weg, desto schwächer
       const depth = preGens.get(c.label);
-      const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3); // Gen1: 1.0, Gen2: 0.7, Gen3: 0.4...
-      
-      node.style.opacity = intensity.toString();
-      ring.style.borderColor = '#f59e0b';
-      ring.style.color = '#f59e0b';
-      ring.style.boxShadow = `0 0 ${20 * intensity}px rgba(245, 158, 11, ${intensity})`;
-      ring.style.transform = depth === 1 ? 'scale(1.05)' : 'scale(1)';
-      
+      const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3); 
+      node.style.opacity = intensity.toString(); ring.style.borderColor = '#f59e0b'; ring.style.color = '#f59e0b'; ring.style.boxShadow = `0 0 ${20 * intensity}px rgba(245, 158, 11, ${intensity})`; ring.style.transform = depth === 1 ? 'scale(1.05)' : 'scale(1)';
     } else if (succGens.has(c.label)) {
-      // 2. Freigegebene Karten (GRÜN) - Je weiter weg, desto schwächer
       const depth = succGens.get(c.label);
       const intensity = Math.max(0.25, 1 - (depth - 1) * 0.3); 
-      
-      node.style.opacity = intensity.toString();
-      ring.style.borderColor = '#10b981';
-      ring.style.color = '#10b981';
-      ring.style.boxShadow = `0 0 ${20 * intensity}px rgba(16, 185, 129, ${intensity})`;
-      ring.style.transform = depth === 1 ? 'scale(1.05)' : 'scale(1)';
-      
+      node.style.opacity = intensity.toString(); ring.style.borderColor = '#10b981'; ring.style.color = '#10b981'; ring.style.boxShadow = `0 0 ${20 * intensity}px rgba(16, 185, 129, ${intensity})`; ring.style.transform = depth === 1 ? 'scale(1.05)' : 'scale(1)';
     } else {
-      // 3. Völlig unbeteiligte Karten stark abdunkeln
       node.style.opacity = '0.15';
     }
   });
@@ -969,46 +786,38 @@ window.ubahnHoverCard = function(label) {
 
 window.ubahnLeaveCard = function() {
   if (!_data || !_data.allCardsFlat) return;
-  
-  // Hintergrund-Linien wiederherstellen
   const svgLayer = document.getElementById('ubahn-svg-layer');
   if (svgLayer) svgLayer.style.opacity = '1';
+  document.querySelectorAll('.ubahn-pill').forEach(p => { p.style.background = '#ffffff'; p.style.borderColor = '#000'; });
 
-  // Alle Pillen zurücksetzen
-  document.querySelectorAll('.ubahn-pill').forEach(p => {
-    p.style.background = '#ffffff';
-    p.style.borderColor = '#000';
-  });
-
-  // Alle Karten auf Normalzustand zurücksetzen
   _data.allCardsFlat.forEach(c => {
     const node = document.getElementById(`ubahn-node-${c.label}`);
     const ring = document.getElementById(`ubahn-ring-${c.label}`);
     if (!node || !ring) return;
-
     const originalColor = ring.getAttribute('data-color');
     const isActive = ring.getAttribute('data-active') === 'true';
-
-    node.style.opacity = '1';
-    ring.style.transform = 'scale(1)';
-    ring.style.borderColor = originalColor;
-    ring.style.color = 'var(--text)';
-    ring.style.boxShadow = isActive ? `0 4px 14px rgba(0,0,0,0.4), 0 0 18px ${originalColor}99` : '0 4px 14px rgba(0,0,0,0.4)';
+    node.style.opacity = '1'; ring.style.transform = 'scale(1)'; ring.style.borderColor = originalColor; ring.style.color = 'var(--text)'; ring.style.boxShadow = isActive ? `0 4px 14px rgba(0,0,0,0.4), 0 0 18px ${originalColor}99` : '0 4px 14px rgba(0,0,0,0.4)';
   });
 };
 
-/**
- * Startet die Gantt-Analyse aus der U-Bahn Ansicht
- * Nutzt die bereits berechneten Grid-Daten für höchste Performance
- */
-window.openGanttFromUBahn = function() {
+// ── DIE NEUE RETTUNGS-FUNKTION (Dynamic Import) ──────────────────
+window.openGanttFromUBahn = async function() {
   if (!_lastGrid || !_data) {
-    if (typeof window.showToast === 'function') {
-      window.showToast("Bitte warten, bis das Netz berechnet wurde.", "error");
-    }
+    if (typeof window.showToast === 'function') window.showToast("Bitte warten, bis das Netz berechnet wurde.", "error");
     return;
   }
   
-  // Ruft das überarbeitete Gantt-Modul auf
-  showGanttView(_data, _lastGrid);
+  try {
+      // Lädt die Datei ERST JETZT, wo du klickst. 
+      // Wenn sie kaputt ist, stürzt nur der Gantt ab, aber niemals die U-Bahn!
+      const ganttModule = await import('./gantt.js');
+      
+      if (ganttModule && ganttModule.showGanttView) {
+          ganttModule.showGanttView(_data, _lastGrid);
+      } else {
+          alert("Fehler: Die Datei gantt.js wurde gefunden, aber 'showGanttView' wurde nicht exportiert. Bitte das 'export' Wort checken!");
+      }
+  } catch(error) {
+      alert("KRITISCHER FEHLER:\nDein Browser weigert sich, die gantt.js zu laden.\nGrund: " + error.message);
+  }
 };
