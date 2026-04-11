@@ -86,83 +86,101 @@ function prepareBoardData() {
 }
 
 // ── DIE NEUE KAUSALITÄTS-MASCHINE (Kahn-Algorithmus) ──
+// ── DIE "STAMMBAUM" KAUSALITÄTS-MASCHINE (Vom User definiert) ──
 function calculateGrid(boardData, people) {
   const allCards = boardData.flatMap(col => col.karten).filter(Boolean);
 
-  // 1. Makro-Knoten bilden (Gruppen werden zu einem unzerstörbaren Block)
-  const macroNodes = new Map();
+  // =================================================================
+  // 1. KARTEN BÜNDELN (Gruppenarbeiten zu einem Knoten verschmelzen)
+  // =================================================================
+  const nodes = new Map();
   const lookup = new Map();
 
-  allCards.forEach(card => {
-      const key = card.gruppe ? `group_${card.gruppe}` : `card_${card.id}`;
-      if (!macroNodes.has(key)) {
-          macroNodes.set(key, { key, isGroup: !!card.gruppe, name: card.gruppe, cards: [], rawDeps: new Set(), resolvedDeps: new Set(), involved: new Set() });
+  allCards.forEach(c => {
+      const key = c.gruppe ? `GROUP_${c.gruppe}` : `CARD_${c.id}`;
+      if (!nodes.has(key)) {
+          nodes.set(key, { 
+              key, 
+              isGroup: !!c.gruppe, 
+              name: c.gruppe, 
+              cards: [], 
+              involved: new Set(), 
+              depsRaw: new Set(), 
+              depsResolved: new Set() 
+          });
       }
-      const node = macroNodes.get(key);
-      node.cards.push(card);
-      // Abhängigkeiten bereinigen (Leerzeichen entfernen, uppercase)
-      if (card.deps) card.deps.forEach(d => {
-          if(typeof d === 'string') node.rawDeps.add(d.trim().toUpperCase());
-      });
-      if (card.wer) node.involved.add(card.wer);
+      const n = nodes.get(key);
+      n.cards.push(c);
+      if (c.wer) n.involved.add(c.wer);
+      if (c.deps) c.deps.forEach(d => n.depsRaw.add(String(d).trim().toUpperCase()));
 
-      lookup.set(String(card.id).trim().toUpperCase(), key);
-      if (card.label) lookup.set(String(card.label).trim().toUpperCase(), key);
+      // Lookup-Tabelle für fehlertolerantes Finden
+      lookup.set(String(c.id).trim().toUpperCase(), key);
+      if (c.label) lookup.set(String(c.label).trim().toUpperCase(), key);
   });
 
-  // 2. Abhängigkeiten zwischen den Blöcken knüpfen
-  const nodes = Array.from(macroNodes.values());
-  nodes.forEach(node => {
-      node.rawDeps.forEach(dep => {
-          const targetKey = lookup.get(dep);
-          // Man kann nicht von der eigenen Gruppe abhängig sein
-          if (targetKey && targetKey !== node.key) {
-              node.resolvedDeps.add(targetKey);
+  // =================================================================
+  // 2. STAMMBAUM VERKNÜPFEN (Wer ist der direkte Vater?)
+  // =================================================================
+  for (const n of nodes.values()) {
+      n.depsRaw.forEach(rawDep => {
+          const targetKey = lookup.get(rawDep);
+          // Man kann nicht sein eigener Großvater sein
+          if (targetKey && targetKey !== n.key) {
+              n.depsResolved.add(targetKey);
           }
       });
-  });
-
-  // 3. KAHN-ALGORITHMUS (Erlaubt Platzierung NUR, wenn alle Vorfahren abgearbeitet sind)
-  let sortedNodes = [];
-  let inDegree = new Map();
-  let adjList = new Map();
-
-  nodes.forEach(n => {
-      inDegree.set(n.key, n.resolvedDeps.size);
-      adjList.set(n.key, []);
-  });
-
-  nodes.forEach(n => {
-      n.resolvedDeps.forEach(depKey => {
-          if (adjList.has(depKey)) adjList.get(depKey).push(n.key);
-      });
-  });
-
-  let queue = [];
-  nodes.forEach(n => {
-      if (inDegree.get(n.key) === 0) queue.push(n);
-  });
-
-  let safeGuard = 0;
-  while (queue.length > 0 && safeGuard < 5000) {
-      safeGuard++;
-      const current = queue.shift();
-      sortedNodes.push(current);
-
-      adjList.get(current.key).forEach(dependentKey => {
-          let degree = inDegree.get(dependentKey) - 1;
-          inDegree.set(dependentKey, degree);
-          if (degree === 0) queue.push(macroNodes.get(dependentKey));
-      });
   }
 
-  // Notfall-Schutz gegen zirkuläre Logik (Kreise aufbrechen)
-  if (sortedNodes.length < nodes.length) {
-      console.warn("Zirkuläre Abhängigkeit entdeckt! Breche Kreis auf...");
-      nodes.forEach(n => { if (!sortedNodes.includes(n)) sortedNodes.push(n); });
+  // =================================================================
+  // 3. GENERATIONEN BERECHNEN (Der Weg nach ganz oben)
+  // =================================================================
+  const depths = new Map();
+  const visiting = new Set();
+
+  function getDepth(nodeKey) {
+      // Wenn wir die Generation schon kennen, direkt zurückgeben
+      if (depths.has(nodeKey)) return depths.get(nodeKey);
+      
+      // Notfall-Bremse bei unendlichen Schleifen
+      if (visiting.has(nodeKey)) {
+          console.warn("Zirkel-Bezug (Zeitparadoxon) ignoriert bei:", nodeKey);
+          return 0;
+      }
+
+      visiting.add(nodeKey);
+      const n = nodes.get(nodeKey);
+      let maxDepth = 0;
+
+      // Wenn es Vorfahren gibt, frage alle nach ihrer Generation
+      if (n && n.depsResolved.size > 0) {
+          for (const depKey of n.depsResolved) {
+              const d = getDepth(depKey);
+              if (d > maxDepth) maxDepth = d; // Wir richten uns nach dem ÄLTESTEN Vorfahren
+          }
+      }
+
+      visiting.delete(nodeKey);
+      const myDepth = maxDepth + 1; // Ich bin eine Generation jünger als mein ältester Vorfahr
+      depths.set(nodeKey, myDepth);
+      return myDepth;
   }
 
-  // 4. PHYSISCHE PLATZIERUNG (Strenge Einhaltung der Reihen)
+  // Generation für alle Blöcke ausrechnen
+  for (const key of nodes.keys()) {
+      getDepth(key);
+  }
+
+  // =================================================================
+  // 4. NACH GENERATION SORTIEREN
+  // =================================================================
+  const sortedNodes = Array.from(nodes.values()).sort((a, b) => {
+      return depths.get(a.key) - depths.get(b.key);
+  });
+
+  // =================================================================
+  // 5. PHYSISCHE PLATZIERUNG (Das Rastern)
+  // =================================================================
   let placedCards = [];
   let transferStations = [];
   let maxRow = 0;
@@ -171,43 +189,52 @@ function calculateGrid(boardData, people) {
   const rowEvents = {};
   const nodeRowByKey = new Map();
 
-  sortedNodes.forEach(node => {
+  for (const node of sortedNodes) {
       let depMaxRow = 0;
-      // Suche die tiefste Reihe, in der ein Großvater/Vater liegt
-      node.resolvedDeps.forEach(depKey => {
+      
+      // Regel 1: Kausalität. Die Karte MUSS physisch unter dem tiefsten Vorfahren liegen.
+      for (const depKey of node.depsResolved) {
           const r = nodeRowByKey.get(depKey);
           if (r !== undefined && r > depMaxRow) depMaxRow = r;
-      });
+      }
 
-      // Zwingend UNTER den tiefsten Vorfahren!
       let row = depMaxRow + 1;
 
-      // Zwingend UNTER den vorherigen Aufgaben der Mitarbeiter!
+      // Regel 2: Gruppen-Synchronität. Die Karte MUSS warten, bis alle aus der Gruppe frei sind.
       const inv = Array.from(node.involved).filter(p => people.includes(p));
-      inv.forEach(p => { if (personNextRow[p] > row) row = personNextRow[p]; });
+      for (const p of inv) {
+          if (personNextRow[p] > row) row = personNextRow[p];
+      }
 
       if (row > maxRow) maxRow = row;
       if (!rowEvents[row]) rowEvents[row] = { groups: [], activePeople: new Set() };
 
-      inv.forEach(p => { personNextRow[p] = row + 1; rowEvents[row].activePeople.add(p); });
+      // Schienen für die beteiligten Personen ab dieser Reihe blockieren
+      for (const p of inv) {
+          personNextRow[p] = row + 1;
+          rowEvents[row].activePeople.add(p);
+      }
       nodeRowByKey.set(node.key, row);
 
+      // Karten final eintragen
       node.cards.forEach(c => { placedCards.push({ ...c, row }); });
 
       if (node.isGroup) {
           rowEvents[row].groups.push({ name: node.name, involved: inv });
           transferStations.push({ name: node.name, row, involved: inv });
       }
-  });
+  }
 
-  // 5. ZEITPLAN BERECHNUNG (Sicher durch Try-Catch)
+  // =================================================================
+  // 6. ZEITPLAN-BERECHNUNG (Sicher durch Try-Catch)
+  // =================================================================
   const personLastEnd = {};
   people.forEach(p => { personLastEnd[p] = 0; });
   const nodeSimResults = new Map();
 
-  sortedNodes.forEach(node => {
+  for (const node of sortedNodes) {
       let maxDepEnd = 0;
-      node.resolvedDeps.forEach(depKey => {
+      node.depsResolved.forEach(depKey => {
           const res = nodeSimResults.get(depKey);
           if (res && res.end > maxDepEnd) maxDepEnd = res.end;
       });
@@ -249,9 +276,11 @@ function calculateGrid(boardData, people) {
           const pc = placedCards.find(placed => placed.id === c.id);
           if (pc) { pc.simStart = start; pc.simEnd = end; }
       });
-  });
+  }
 
-  // 6. GLEIS-LAYOUT & KOORDINATEN
+  // =================================================================
+  // 7. GLEIS-LAYOUT & KOORDINATEN
+  // =================================================================
   const rowLanes = { 0: [...people] };
   let currentLanes = [...people];
   for (let r = 1; r <= maxRow + 1; r++) {
