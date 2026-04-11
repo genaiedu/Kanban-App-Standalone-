@@ -71,17 +71,66 @@ window.updateUBahnRowHeight = function(val) {
 };
 
 function prepareBoardData() {
-  const peopleSet = new Set(), boardData = [], allCardsFlat = [];
+  const peopleSet = new Set(), boardData = [], allCardsFlatRaw = [];
+  
+  // 1. Alle Karten initial sammeln
   S.columns.forEach(col => {
     const colCards = (S.cards[col.id] || []).filter(c => c && c.assignee);
     colCards.forEach(card => {
-      peopleSet.add(card.assignee);
-      allCardsFlat.push({ id: card.id, label: card.label || '?', titel: card.text, wer: card.assignee, prio: card.priority || 'mittel', deps: card.dependencies || [], gruppe: card.groupId || null, colName: col.name, description: card.description || '' });
+      allCardsFlatRaw.push({ 
+        id: card.id, label: card.label || '?', titel: card.text, 
+        wer: card.assignee, prio: card.priority || 'mittel', 
+        deps: card.dependencies || [], gruppe: card.groupId || null, 
+        colName: col.name, description: card.description || '' 
+      });
     });
-    if (colCards.length) boardData.push({ spalte: col.name, karten: colCards.map(c => allCardsFlat.find(f => f.id === c.id)) });
   });
-  const people = Array.from(peopleSet), colors = {};
-  people.forEach((p, i) => { colors[p] = i < PALETTE.length ? PALETTE[i] : `hsl(${Math.floor(Math.random() * 360)},70%,55%)`; });
+
+  // 2. NEU: Alle Nachfolger-Referenzen (Abhängigkeiten) ermitteln
+  const allDependencies = new Set();
+  allCardsFlatRaw.forEach(card => {
+    if (card.deps) {
+      card.deps.forEach(d => allDependencies.add(String(d).trim().toUpperCase()));
+    }
+  });
+
+  // 3. NEU: Isolierte Tasks herausfiltern
+  const allCardsFlat = allCardsFlatRaw.filter(card => {
+    const hasVorganger = card.deps && card.deps.length > 0;
+    const normLabel = String(card.label).trim().toUpperCase();
+    const normId = String(card.id).trim().toUpperCase();
+    const hasNachfolger = allDependencies.has(normLabel) || allDependencies.has(normId);
+    
+    // Ausnahme: Gruppenarbeiten behalten wir, da sie "Umsteigebahnhöfe" 
+    // sind und auch ohne formelle Abhängigkeiten logistisch wichtig sind.
+    const isGroupWork = card.gruppe !== null && card.gruppe !== undefined; 
+
+    // Karte bleibt im Array, wenn sie Vorgänger, Nachfolger ODER eine Gruppenarbeit ist
+    return hasVorganger || hasNachfolger || isGroupWork;
+  });
+
+  // 4. Personen und Spalten basierend auf den GEFILTERTEN Karten zuweisen
+  allCardsFlat.forEach(card => peopleSet.add(card.wer));
+  
+  S.columns.forEach(col => {
+    // Nur Karten in die Spalten aufnehmen, die den Filter überlebt haben
+    const colCards = (S.cards[col.id] || []).filter(c => c && c.assignee && allCardsFlat.some(f => f.id === c.id));
+    if (colCards.length) {
+      boardData.push({ 
+        spalte: col.name, 
+        karten: colCards.map(c => allCardsFlat.find(f => f.id === c.id)) 
+      });
+    }
+  });
+
+  const people = Array.from(peopleSet);
+  const colors = {};
+  
+  // Farben zuweisen
+  people.forEach((p, i) => { 
+    colors[p] = i < PALETTE.length ? PALETTE[i] : `hsl(${Math.floor(Math.random() * 360)},70%,55%)`; 
+  });
+
   return { boardData, people, lineColors: colors, allCardsFlat };
 }
 
