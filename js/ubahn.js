@@ -566,7 +566,7 @@ window.showUBahnCardDetail = function(label) {
   document.getElementById('ubahn-card-overlay')?.remove();
   const overlay = document.createElement('div');
   overlay.id = 'ubahn-card-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:20005;display:flex;align-items:center;justify-content:center;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:40000;display:flex;align-items:center;justify-content:center;';
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
   overlay.innerHTML = `
     <style>@keyframes _ubahn_in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}</style>
