@@ -1,4 +1,4 @@
-// js/gantt.js — Professionelles Analyse-Modul
+// js/gantt.js — Professionelles Analyse-Modul (Grafik-Fix für Gruppen)
 export function showGanttView(data, grid) {
     const people = data.people || [];
     const placed = grid.placedCards || [];
@@ -44,10 +44,11 @@ export function showGanttView(data, grid) {
                 </div>
                 <div class="gantt-grid-lines" style="min-width:fit-content; background-image: linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: ${hourWidth}px 100%;">
                     ${people.map(p => {
-                        const myTasks = placed.filter(c => {
-                            const members = c.gruppe ? Array.from(new Set(placed.filter(pc => pc.gruppe === c.gruppe).map(pc => pc.wer))) : [c.wer];
-                            return members.includes(p);
-                        });
+                        
+                        // DER FIX: Keine komplexen Gruppen-Abfragen mehr.
+                        // Wir holen einfach nur die Karten, die explizit dieser Person gehören!
+                        const myTasks = placed.filter(c => c.wer === p);
+                        
                         return `
                             <div style="display:flex; align-items:center; border-bottom:1px dotted var(--border); min-height:${rowHeight}px; position:relative;">
                                 <div style="width:140px; flex-shrink:0; font-size:11px; font-weight:900; color:${colors[p] || 'var(--text)'}; position:sticky; left:0; background:var(--bg-panel); z-index:5; padding-right:20px; text-align:right; text-transform:uppercase; letter-spacing:1.5px; border-right:1px solid var(--border);">
@@ -80,12 +81,22 @@ export function showGanttView(data, grid) {
                     }).join('')}
                 </div>
             </div>
+            <div style="padding:14px 24px; background:rgba(var(--panel-rgb),0.2); border-top:1px solid var(--border); display:flex; gap:25px; font-size:10px; color:var(--text-muted); font-weight:bold; letter-spacing:0.5px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="width:16px; height:10px; border:1px solid var(--text-muted); border-radius:2px;"></div> Einzelaufgabe
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="width:16px; height:10px; border:1px dashed var(--text-muted); border-radius:2px;"></div> Gruppenarbeit (Synchron)
+                </div>
+                <div style="flex:1; text-align:right; opacity:0.6;">
+                    * 1 Tag = 8 Arbeitsstunden
+                </div>
+            </div>
         </div>
     `;
     overlay.innerHTML = html;
     document.body.appendChild(overlay);
 }
 
-// Hilfsfunktion & globale Registrierung
 function escHtml(t) { return String(t).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m])); }
 window.showGanttView = showGanttView;
