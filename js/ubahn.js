@@ -165,21 +165,33 @@ function calculateGrid(boardData, people) {
   const allCards = boardData.flatMap(col => col.karten);
   const sortedCards = topoSortCards(allCards);
 
-  // --- PASS 1: REIHENFOLGE & GRUPPEN (Das Layout) ---
+  // --- PASS 1: REIHENFOLGE & GRUPPEN (KORRIGIERT) ---
   sortedCards.forEach(card => {
     if (processed.has(card.label)) return;
 
+    // 1. Alle Mitglieder der Gruppe finden
+    const groupMembers = card.gruppe 
+      ? allCards.filter(c => c.gruppe === card.gruppe)
+      : [card];
+
+    // 2. PRÜFUNG: Sind wirklich ALLE Abhängigkeiten ALLER Gruppenmitglieder bereits platziert?
+    // Falls nicht, überspringen wir diese Karte vorerst (sie kommt später in sortedCards nochmal dran)
+    const allGroupDeps = groupMembers.flatMap(m => m.deps || []);
+    const allDepsReady = allGroupDeps.every(depId => cardRowById[depId] !== undefined);
+    
+    if (!allDepsReady && card.gruppe) {
+       // Wenn die Gruppe noch nicht bereit ist, warten wir auf das nächste Mitglied in sortedCards
+       return; 
+    }
+
+    // 3. Wenn wir hier sind, wird die Karte (oder die ganze Gruppe) platziert
     let inv = card.gruppe
-      ? Array.from(new Set(allCards.filter(c => c.gruppe === card.gruppe).map(c => c.wer)))
+      ? Array.from(new Set(groupMembers.map(c => c.wer)))
       : [card.wer];
     inv = inv.filter(p => people.includes(p));
-    if (!inv.length) return;
 
-    const allDeps = card.gruppe
-      ? allCards.filter(c => c.gruppe === card.gruppe).flatMap(c => c.deps || [])
-      : (card.deps || []);
-
-    const depMinRow = allDeps.reduce((m, depId) => {
+    // 4. Die frühestmögliche Reihe für die gesamte Gruppe berechnen
+    const depMinRow = allGroupDeps.reduce((m, depId) => {
       const r = cardRowById[depId];
       return r !== undefined ? Math.max(m, r + 1) : m;
     }, 1); 
@@ -194,13 +206,16 @@ function calculateGrid(boardData, people) {
     });
 
     if (card.gruppe) {
-      const groupCards = allCards.filter(c => c.gruppe === card.gruppe);
-      groupCards.forEach(gc => { cardRowById[gc.id] = row; cardRowById[gc.label] = row; });
+      groupMembers.forEach(gc => { 
+        cardRowById[gc.id] = row; 
+        cardRowById[gc.label] = row; 
+        placedCards.push({ ...gc, row }); 
+        processed.add(gc.label); 
+      });
       if (!rowEvents[row].groups.find(g => g.name === card.gruppe)) {
           rowEvents[row].groups.push({ name: card.gruppe, involved: [...inv] });
           transferStations.push({ name: card.gruppe, row, involved: [...inv] });
       }
-      groupCards.forEach(gc => { placedCards.push({ ...gc, row }); processed.add(gc.label); });
     } else {
       cardRowById[card.id] = row;
       cardRowById[card.label] = row;
