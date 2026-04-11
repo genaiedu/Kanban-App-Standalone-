@@ -1,5 +1,6 @@
 // js/ubahn.js — U-Bahn Streckennetz (Agenda) - PRO Edition mit Snapshot & Rollback
 import { S, moveCard, getCards, updateCard } from './state.js';
+import { showGanttView } from './gantt.js';
 
 const PALETTE = [
   "#ef4444","#3b82f6","#10b981","#f59e0b",
@@ -47,7 +48,23 @@ function ensureControls() {
   panel.id = 'ubahn-controls-panel';
   panel.className = 'no-print';
   panel.style.cssText = `position: absolute; left: 20px; top: 100px; background: rgba(var(--panel-rgb),1); border: 1px solid var(--border); width: 56px; padding: 22px 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; gap: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); z-index: 10001;`;
-  panel.innerHTML = `<button onclick="window.exportUBahnAsImage()" style="background:var(--surface2); border:1px solid var(--border); width:38px; height:38px; border-radius:50%; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center;"><i data-lucide="download" style="width:20px; height:20px;"></i></button><div style="height:1px; width:24px; background:var(--border);"></div><div style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:1px;">Abstand</div><div style="height: 140px; display: flex; align-items: center;"><input type="range" min="60" max="450" value="${ROW_HEIGHT}" oninput="window.updateUBahnRowHeight(this.value)" style="width: 130px; transform: rotate(-90deg); cursor: pointer; accent-color: var(--accent); margin: 0; background:transparent;"></div><div id="val-row" style="font-size:10px; font-weight:900; color:var(--text);">${ROW_HEIGHT}px</div>`;
+panel.innerHTML = `
+    <button onclick="window.exportUBahnAsImage()" style="background:var(--surface2); border:1px solid var(--border); width:38px; height:38px; border-radius:50%; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Plan exportieren">
+      <i data-lucide="download" style="width:20px; height:20px;"></i>
+    </button>
+    
+    <button onclick="window.openGanttFromUBahn()" style="background:var(--surface2); border:1px solid var(--border); width:38px; height:38px; border-radius:50%; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; margin-top:10px;" title="Projekt-Analyse (Gantt)">
+      <i data-lucide="layout-dashboard" style="width:20px; height:20px; color:var(--accent);"></i>
+    </button>
+
+    <div style="height:1px; width:24px; background:var(--border); margin:15px 0;"></div>
+    
+    <div style="font-size:9px; font-weight:900; color:var(--text-muted); text-transform:uppercase; writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:1px;">Abstand</div>
+    <div style="height: 140px; display: flex; align-items: center;">
+      <input type="range" min="60" max="450" value="${ROW_HEIGHT}" oninput="window.updateUBahnRowHeight(this.value)" style="width: 130px; transform: rotate(-90deg); cursor: pointer; accent-color: var(--accent); margin: 0; background:transparent;">
+    </div>
+    <div id="val-row" style="font-size:10px; font-weight:900; color:var(--text);">${ROW_HEIGHT}px</div>
+  `;
   modal.appendChild(panel);
   if (typeof reloadIcons === 'function') reloadIcons();
 }
@@ -890,4 +907,20 @@ window.ubahnLeaveCard = function() {
     ring.style.color = 'var(--text)';
     ring.style.boxShadow = isActive ? `0 4px 14px rgba(0,0,0,0.4), 0 0 18px ${originalColor}99` : '0 4px 14px rgba(0,0,0,0.4)';
   });
+};
+
+/**
+ * Startet die Gantt-Analyse aus der U-Bahn Ansicht
+ * Nutzt die bereits berechneten Grid-Daten für höchste Performance
+ */
+window.openGanttFromUBahn = function() {
+  if (!_lastGrid || !_data) {
+    if (typeof window.showToast === 'function') {
+      window.showToast("Bitte warten, bis das Netz berechnet wurde.", "error");
+    }
+    return;
+  }
+  
+  // Ruft das überarbeitete Gantt-Modul auf
+  showGanttView(_data, _lastGrid);
 };
