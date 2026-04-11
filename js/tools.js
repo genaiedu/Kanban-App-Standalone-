@@ -119,7 +119,6 @@ WICHTIGSTE REGELN FÜR DIE PLANUNG:
 9. BESCHREIBUNG: Füge für jede nicht-triviale Aufgabe eine detaillierte Erläuterung im Feld 'beschreibung' hinzu (2–5 Sätze). Bestehende Beschreibungen unbedingt übernehmen! Ergänze immer an welchen Kriterien festgemacht werden kann, dass die Aufgabe gut gelöst wurde.
 10. BEARBEITUNGSZEIT: Schätze für jede Aufgabe die REINE NETTO-ARBEITSZEIT in Tagen (d), Stunden (h) und Minuten (m). Berechne KEINE Enddaten/Fälligkeiten daraus, da der Projektstart variabel ist!
 11. Es darf niemals vorkommen, dass eine Person innerhalb einer Gruppenarbeit mehr als eine Aufgaben übernimmt. Es darf nicht vorkommen, dass eine Task in einer Grppenarbeit in der Verkettungslogig oberhalb oder unterhalb einer anderen Task in der selben Gruppenarbeit ist.
-12. Es sollen, wo möglich, wenn möglich Gruppenarbeiten eingerichtet werden, wenn es thematisch sinn macht.
 13. Achte darauf, dass es durch die verkettungen keine Zirkelschlüsse gibt.
 14. Du darfst keine weiteren Mitarbeiter dazu erfinden indbesondere nicht so etwas wie "alle Mitarbeiter" Eine einzelne Karte muss immer exekt einer Person zugeordnet werden und auch bei einer Gruppenaufgabe eine spezielle Aufgabe für diese Person enthalten.
 15. Falls der aktuelle Stand des Boardes bereits gegen einer dieser Regeln verstösst gebe eine Warnung aus und mache Vorschläge zur Bereinigung.
