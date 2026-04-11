@@ -172,11 +172,11 @@ function calculateGrid(boardData, people) {
           macroNodeMap.set(key, node);
       }
       node.cards.push(card);
-      (card.deps || []).forEach(d => node.deps.add(d)); // Alle Abhängigkeiten der Gruppe vereinen
-      node.involved.add(card.wer); // Alle Personen der Gruppe vereinen
+      if (card.deps) card.deps.forEach(d => node.deps.add(d)); 
+      if (card.wer) node.involved.add(card.wer); 
   });
 
-  // Map aktualisieren für einfache Label/ID Suche
+  // Doppelte Absicherung für Suche nach ID und Label
   allCards.forEach(card => {
       const node = macroNodeMap.get(card.gruppe ? `group_${card.gruppe}` : `card_${card.id}`);
       macroNodeMap.set(card.id, node);
@@ -184,7 +184,7 @@ function calculateGrid(boardData, people) {
   });
 
   // =================================================================
-  // PASS 2: STRIKTE PLATZIERUNG (Der finale Logik-Fix)
+  // PASS 2: STRIKTE PLATZIERUNG (Der garantierte Logik-Fix)
   // =================================================================
   const placedNodes = new Set();
   let remainingNodes = [...macroNodes];
@@ -197,7 +197,8 @@ function calculateGrid(boardData, people) {
   let transferStations = [];
 
   let safeguard = 0;
-  while (remainingNodes.length > 0 && safeguard < 1000) {
+  // Schleife läuft, bis alle Karten platziert sind (Max. 2000 Runden zum Schutz)
+  while (remainingNodes.length > 0 && safeguard < 2000) {
       safeguard++;
       let placedAny = false;
 
@@ -206,12 +207,12 @@ function calculateGrid(boardData, people) {
           let allDepsMet = true;
           let depMaxRow = 0;
 
-          // STRIKTE PRÜFUNG: Sind alle Abhängigkeiten dieses Blocks schon im Netz?
+          // STRIKTE PRÜFUNG: Sind wirklich ALLE Abhängigkeiten im Netz?
           for (const dep of node.deps) {
               const depNode = macroNodeMap.get(dep);
               if (depNode) {
                   if (!placedNodes.has(depNode.key)) {
-                      allDepsMet = false; break; // Nein? Dann warten wir!
+                      allDepsMet = false; break; // Nein? Block überspringen & warten!
                   } else {
                       const depCard = depNode.cards[0];
                       const r = cardRowById[depCard.id];
@@ -221,7 +222,7 @@ function calculateGrid(boardData, people) {
           }
 
           if (allDepsMet) {
-              // Ja! Block platzieren.
+              // Ja! Block kann platziert werden.
               const inv = Array.from(node.involved).filter(p => people.includes(p));
               let row = depMaxRow + 1; // Muss STRIKT nach der letzten Voraussetzung kommen!
               inv.forEach(p => { if (personNextRow[p] > row) row = personNextRow[p]; });
@@ -252,7 +253,7 @@ function calculateGrid(boardData, people) {
           }
       }
 
-      // Notfall-Anker: Falls es irgendwo einen Logik-Kreis gibt (z.B. A wartet auf B, B wartet auf A)
+      // Notfall-Anker (Falls jemand aus Versehen einen Kreis gebaut hat: A wartet auf B, B auf A)
       if (!placedAny && remainingNodes.length > 0) {
           const node = remainingNodes.shift();
           const inv = Array.from(node.involved).filter(p => people.includes(p));
@@ -273,7 +274,7 @@ function calculateGrid(boardData, people) {
   }
 
   // =================================================================
-  // PASS 3: ZEITPLAN & CRASH-VERHINDERUNG
+  // PASS 3: ZEITPLAN & CRASH-VERHINDERUNG (Der sichere Daten-Fetch)
   // =================================================================
   const personLastEnd = {};
   people.forEach(p => personLastEnd[p] = 0);
@@ -286,10 +287,18 @@ function calculateGrid(boardData, people) {
       ? placedCards.filter(c => c.gruppe === pCard.gruppe)
       : [pCard];
 
-    const liveC = (Object.values(S.cards).flat()).find(x => x.id === pCard.id) || pCard;
-    const est = liveC.timeEstimate || {};
+    // SICHERHEIT: Der Crash-sichere Weg, um Live-Daten zu holen
+    let liveC = pCard;
+    if (typeof S !== 'undefined' && S.cards) {
+        for (const colId in S.cards) {
+            if (Array.isArray(S.cards[colId])) { // <-- Verhindert den Absturz bei leeren Spalten!
+                const found = S.cards[colId].find(c => c.id === pCard.id);
+                if (found) { liveC = found; break; }
+            }
+        }
+    }
     
-    // ANTI-CRASH: Wenn Daten fehlen, wird es gnadenlos zu 0 geparst
+    const est = liveC.timeEstimate || {};
     let d = parseFloat(est.d) || 0;
     let h = parseFloat(est.h) || 0;
     let m = parseFloat(est.m) || 0;
@@ -307,7 +316,6 @@ function calculateGrid(boardData, people) {
     let maxWorkerReady = 0;
     inv.forEach(m => maxWorkerReady = Math.max(maxWorkerReady, personLastEnd[m] || 0));
 
-    // SICHERHEIT: Start darf nicht negativ sein
     const start = Math.max(maxDepEnd, maxWorkerReady, 0);
     const transit = start > 0 ? 0.3 : 0;
     
@@ -351,6 +359,7 @@ function calculateGrid(boardData, people) {
 
   return { placedCards, transferStations, maxRows: maxRow + 1, trackPoints };
 }
+
 // ── 3. RENDERN ───────────────────────────────────────────────
 // ── GEWÜNSCHTE RENDER-FUNKTION FÜR DIE U-BAHN KARTE ──
 window.renderUBahnMap = function() {
