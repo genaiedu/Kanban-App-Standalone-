@@ -34,7 +34,7 @@ export function showGanttView(data, grid) {
                 <div>
                     <h2 style="margin:0; font-size:20px; letter-spacing:1px; text-transform:uppercase; font-weight:900;">Projekt-Timeline & Analyse</h2>
                     <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
-                        Klicken zum Bearbeiten • Gesamtdauer: <strong>${maxTime.toFixed(1)}h</strong> (${Math.ceil(maxTime/8)} Arbeitstage)
+                        Klicken zum Bearbeiten • Gesamtdauer: <strong>${maxTime.toFixed(1)}h</strong>
                     </div>
                 </div>
                 <button onclick="document.getElementById('gantt-overlay').remove()" 
@@ -53,7 +53,6 @@ export function showGanttView(data, grid) {
 
                 <div class="gantt-grid-lines" style="min-width:fit-content; background-image: linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: ${hourWidth}px 100%;">
                     ${people.map(p => {
-                        // Alle Tasks dieser Person filtern
                         const myTasks = placed.filter(c => {
                             const members = c.gruppe ? Array.from(new Set(placed.filter(pc => pc.gruppe === c.gruppe).map(pc => pc.wer))) : [c.wer];
                             return members.includes(p);
@@ -83,7 +82,7 @@ export function showGanttView(data, grid) {
                                                         white-space:nowrap; overflow:hidden; box-sizing:border-box; z-index:2;
                                                         transition: transform 0.2s, box-shadow 0.2s; cursor:pointer;
                                                         ${isGroup ? 'border-style: dashed;' : ''}">
-                                                <b style="color:${taskColor}; margin-right:8px; font-size:12px; text-shadow:0 0 10px ${taskColor}44;">${task.label}</b> 
+                                                <b style="color:${taskColor}; margin-right:8px; font-size:12px;">${task.label}</b> 
                                                 <span style="font-weight:600; opacity:0.9;">${task.titel}</span>
                                             </div>
                                         `;
@@ -95,15 +94,12 @@ export function showGanttView(data, grid) {
                 </div>
             </div>
 
-            <div style="padding:14px 24px; background:rgba(var(--panel-rgb),0.2); border-top:1px solid var(--border); display:flex; gap:25px; font-size:10px; color:var(--text-muted); font-weight:bold; letter-spacing:0.5px;">
+            <div style="padding:14px 24px; background:rgba(var(--panel-rgb),0.2); border-top:1px solid var(--border); display:flex; gap:25px; font-size:10px; color:var(--text-muted); font-weight:bold;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div style="width:16px; height:10px; border:1px solid var(--text-muted); border-radius:2px;"></div> Einzelaufgabe
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div style="width:16px; height:10px; border:1px dashed var(--text-muted); border-radius:2px;"></div> Gruppenarbeit (Synchron)
-                </div>
-                <div style="flex:1; text-align:right; opacity:0.6;">
-                    * 1 Tag = 8 Arbeitsstunden
                 </div>
             </div>
         </div>
@@ -113,5 +109,4 @@ export function showGanttView(data, grid) {
     document.body.appendChild(overlay);
 }
 
-// Global für das U-Bahn-Modul registrieren
 window.showGanttView = showGanttView;
