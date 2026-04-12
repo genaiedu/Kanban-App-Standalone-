@@ -92,7 +92,6 @@ window.kfCrypto = {
   },
 
   // ── INI-DATEI (Tutor-Schlüsselpaar) ─────────────────────
-  // HINWEIS: Diese Funktion wird nur noch von admin.html verwendet
   async createIni(teacherName, masterPassword) {
     const pair    = await this.genRSAKeyPair();
     const pubJwk  = await this.exportPubJwk(pair.publicKey);
