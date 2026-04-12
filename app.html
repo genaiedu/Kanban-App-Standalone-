@@ -201,6 +201,10 @@
           <i data-lucide="hard-drive-download" style="width:16px;height:16px;"></i> Dateien
         </button>
         <div class="sidebar-divider-line"></div>
+        <button class="sidebar-action-btn" onclick="showSnapshotsModal()" id="sidebar-snapshots-btn" style="display:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Snapshots / Versionen
+        </button>
+        <div class="sidebar-divider-line"></div>
         <button class="sidebar-action-btn" onclick="openProfileEdit()">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profil bearbeiten
         </button>
@@ -736,9 +740,6 @@
       </button>
       <button class="sidebar-action-btn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('backup-file-input').click()">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importieren (.json)
-      </button>
-      <button class="sidebar-action-btn" style="width:100%;margin-bottom:20px;" onclick="showSnapshotsModal()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Snapshots / Versionen
       </button>
       <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none;" onchange="importDataFromFile(event)"/>
 
