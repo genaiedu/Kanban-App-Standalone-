@@ -1,12 +1,9 @@
 // js/storage.js — Lokale Datenspeicherung (ersetzt Firebase komplett)
 // Alle Daten liegen als JSON in localStorage unter dem Schlüssel 'kanban_data'
 // Struktur: { version, user, settings, boards: [{ id, name, ..., columns: [{ id, ..., cards: [] }] }] }
-// Snapshots werden unter 'kanban_snapshots' gespeichert: Array von { timestamp, data }
 
 const STORAGE_KEY = 'kanban_data';
 const SETTINGS_KEY = 'kanban_settings';
-const SNAPSHOTS_KEY = 'kanban_snapshots';
-const MAX_SNAPSHOTS = 50; // Maximale Anzahl an Snapshots die behalten werden
 
 // ── UUID-GENERATOR ────────────────────────────────────
 function generateId() {
@@ -24,8 +21,6 @@ function loadData() {
 
 function saveData(data) {
   try {
-    // Vor dem Speichern einen Snapshot erstellen
-    createSnapshot(data);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (e) {
     console.error('Speichern fehlgeschlagen:', e);
@@ -44,74 +39,6 @@ function saveSettings(settings) {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   } catch (e) {}
-}
-
-// ── SNAPSHOT-FUNKTIONEN FÜR VERSIONIERUNG ──────────────
-function createSnapshot(data) {
-  try {
-    let snapshots = [];
-    const raw = localStorage.getItem(SNAPSHOTS_KEY);
-    if (raw) {
-      try { snapshots = JSON.parse(raw); } catch (e) { snapshots = []; }
-    }
-    
-    // Neuen Snapshot mit Zeitstempel erstellen
-    const snapshot = {
-      timestamp: new Date().toISOString(),
-      data: JSON.parse(JSON.stringify(data)) // Deep copy
-    };
-    
-    snapshots.push(snapshot);
-    
-    // Alte Snapshots entfernen wenn Maximum erreicht
-    while (snapshots.length > MAX_SNAPSHOTS) {
-      snapshots.shift();
-    }
-    
-    localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snapshots));
-  } catch (e) {
-    console.error('Snapshot erstellen fehlgeschlagen:', e);
-  }
-}
-
-export function getSnapshots() {
-  try {
-    const raw = localStorage.getItem(SNAPSHOTS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {}
-  return [];
-}
-
-export function loadSnapshot(timestamp) {
-  try {
-    const snapshots = getSnapshots();
-    const snapshot = snapshots.find(s => s.timestamp === timestamp);
-    if (snapshot) {
-      saveData(snapshot.data);
-      return true;
-    }
-  } catch (e) {
-    console.error('Snapshot laden fehlgeschlagen:', e);
-  }
-  return false;
-}
-
-export function deleteSnapshot(timestamp) {
-  try {
-    let snapshots = getSnapshots();
-    snapshots = snapshots.filter(s => s.timestamp !== timestamp);
-    localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snapshots));
-  } catch (e) {
-    console.error('Snapshot löschen fehlgeschlagen:', e);
-  }
-}
-
-export function clearAllSnapshots() {
-  try {
-    localStorage.removeItem(SNAPSHOTS_KEY);
-  } catch (e) {
-    console.error('Alle Snapshots löschen fehlgeschlagen:', e);
-  }
 }
 
 // ── BENUTZER ──────────────────────────────────────────
@@ -377,70 +304,4 @@ export function duplicateBoardData(boardId, newName) {
   data.boards.push(newBoard);
   saveData(data);
   return newBoard;
-}
-
-// ── DATUM/UHRZEIT FORMATIERUNG ────────────────────────
-export function formatTimestamp(isoString) {
-  try {
-    const d = new Date(isoString);
-    const pad = n => String(n).padStart(2, '0');
-    return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())} Uhr`;
-  } catch (e) {
-    return isoString;
-  }
-}
-
-// ── BOARD-VERSIONEN FÜR DATEIVERWALTUNG ────────────────
-export function getBoardVersionsForCurrentBoard(boardId) {
-  try {
-    const snapshots = getSnapshots();
-    if (!boardId || snapshots.length === 0) return [];
-    
-    // Filtere Snapshots die das aktuelle Board enthalten
-    const versions = snapshots.filter(s => {
-      return s.data && s.data.boards && s.data.boards.some(b => b.id === boardId);
-    }).map(s => {
-      const board = s.data.boards.find(b => b.id === boardId);
-      return {
-        timestamp: s.timestamp,
-        boardName: board ? board.name : 'Unbekannt',
-        totalBoards: s.data.boards.length,
-        totalCards: s.data.boards.reduce((sum, b) => sum + (b.columns?.reduce((cSum, c) => cSum + (c.cards?.length || 0), 0) || 0), 0) || 0
-      };
-    });
-    
-    // Nach Zeitstempel absteigend sortieren (neueste zuerst)
-    return versions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  } catch (e) {
-    console.error('Board-Versionen laden fehlgeschlagen:', e);
-    return [];
-  }
-}
-
-export function restoreBoardVersion(timestamp, boardId) {
-  try {
-    const snapshots = getSnapshots();
-    const snapshot = snapshots.find(s => s.timestamp === timestamp);
-    if (!snapshot) return false;
-    
-    // Lade nur das spezifische Board aus dem Snapshot
-    const currentData = loadData();
-    const versionBoard = snapshot.data.boards.find(b => b.id === boardId);
-    if (!versionBoard) return false;
-    
-    // Ersetze das aktuelle Board mit der Version
-    const boardIndex = currentData.boards.findIndex(b => b.id === boardId);
-    if (boardIndex === -1) {
-      // Board existiert nicht mehr, füge es hinzu
-      currentData.boards.push(JSON.parse(JSON.stringify(versionBoard)));
-    } else {
-      currentData.boards[boardIndex] = JSON.parse(JSON.stringify(versionBoard));
-    }
-    
-    saveData(currentData);
-    return true;
-  } catch (e) {
-    console.error('Board-Version wiederherstellen fehlgeschlagen:', e);
-    return false;
-  }
 }
