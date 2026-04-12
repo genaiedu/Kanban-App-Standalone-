@@ -24,13 +24,6 @@ function findDoneCol(cols) {
 
 // ── ADMIN BOARD-TOOLS LADEN ────────────────────────────
 window.loadAdminBoardTools = async () => {
-  // Sicherheitsprüfung: Nur für authentifizierte Tutoren
-  const isAdmin = await window.currentUserIsAdmin();
-  if (!isAdmin) {
-    showToast('Zugriff verweigert: Tutor-Authentifizierung erforderlich', 'error');
-    return;
-  }
-
   const boardId = document.getElementById('admin-bt-board-select').value;
   const container = document.getElementById('admin-bt-tools-container');
 
