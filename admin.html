@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDUBAN Admin - Initialisierung</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        h2 { color: #333; text-align: center; margin-top: 0; }
+        .input-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; color: #666; font-weight: bold; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+        button { width: 100%; padding: 12px; background: #2c3e50; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #34495e; }
+        .warning { background: #fff3cd; color: #856404; padding: 10px; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; border: 1px solid #ffeeba; }
+        .success { background: #d4edda; color: #155724; padding: 10px; border-radius: 6px; margin-top: 1rem; font-size: 0.9rem; border: 1px solid #c3e6cb; display: none; }
+        .security-note { background: #fee2e2; color: #991b1b; padding: 10px; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; border: 1px solid #fecaca; }
+        code { background: #eee; padding: 2px 4px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🔐 EDUBAN Admin</h2>
+    
+    <div class="security-note">
+        <strong>Sicherheitsbereich!</strong><br>
+        Dieses Tool ist nur für Tutoren bestimmt. Nur autorisiertes Personal darf hier Zugang haben.
+    </div>
+    
+    <div class="warning">
+        <strong>Hinweis:</strong> Erstellt die verschlüsselte Konfigurationsdatei (.ini) für die Lehrer-App.
+        Bewahre diese Datei und dein Master-Passwort sicher auf!
+    </div>
+
+    <div class="input-group">
+        <label for="adminName">Tutor Name (Anzeigename)</label>
+        <input type="text" id="adminName" placeholder="z.B. Herr Müller">
+    </div>
+
+    <div class="input-group">
+        <label for="masterPassword">Master Passwort</label>
+        <input type="password" id="masterPassword" placeholder="Sicheres Passwort wählen (mind. 8 Zeichen)">
+    </div>
+
+    <button onclick="generateINI()">INI-Datei erstellen & herunterladen</button>
+    
+    <div id="msg" class="success"></div>
+    
+    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; font-size: 0.85rem; color: #666;">
+        <p><strong>Anleitung:</strong></p>
+        <ol style="padding-left: 20px; margin: 8px 0;">
+            <li>Name und Passwort eingeben</li>
+            <li>"INI-Datei erstellen" klicken</li>
+            <li>Die heruntergeladene .ini-Datei in der Lehrer-App laden</li>
+            <li>Diese Admin-Seite kann danach geschlossen werden</li>
+        </ol>
+    </div>
+</div>
+
+<script>
+    // Einfache RSA-Implementierung für den Client (nutzt window.crypto)
+    async function generateKeyPair() {
+        return await window.crypto.subtle.generateKey(
+            {
+                name: "RSA-OAEP",
+                modulusLength: 2048,
+                publicExponent: new Uint8Array([1, 0, 1]),
+                hash: "SHA-256",
+            },
+            true,
+            ["encrypt", "decrypt"]
+        );
+    }
+
+    async function exportKey(key) {
+        const exported = await window.crypto.subtle.exportKey("spki", key.publicKey);
+        return btoa(String.fromCharCode(...new Uint8Array(exported)));
+    }
+
+    async function generateINI() {
+        const name = document.getElementById('adminName').value.trim();
+        const password = document.getElementById('masterPassword').value;
+        const msgDiv = document.getElementById('msg');
+
+        if (!name) {
+            alert("Bitte Namen eingeben!");
+            return;
+        }
+        if (password.length < 8) {
+            alert("Das Passwort muss mindestens 8 Zeichen lang sein!");
+            return;
+        }
+
+        try {
+            // 1. Schlüsselgenerierung
+            const keyPair = await generateKeyPair();
+            const publicKeyPem = await exportKey(keyPair);
+            
+            // 2. Privaten Schlüssel exportieren
+            const privExported = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+            const privJwk = await window.crypto.subtle.importKey(
+                "pkcs8",
+                privExported,
+                { name: "RSA-OAEP", hash: "SHA-256" },
+                false,
+                ["decrypt"]
+            );
+            
+            // Privaten Schlüssel als JWK exportieren für Verschlüsselung
+            const privJwkFull = await window.crypto.subtle.exportKey("jwk", keyPair.privateKey);
+            
+            // 3. Privaten Schlüssel mit Passwort verschlüsseln
+            const encoder = new TextEncoder();
+            const pwData = encoder.encode(password);
+            const privKeyStr = JSON.stringify(privJwkFull);
+            
+            // AES-Key für Datenverschlüsselung generieren
+            const aesKey = await window.crypto.subtle.generateKey(
+                { name: "AES-GCM", length: 256 },
+                true,
+                ["encrypt", "decrypt"]
+            );
+            
+            // Passwort-basierten Key ableiten (PBKDF2)
+            const salt = window.crypto.getRandomValues(new Uint8Array(16));
+            const keyMaterial = await window.crypto.subtle.importKey(
+                "raw",
+                pwData,
+                { name: "PBKDF2" },
+                false,
+                ["deriveKey"]
+            );
+            const derivedKey = await window.crypto.subtle.deriveKey(
+                { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+                keyMaterial,
+                { name: "AES-GCM", length: 256 },
+                false,
+                ["encrypt", "decrypt"]
+            );
+            
+            // Privaten Schlüssel verschlüsseln
+            const iv = window.crypto.getRandomValues(new Uint8Array(12));
+            const encryptedPrivKey = await window.crypto.subtle.encrypt(
+                { name: "AES-GCM", iv },
+                derivedKey,
+                encoder.encode(privKeyStr)
+            );
+            
+            // Hash des Passworts für Verifikation speichern
+            const hashBuffer = await crypto.subtle.digest('SHA-256', pwData);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            // 4. INI-Daten zusammenstellen
+            const iniData = {
+                kanbanfluss_ini: true,
+                version: 1,
+                tutorName: name,
+                created: new Date().toISOString(),
+                publicKey: publicKeyPem,
+                encryptedPrivateKey: {
+                    cipherText: btoa(String.fromCharCode(...new Uint8Array(encryptedPrivKey))),
+                    iv: btoa(String.fromCharCode(...iv)),
+                    salt: btoa(String.fromCharCode(...salt))
+                },
+                passwordHash: passwordHash
+            };
+
+            // 5. Datei erstellen und herunterladen
+            const blob = new Blob([JSON.stringify(iniData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `eduban_config_${name.replace(/\s+/g, '_')}.ini`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            msgDiv.style.display = 'block';
+            msgDiv.innerHTML = `✅ Datei erfolgreich erstellt!<br>Lade sie nun in die Lehrer-App hoch.`;
+            
+            // Reset nach 5 Sekunden
+            setTimeout(() => {
+                document.getElementById('adminName').value = '';
+                document.getElementById('masterPassword').value = '';
+                msgDiv.style.display = 'none';
+            }, 5000);
+
+        } catch (err) {
+            console.error(err);
+            alert("Fehler bei der Erstellung: " + err.message);
+        }
+    }
+</script>
+
+</body>
+</html>

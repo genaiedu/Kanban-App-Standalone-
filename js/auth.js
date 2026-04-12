@@ -237,7 +237,7 @@ window.saveProfile = function() {
     const firstRunSetup = document.getElementById('first-run-setup');
     if (firstRunSetup) {
       firstRunSetup.style.display = 'block';
-      showError('profile-error', '⚠️ Als Tutor bitte zuerst INI-Datei erstellen oder laden!');
+      showError('profile-error', '⚠️ Als Tutor bitte zuerst INI-Datei mit admin.html erstellen und hier laden!');
       setTimeout(() => document.getElementById('first-run-setup').scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
       return;
     }
