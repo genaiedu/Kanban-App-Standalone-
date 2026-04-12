@@ -29,29 +29,41 @@
         Dieses Tool ist nur für Tutoren bestimmt. Nur autorisiertes Personal darf hier Zugang haben.
     </div>
     
-    <div class="warning">
-        <strong>Hinweis:</strong> Erstellt die verschlüsselte Konfigurationsdatei (.ini) für die Lehrer-App.
-        Bewahre diese Datei und dein Master-Passwort sicher auf!
-    </div>
+    <div id="loginSection">
+        <div class="input-group">
+            <label for="accessCode">Zugangscode eingeben</label>
+            <input type="password" id="accessCode" placeholder="Admin-Zugangscode">
+        </div>
 
-    <div class="input-group">
-        <label for="adminName">Tutor Name (Anzeigename)</label>
-        <input type="text" id="adminName" placeholder="z.B. Herr Müller">
+        <button onclick="verifyAccessCode()">Zugang prüfen</button>
     </div>
+    
+    <div id="adminContent" style="display: none;">
+        <div class="warning">
+            <strong>Hinweis:</strong> Erstellt die verschlüsselte Konfigurationsdatei (.ini) für die Lehrer-App.
+            Bewahre diese Datei und dein Master-Passwort sicher auf!
+        </div>
 
-    <div class="input-group">
-        <label for="masterPassword">Master Passwort</label>
-        <input type="password" id="masterPassword" placeholder="Sicheres Passwort wählen (mind. 8 Zeichen)">
+        <div class="input-group">
+            <label for="adminName">Tutor Name (Anzeigename)</label>
+            <input type="text" id="adminName" placeholder="z.B. Herr Müller">
+        </div>
+
+        <div class="input-group">
+            <label for="masterPassword">Master Passwort</label>
+            <input type="password" id="masterPassword" placeholder="Sicheres Passwort wählen (mind. 8 Zeichen)">
+        </div>
+
+        <button onclick="generateINI()">INI-Datei erstellen & herunterladen</button>
     </div>
-
-    <button onclick="generateINI()">INI-Datei erstellen & herunterladen</button>
     
     <div id="msg" class="success"></div>
     
-    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; font-size: 0.85rem; color: #666;">
+    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; font-size: 0.85rem; color: #666;" id="instructionsSection">
         <p><strong>Anleitung:</strong></p>
         <ol style="padding-left: 20px; margin: 8px 0;">
-            <li>Name und Passwort eingeben</li>
+            <li>Zugangscode "jephtha1" eingeben</li>
+            <li>Nach Zugang Name und Master-Passwort festlegen</li>
             <li>"INI-Datei erstellen" klicken</li>
             <li>Die heruntergeladene .ini-Datei in der Lehrer-App laden</li>
             <li>Diese Admin-Seite kann danach geschlossen werden</li>
@@ -60,6 +72,27 @@
 </div>
 
 <script>
+    // Zugangscode prüfen
+    function verifyAccessCode() {
+        const code = document.getElementById('accessCode').value.trim();
+        
+        if (code === 'jephtha1') {
+            // Zugang gewährt
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('adminContent').style.display = 'block';
+            document.getElementById('instructionsSection').style.display = 'none';
+            document.querySelector('.security-note').innerHTML = '<strong>Zugang gewährt!</strong><br>Sie können jetzt die INI-Datei erstellen.';
+            document.querySelector('.security-note').style.background = '#d4edda';
+            document.querySelector('.security-note').style.color = '#155724';
+            document.querySelector('.security-note').style.borderColor = '#c3e6cb';
+        } else {
+            // Falscher Code
+            alert('❌ Falscher Zugangscode! Zugang verweigert.');
+            document.getElementById('accessCode').value = '';
+            document.getElementById('accessCode').focus();
+        }
+    }
+
     // Einfache RSA-Implementierung für den Client (nutzt window.crypto)
     async function generateKeyPair() {
         return await window.crypto.subtle.generateKey(
