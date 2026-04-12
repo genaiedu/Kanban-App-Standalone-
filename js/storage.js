@@ -389,3 +389,58 @@ export function formatTimestamp(isoString) {
     return isoString;
   }
 }
+
+// ── BOARD-VERSIONEN FÜR DATEIVERWALTUNG ────────────────
+export function getBoardVersionsForCurrentBoard(boardId) {
+  try {
+    const snapshots = getSnapshots();
+    if (!boardId || snapshots.length === 0) return [];
+    
+    // Filtere Snapshots die das aktuelle Board enthalten
+    const versions = snapshots.filter(s => {
+      return s.data && s.data.boards && s.data.boards.some(b => b.id === boardId);
+    }).map(s => {
+      const board = s.data.boards.find(b => b.id === boardId);
+      return {
+        timestamp: s.timestamp,
+        boardName: board ? board.name : 'Unbekannt',
+        totalBoards: s.data.boards.length,
+        totalCards: s.data.boards.reduce((sum, b) => sum + (b.columns?.reduce((cSum, c) => cSum + (c.cards?.length || 0), 0) || 0), 0) || 0
+      };
+    });
+    
+    // Nach Zeitstempel absteigend sortieren (neueste zuerst)
+    return versions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  } catch (e) {
+    console.error('Board-Versionen laden fehlgeschlagen:', e);
+    return [];
+  }
+}
+
+export function restoreBoardVersion(timestamp, boardId) {
+  try {
+    const snapshots = getSnapshots();
+    const snapshot = snapshots.find(s => s.timestamp === timestamp);
+    if (!snapshot) return false;
+    
+    // Lade nur das spezifische Board aus dem Snapshot
+    const currentData = loadData();
+    const versionBoard = snapshot.data.boards.find(b => b.id === boardId);
+    if (!versionBoard) return false;
+    
+    // Ersetze das aktuelle Board mit der Version
+    const boardIndex = currentData.boards.findIndex(b => b.id === boardId);
+    if (boardIndex === -1) {
+      // Board existiert nicht mehr, füge es hinzu
+      currentData.boards.push(JSON.parse(JSON.stringify(versionBoard)));
+    } else {
+      currentData.boards[boardIndex] = JSON.parse(JSON.stringify(versionBoard));
+    }
+    
+    saveData(currentData);
+    return true;
+  } catch (e) {
+    console.error('Board-Version wiederherstellen fehlgeschlagen:', e);
+    return false;
+  }
+}

@@ -1,7 +1,8 @@
 // js/tools.js — KI-Assistent, Export, Import, Agenda, INI (lokal, kein Firebase)
 import { S, getBoards, getColumns, getCards, createBoard, createColumn,
   createCard, deleteColumn, deleteCard, updateBoard, replaceCards,
-  getSnapshots, loadSnapshot, deleteSnapshot, clearAllSnapshots, formatTimestamp } from './state.js';
+  getSnapshots, loadSnapshot, deleteSnapshot, clearAllSnapshots, formatTimestamp,
+  getBoardVersionsForCurrentBoard, restoreBoardVersion } from './state.js';
 
 // ── LEHRER INI-DATEI ERSTELLEN ────────────────────────────
 window.createTeacherIniFile = async () => {
@@ -1015,4 +1016,86 @@ window.clearAllSnapshotsConfirm = async () => {
   clearAllSnapshots();
   showToast('Alle Versionen gelöscht.');
   refreshSnapshotsList();
+};
+
+// ── BOARD-VERSIONEN IM DATEIVERWALTUNGSPANEL ────────────
+window.showBoardVersionsInFileManager = () => {
+  if (!S.currentBoard || !S.currentBoard.id) {
+    showToast('Bitte zuerst ein Board öffnen.', 'error');
+    return;
+  }
+  
+  const versions = getBoardVersionsForCurrentBoard(S.currentBoard.id);
+  
+  if (versions.length === 0) {
+    showToast('Keine früheren Versionen dieses Boards gefunden.', 'info');
+    return;
+  }
+  
+  // Zeige Versionsliste als Modal
+  let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
+  versions.forEach((v, idx) => {
+    const formattedDate = formatTimestamp(v.timestamp);
+    html += `
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:rgba(255,255,255,0.05); border-radius:8px; border:1px solid var(--border);">
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600; font-size:13px; margin-bottom:4px;">${formattedDate}</div>
+          <div style="font-size:11px; color:var(--text-muted);">
+            Boards: ${v.totalBoards} | Karten: ${v.totalCards}
+          </div>
+        </div>
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+          <button class="btn-sm btn-sm-primary" onclick="restoreVersionFromList('${v.timestamp}')" title="Diese Version wiederherstellen" style="display:flex; align-items:center; gap:4px;">
+            <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i> Laden
+          </button>
+        </div>
+      </div>
+    `;
+  });
+  html += '</div>';
+  
+  // Modal anzeigen
+  document.getElementById('modal-snapshots').style.display = 'flex';
+  const listEl = document.getElementById('snapshots-list');
+  if (listEl) {
+    listEl.innerHTML = html;
+    setTimeout(() => { if(typeof reloadIcons==='function') reloadIcons(); }, 50);
+  }
+};
+
+window.showRestoreVersionDialog = () => {
+  window.showBoardVersionsInFileManager();
+};
+
+window.restoreVersionFromList = async (timestamp) => {
+  if (!S.currentBoard || !S.currentBoard.id) {
+    showToast('Kein Board ausgewählt.', 'error');
+    return;
+  }
+  
+  const version = getBoardVersionsForCurrentBoard(S.currentBoard.id).find(v => v.timestamp === timestamp);
+  if (!version) {
+    showToast('Version nicht gefunden.', 'error');
+    return;
+  }
+  
+  const dateStr = formatTimestamp(version.timestamp);
+  if (!await showConfirm(`Möchtest du wirklich die Version vom ${dateStr} wiederherstellen?<br><br>⚠️ Der aktuelle Zustand des Boards wird dabei überschrieben.`, 'Wiederherstellen', 'Abbrechen')) {
+    return;
+  }
+  
+  try {
+    const success = restoreBoardVersion(timestamp, S.currentBoard.id);
+    if (success) {
+      showToast('✅ Version wiederhergestellt!');
+      closeModal('modal-snapshots');
+      // App neu laden um die wiederhergestellten Daten anzuzeigen
+      if (typeof loadAllCards === 'function') loadAllCards();
+      if (typeof renderColumns === 'function') renderColumns();
+    } else {
+      showToast('Fehler beim Wiederherstellen.', 'error');
+    }
+  } catch (e) {
+    showToast('Fehler: ' + e.message, 'error');
+  }
 };
