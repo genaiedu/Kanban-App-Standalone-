@@ -117,22 +117,6 @@
     </div>
     <div class="auth-title">Willkommen!</div>
     <div class="auth-subtitle">Alle Daten bleiben lokal auf diesem Gerät.</div>
-    
-    <!-- Hinweis für neue Tutoren -->
-    <div id="first-run-setup" style="display:none; margin-top:16px; padding:16px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:12px;">
-      <div style="font-size:14px; color:#ef4444; margin-bottom:12px; font-weight:600;">
-        ⚠️ Tutor-Einrichtung erforderlich
-      </div>
-      <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px; line-height:1.6;">
-        Als Tutor benötigst du eine <strong>INI-Datei</strong>, die mit dem separaten Admin-Tool erstellt wird.
-        Bitte verwende <code>admin.html</code> um deine Konfigurationsdatei zu erstellen.
-      </p>
-      <div style="font-size:11px; color:var(--text-muted); text-align:center;">
-        Hast du bereits eine INI-Datei?
-        <button onclick="loadTeacherIni()" style="background:none; border:none; color:var(--accent); font-size:11px; cursor:pointer; text-decoration:underline; padding:0; margin-left:4px;">Hier laden</button>
-      </div>
-    </div>
-    
     <div class="error-msg" id="profile-error"></div>
     <div class="form-group">
       <label>Dein Name</label>
@@ -756,6 +740,9 @@
       <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none;" onchange="importDataFromFile(event)"/>
 
       <div class="settings-label" id="fm-ini-label">Tutor-INI</div>
+      <button class="sidebar-action-btn" style="width:100%;margin-bottom:8px;" id="sidebar-ini-btn" onclick="document.getElementById('modal-create-ini').style.display='flex'">
+        <i data-lucide="key-round" style="width:16px;height:16px;"></i> Tutor-INI erstellen
+      </button>
       <button class="sidebar-action-btn" style="width:100%;margin-bottom:20px;" id="sidebar-load-ini-btn" onclick="loadTeacherIni()">
         <i data-lucide="folder-open" style="width:16px;height:16px;"></i> INI laden
       </button>
@@ -983,7 +970,37 @@
   </div>
 </div>
 
-<!-- HINWEIS: Modal zur INI-Erstellung wurde entfernt. Bitte admin.html verwenden -->
+<!-- ── LEHRER: INI-DATEI ERSTELLEN ──────────────────────── -->
+<div id="modal-create-ini" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:420px;">
+    <button class="modal-close-btn" onclick="closeModal('modal-create-ini')">✕</button>
+    <div class="modal-title" style="display:flex;align-items:center;gap:8px;"><i data-lucide="key-round" style="width:18px;height:18px;"></i> Tutor-INI-Datei erstellen</div>
+    <div style="font-size:13px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
+      Erstellt ein Schlüsselpaar. Schülerinnen und Schüler können mit der INI-Datei ihre Daten für dich verschlüsseln.<br>
+      Du öffnest die Daten mit deinem Masterpasswort.
+    </div>
+    <div class="form-group">
+      <label>Dein Name (erscheint für Schülerinnen und Schüler)</label>
+      <input type="text" id="ini-teacher-name" class="settings-input" style="width:100%;" placeholder="z. B. Fr. Müller"/>
+    </div>
+    <div class="form-group" style="margin-top:12px;">
+      <label>Masterpasswort</label>
+      <input type="password" id="ini-master-pw" class="settings-input" style="width:100%;" placeholder="Mindestens 6 Zeichen"/>
+    </div>
+    <div class="form-group" style="margin-top:12px;">
+      <label>Masterpasswort bestätigen</label>
+      <input type="password" id="ini-master-pw2" class="settings-input" style="width:100%;" placeholder="Passwort wiederholen"/>
+    </div>
+    <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:8px; padding:10px 12px; font-size:12px; color:#ef4444; margin:12px 0; line-height:1.5;">
+      <i data-lucide="alert-triangle" style="width:14px;height:14px;vertical-align:-2px;flex-shrink:0;"></i> <strong>Masterpasswort sicher aufbewahren!</strong> Ohne es können die Daten nicht mehr entschlüsselt werden.
+    </div>
+    <div id="ini-create-error" style="color:#ef4444; font-size:13px; min-height:18px;"></div>
+    <div style="display:flex; gap:8px; margin-top:16px; justify-content:flex-end;">
+      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-create-ini')">Abbrechen</button>
+      <button id="ini-create-btn" class="btn-sm btn-sm-primary" onclick="createTeacherIniFile()" style="display:flex;align-items:center;gap:6px;"><i data-lucide="key-round" style="width:14px;height:14px;"></i> INI-Datei erstellen & speichern</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── CSS FÜR SCHÜLER-LOGIN ──────────────────────────── -->
 <style>
