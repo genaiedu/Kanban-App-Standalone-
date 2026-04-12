@@ -75,6 +75,9 @@ function loadAllCards() {
   S.columns.forEach(col => window.loadCards(col.id));
 }
 
+// Für Snapshot-Wiederherstellung exportieren
+window.loadAllCards = loadAllCards;
+
 // ── EFFEKTIVE AGING-ZEIT ──────────────────────────────
 function getEffectiveAgingMs(card) {
   if (!card.startedAt) return 0;

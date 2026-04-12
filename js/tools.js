@@ -1,6 +1,7 @@
 // js/tools.js — KI-Assistent, Export, Import, Agenda, INI (lokal, kein Firebase)
 import { S, getBoards, getColumns, getCards, createBoard, createColumn,
-  createCard, deleteColumn, deleteCard, updateBoard, replaceCards } from './state.js';
+  createCard, deleteColumn, deleteCard, updateBoard, replaceCards,
+  getSnapshots, loadSnapshot, deleteSnapshot, clearAllSnapshots, formatTimestamp } from './state.js';
 
 // ── LEHRER INI-DATEI ERSTELLEN ────────────────────────────
 window.createTeacherIniFile = async () => {
@@ -904,4 +905,114 @@ window.exportForStudent = async function() {
   a.href = url; a.download = suggestedName; a.click();
   URL.revokeObjectURL(url);
   showToast('📤 Datei gespeichert! Die Schülerin oder der Schüler kann sie mit dem eigenen Passwort öffnen.');
+};
+
+// ── SNAPSHOTS / VERSIONEN MANAGEMENT ────────────────────
+window.showSnapshotsModal = () => {
+  document.getElementById('modal-snapshots').style.display = 'flex';
+  refreshSnapshotsList();
+};
+
+window.refreshSnapshotsList = () => {
+  const listEl = document.getElementById('snapshots-list');
+  if (!listEl) return;
+  
+  const snapshots = getSnapshots();
+  
+  if (snapshots.length === 0) {
+    listEl.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted);">Keine gespeicherten Versionen vorhanden.</div>';
+    return;
+  }
+  
+  // Nach Zeitstempel absteigend sortieren (neueste zuerst)
+  const sorted = [...snapshots].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  
+  let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
+  
+  sorted.forEach((snapshot, idx) => {
+    const formattedDate = formatTimestamp(snapshot.timestamp);
+    const boardName = snapshot.data?.boards?.find(b => b.id === S.currentBoard?.id)?.name || 'Unbekanntes Board';
+    const totalBoards = snapshot.data?.boards?.length || 0;
+    const totalCards = snapshot.data?.boards?.reduce((sum, b) => sum + (b.columns?.reduce((cSum, c) => cSum + (c.cards?.length || 0), 0) || 0), 0) || 0;
+    
+    html += `
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:rgba(255,255,255,0.05); border-radius:8px; border:1px solid var(--border);">
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600; font-size:13px; margin-bottom:4px;">${formattedDate}</div>
+          <div style="font-size:11px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            Boards: ${totalBoards} | Karten: ${totalCards}
+          </div>
+        </div>
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+          <button class="btn-sm btn-sm-primary" onclick="loadSnapshotConfirm('${snapshot.timestamp}')" title="Diese Version wiederherstellen" style="display:flex; align-items:center; gap:4px;">
+            <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i> Laden
+          </button>
+          <button class="btn-sm btn-sm-secondary" onclick="deleteSnapshotConfirm('${snapshot.timestamp}')" title="Diese Version löschen" style="display:flex; align-items:center; gap:4px;">
+            <i data-lucide="trash" style="width:14px;height:14px;"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  listEl.innerHTML = html;
+  
+  // Icons neu laden
+  setTimeout(() => { if(typeof reloadIcons==='function') reloadIcons(); }, 50);
+};
+
+window.loadSnapshotConfirm = async (timestamp) => {
+  const snapshot = getSnapshots().find(s => s.timestamp === timestamp);
+  if (!snapshot) return;
+  
+  const dateStr = formatTimestamp(snapshot.timestamp);
+  if (!await showConfirm(`Möchtest du wirklich die Version vom ${dateStr} wiederherstellen?<br><br>⚠️ Der aktuelle Zustand wird dabei überschrieben und ein neuer Snapshot erstellt.`, 'Wiederherstellen', 'Abbrechen')) {
+    return;
+  }
+  
+  try {
+    const success = loadSnapshot(timestamp);
+    if (success) {
+      showToast('✅ Version wiederhergestellt!');
+      // App neu laden um die wiederhergestellten Daten anzuzeigen
+      if (typeof loadAllCards === 'function') loadAllCards();
+      if (typeof renderColumns === 'function') renderColumns();
+      closeModal('modal-snapshots');
+    } else {
+      showToast('Fehler beim Wiederherstellen.', 'error');
+    }
+  } catch (e) {
+    showToast('Fehler: ' + e.message, 'error');
+  }
+};
+
+window.deleteSnapshotConfirm = async (timestamp) => {
+  const snapshot = getSnapshots().find(s => s.timestamp === timestamp);
+  if (!snapshot) return;
+  
+  const dateStr = formatTimestamp(snapshot.timestamp);
+  if (!await showConfirm(`Möchtest du die Version vom ${dateStr} wirklich löschen?`, 'Löschen', 'Abbrechen')) {
+    return;
+  }
+  
+  deleteSnapshot(timestamp);
+  showToast('Version gelöscht.');
+  refreshSnapshotsList();
+};
+
+window.clearAllSnapshotsConfirm = async () => {
+  const snapshots = getSnapshots();
+  if (snapshots.length === 0) {
+    showToast('Keine Versionen zum Löschen vorhanden.', 'error');
+    return;
+  }
+  
+  if (!await showConfirm(`Möchtest du wirklich alle ${snapshots.length} gespeicherten Versionen löschen?<br><br>⚠️ Diese Aktion kann nicht rückgängig gemacht werden.`, 'Alle löschen', 'Abbrechen')) {
+    return;
+  }
+  
+  clearAllSnapshots();
+  showToast('Alle Versionen gelöscht.');
+  refreshSnapshotsList();
 };
