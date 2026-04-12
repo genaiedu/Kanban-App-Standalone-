@@ -3,6 +3,14 @@ import { S, getBoards, getColumns, getCards, createBoard, createColumn,
   createCard, deleteColumn, deleteCard, updateBoard, replaceCards } from './state.js';
 
 // ── LEHRER INI-DATEI ERSTELLEN ────────────────────────────
+window.showCreateIniModal = function() {
+  const modal = document.getElementById('modal-create-ini');
+  if (modal) {
+    modal.style.display = 'flex';
+    setTimeout(() => document.getElementById('ini-teacher-name')?.focus(), 100);
+  }
+};
+
 window.createTeacherIniFile = async () => {
   const name  = document.getElementById('ini-teacher-name')?.value.trim() || '';
   const pw    = document.getElementById('ini-master-pw')?.value || '';
@@ -848,6 +856,7 @@ window.resetToolsSession = function() {
   _teacherSessionPassword = null;
   window._loadedIni = null;
   window._studentReturnKeys = null;
+  window._tutorSession = null;  // Tutor-Authentifizierung zurücksetzen
 };
 
 // ── RÜCKGABE-EXPORT AN SCHÜLER (Tutor-only) ──────────────

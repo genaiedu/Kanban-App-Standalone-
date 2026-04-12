@@ -1,13 +1,56 @@
-// js/admin.js — Admin-Panel (lokal, vereinfacht ohne Firebase/Nutzerverwaltung)
+// js/admin.js — Admin-Panel mit echtem Passwortschutz
 import { S, getBoards, getColumns, getCards, updateBoard, deleteBoard,
   deleteColumn, deleteCard } from './state.js';
 
-// ── ADMIN CHECK ───────────────────────────────────────
-// Lokal: immer Admin
-window.currentUserIsAdmin = async function() { return true; };
+// ── ADMIN CHECK MIT PASSWORTPRÜFUNG ───────────────────────
+// Speichert den Zeitpunkt der letzten erfolgreichen Tutor-Authentifizierung
+let _adminAuthTimestamp = 0;
+const ADMIN_AUTH_TIMEOUT = 15 * 60 * 1000; // 15 Minuten Session-Dauer
 
-// ── ADMIN ÖFFNEN ──────────────────────────────────────
+/**
+ * Prüft ob aktueller Nutzer Tutor-Rechte hat
+ * @returns {Promise<boolean>} true wenn authentifiziert als Tutor
+ */
+window.currentUserIsAdmin = async function() {
+  // Wenn bereits authentifiziert und Session noch gültig
+  if (_adminAuthTimestamp > 0 && (Date.now() - _adminAuthTimestamp) < ADMIN_AUTH_TIMEOUT) {
+    return true;
+  }
+  
+  // Session abgelaufen oder nie authentifiziert → Passwort erforderlich
+  return false;
+};
+
+/**
+ * Setzt Admin-Session zurück (bei Logout)
+ */
+window.resetAdminSession = function() {
+  _adminAuthTimestamp = 0;
+};
+
+/**
+ * Markiert aktuelle Zeit als erfolgreich authentifiziert
+ */
+window.setAdminAuthenticated = function() {
+  _adminAuthTimestamp = Date.now();
+};
+
+// ── TUTOR-PASSWORTABFRAGE VOR ADMIN-ZUGRIFF ───────────────
 window.openAdminArea = async () => {
+  // Prüfen ob bereits authentifiziert
+  const isAdmin = await window.currentUserIsAdmin();
+  
+  if (!isAdmin) {
+    // Passwortabfrage erforderlich
+    const authenticated = await showTutorPasswordPrompt();
+    if (!authenticated) {
+      showToast('Zugriff verweigert: Tutor-Passwort erforderlich', 'error');
+      return;
+    }
+  }
+  
+  // Auth erfolgreich → Admin-Panel öffnen
+  window.setAdminAuthenticated();
   S.isAdminMode = true;
   const panel = document.getElementById('admin-panel');
   if (panel) panel.style.display = 'block';

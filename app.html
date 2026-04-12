@@ -117,6 +117,25 @@
     </div>
     <div class="auth-title">Willkommen!</div>
     <div class="auth-subtitle">Alle Daten bleiben lokal auf diesem Gerät.</div>
+    
+    <!-- Ersteinrichtungs-Modal für neue Tutoren -->
+    <div id="first-run-setup" style="display:none; margin-top:16px; padding:16px; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); border-radius:12px;">
+      <div style="font-size:14px; color:var(--text); margin-bottom:12px; font-weight:600;">
+        🔐 Erste Einrichtung als Tutor
+      </div>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px; line-height:1.6;">
+        Als Tutor benötigst du eine <strong>INI-Datei</strong> mit deinem persönlichen Schlüssel. 
+        Diese Datei ermöglicht dir den Zugriff auf das Notenmodul und schützt deine Daten.
+      </p>
+      <button class="btn btn-primary" onclick="showCreateIniModal()" style="width:100%; padding:12px; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px;">
+        <i data-lucide="key-round" style="width:16px;height:16px;"></i> INI-Datei erstellen
+      </button>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:12px; text-align:center;">
+        Oder lade eine bestehende INI-Datei hoch
+        <button onclick="loadTeacherIni()" style="background:none; border:none; color:var(--accent); font-size:11px; cursor:pointer; text-decoration:underline; padding:0; margin-left:4px;">INI laden</button>
+      </div>
+    </div>
+    
     <div class="error-msg" id="profile-error"></div>
     <div class="form-group">
       <label>Dein Name</label>
