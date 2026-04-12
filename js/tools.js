@@ -2,8 +2,62 @@
 import { S, getBoards, getColumns, getCards, createBoard, createColumn,
   createCard, deleteColumn, deleteCard, updateBoard, replaceCards } from './state.js';
 
-// HINWEIS: INI-Erstellung wurde in separates admin.html ausgelagert
-// showCreateIniModal und createTeacherIniFile wurden entfernt
+// ── LEHRER INI-DATEI ERSTELLEN ────────────────────────────
+window.createTeacherIniFile = async () => {
+  const name  = document.getElementById('ini-teacher-name')?.value.trim() || '';
+  const pw    = document.getElementById('ini-master-pw')?.value || '';
+  const pw2   = document.getElementById('ini-master-pw2')?.value || '';
+  const errEl = document.getElementById('ini-create-error');
+  errEl.textContent = '';
+
+  if (!name)         { errEl.textContent = 'Bitte Namen eingeben.'; return; }
+  if (pw.length < 6) { errEl.textContent = 'Masterpasswort muss mindestens 6 Zeichen haben.'; return; }
+  if (pw !== pw2)    { errEl.textContent = 'Passwörter stimmen nicht überein.'; return; }
+
+  const btn = document.getElementById('ini-create-btn');
+  btn.disabled = true; btn.textContent = 'Schlüssel werden generiert…';
+
+  try {
+    const iniJson = await window.kfCrypto.createIni(name, pw);
+    const suggestedName = `${name.replace(/\s+/g,'_')}.ini`;
+
+    // Speichern-Dialog
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: 'EDUBAN Tutor-INI', accept: { 'application/json': ['.ini'] } }],
+        });
+        const w = await handle.createWritable();
+        await w.write(iniJson); await w.close();
+      } catch(e) {
+        if (e.name === 'AbortError') { btn.disabled = false; btn.innerHTML = '<i data-lucide="key-round" style="width:14px;height:14px;"></i> INI-Datei erstellen & speichern'; if(typeof reloadIcons==='function') reloadIcons(); return; }
+        throw e;
+      }
+    } else {
+      const blob = new Blob([iniJson], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = suggestedName; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Masterpasswort für diese Sitzung merken
+    _teacherSessionPassword = pw;
+
+    closeModal('modal-create-ini');
+    showToast(`✅ INI-Datei "${suggestedName}" erstellt! Bitte in den App-Ordner legen.`);
+
+    // Felder zurücksetzen
+    ['ini-teacher-name','ini-master-pw','ini-master-pw2'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+  } catch(e) {
+    errEl.textContent = 'Fehler: ' + e.message;
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i data-lucide="key-round" style="width:14px;height:14px;"></i> INI-Datei erstellen & speichern'; if(typeof reloadIcons==='function') reloadIcons();
+  }
+};
 
 // ── KI-PROMPT ─────────────────────────────────────────
 // ── KI-ASSISTENT: PROMPT-GENERIERUNG ──────────────────────────────────
@@ -794,7 +848,6 @@ window.resetToolsSession = function() {
   _teacherSessionPassword = null;
   window._loadedIni = null;
   window._studentReturnKeys = null;
-  window._tutorSession = null;  // Tutor-Authentifizierung zurücksetzen
 };
 
 // ── RÜCKGABE-EXPORT AN SCHÜLER (Tutor-only) ──────────────
