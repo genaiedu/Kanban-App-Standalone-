@@ -38,6 +38,8 @@ window.initApp = function() {
       enterApp(user, false);
     } else {
       document.getElementById('auth-screen').style.display = 'flex';
+      // Ersteinrichtungs-Assistent für neue Tutoren anzeigen
+      showFirstRunSetupIfNeeded();
       setTimeout(() => { const el = document.getElementById('profile-name'); if (el) el.focus(); }, 100);
     }
   }
@@ -227,9 +229,38 @@ window.saveProfile = function() {
   const name  = document.getElementById('profile-name')?.value.trim()  || '';
   const group = document.getElementById('profile-group')?.value.trim() || '';
   if (!name) { showError('profile-error', 'Bitte gib deinen Namen ein.'); return; }
+  
+  // Prüfen ob INI-Datei vorhanden ist (für Tutoren wichtig!)
+  const hasIni = window._loadedIni && window._loadedIni.encryptedPrivateKey;
+  if (!hasIni) {
+    // Ersteinrichtung anzeigen wenn noch keine INI
+    const firstRunSetup = document.getElementById('first-run-setup');
+    if (firstRunSetup) {
+      firstRunSetup.style.display = 'block';
+      showError('profile-error', '⚠️ Als Tutor bitte zuerst INI-Datei erstellen oder laden!');
+      setTimeout(() => document.getElementById('first-run-setup').scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+      return;
+    }
+  }
+  
   const user = { displayName: name, groupId: group || 'default' };
   saveUser(user);
   enterApp(user, false);
+};
+
+// ── ERSTEINRICHTUNG ANZEIGEN ────────────────────────────
+window.showFirstRunSetupIfNeeded = function() {
+  // Nur für Tutoren relevant (nicht für Schüler)
+  if (sessionStorage.getItem('kf_role') === 'schueler') return;
+  
+  const user = getUser();
+  if (!user.displayName) {
+    // Neuer Tutor → Ersteinrichtungs-Assistent anzeigen
+    const firstRunSetup = document.getElementById('first-run-setup');
+    if (firstRunSetup) {
+      firstRunSetup.style.display = 'block';
+    }
+  }
 };
 
 // ── IN DIE APP WECHSELN ──────────────────────────────────
@@ -374,7 +405,9 @@ window.logoutUser = async function() {
   localStorage.removeItem('kanban_settings');
   localStorage.removeItem(STUDENT_CFG_KEY);
   window._kfSession = null;
+  window._tutorSession = null;  // Tutor-Session löschen
   if (typeof window.resetToolsSession === 'function') window.resetToolsSession();
+  if (typeof window.resetAdminSession === 'function') window.resetAdminSession();  // Admin-Session zurücksetzen
 
   // Board-Inhalt sofort aus dem DOM entfernen
   S.currentBoard = null;
