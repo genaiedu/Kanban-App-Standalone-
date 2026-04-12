@@ -743,6 +743,14 @@
       </button>
       <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none;" onchange="importDataFromFile(event)"/>
 
+      <div class="settings-label" id="fm-board-versions-label">Board-Versionen</div>
+      <button class="sidebar-action-btn" style="width:100%;margin-bottom:8px;" id="fm-show-versions-btn" onclick="showBoardVersionsInFileManager()">
+        <i data-lucide="clock" style="width:16px;height:16px;"></i> Frühere Versionen anzeigen
+      </button>
+      <button class="sidebar-action-btn" style="width:100%;margin-bottom:20px;" id="fm-restore-version-btn" onclick="showRestoreVersionDialog()">
+        <i data-lucide="rotate-ccw" style="width:16px;height:16px;"></i> Version wiederherstellen
+      </button>
+
       <div class="settings-label" id="fm-ini-label">Tutor-INI</div>
       <button class="sidebar-action-btn" style="width:100%;margin-bottom:8px;" id="sidebar-ini-btn" onclick="document.getElementById('modal-create-ini').style.display='flex'">
         <i data-lucide="key-round" style="width:16px;height:16px;"></i> Tutor-INI erstellen
