@@ -4,10 +4,15 @@ export function showGanttView(data, grid) {
     const placed = grid.placedCards || [];
     const colors = data.lineColors || {};
 
+    // Scroll-Position retten, bevor altes Overlay entfernt wird
+    const existingScroll = document.getElementById('gantt-scroll-area');
+    const savedScrollLeft = existingScroll ? existingScroll.scrollLeft : 0;
+    const savedScrollTop  = existingScroll ? existingScroll.scrollTop  : 0;
+
     // Globale Referenz für Refresh nach Drag
     window._lastGanttData = { data, grid };
 
-    // Altes Overlay entfernen, damit kein Doppel-Overlay entsteht
+    // Altes Overlay entfernen
     document.getElementById('gantt-overlay')?.remove();
 
     const overlay = document.createElement('div');
@@ -24,21 +29,19 @@ export function showGanttView(data, grid) {
     if (isNaN(rawMaxTime) || !isFinite(rawMaxTime) || rawMaxTime < 0) rawMaxTime = 10;
     const maxTime = Math.max(rawMaxTime + 4, 8);
 
-    const hourWidth = 56;
-    const rowHeight = 64;
+    const hourWidth  = 56;
+    const laneHeight = 64;   // Höhe einer Sub-Lane
     const labelWidth = 150;
-    const totalCols = Math.ceil(maxTime) + 2;
+    const totalCols  = Math.ceil(maxTime) + 2;
 
     // ── Constraint-Berechnung ──────────────────────────
     function getConstraints(task) {
         const ownDur = Math.max((task.simEnd || 0) - (task.simStart || 0), 0.1);
-        // Frühestmöglicher Start = Ende aller Abhängigkeiten
         const depEnds = (task.deps || []).map(depLabel => {
             const dep = placed.find(p => (p.label||'').toUpperCase() === String(depLabel).toUpperCase());
             return dep ? (dep.simEnd || 0) : 0;
         });
         const earliest = depEnds.length ? Math.max(...depEnds) : 0;
-        // Spätestmöglicher Start = frühester Nachfolger-Start minus eigene Dauer
         const dependents = placed.filter(p =>
             (p.deps || []).some(d => String(d).toUpperCase() === (task.label||'').toUpperCase())
         );
@@ -56,10 +59,32 @@ export function showGanttView(data, grid) {
         return `${h.toFixed(1)}h`;
     }
 
+    // ── Sub-Lane-Zuweisung (verhindert Überlappung in einer Zeile) ────
+    function assignLanes(tasks) {
+        // Jeder Task bekommt eine Lane-Nummer; überlappende Tasks in verschiedene Lanes
+        tasks.forEach(t => { t._lane = 0; });
+        for (let i = 0; i < tasks.length; i++) {
+            const ti = tasks[i];
+            const tiS = ti.simStart || 0, tiE = ti.simEnd || tiS + 0.01;
+            let lane = 0;
+            let conflict = true;
+            while (conflict) {
+                conflict = false;
+                for (let j = 0; j < i; j++) {
+                    const tj = tasks[j];
+                    if (tj._lane !== lane) continue;
+                    const tjS = tj.simStart || 0, tjE = tj.simEnd || tjS + 0.01;
+                    if (tiS < tjE && tiE > tjS) { conflict = true; lane++; break; }
+                }
+            }
+            ti._lane = lane;
+        }
+    }
+
     // ── Header ────────────────────────────────────────
     const headerCells = Array.from({length: totalCols}).map((_, i) => {
-        const label = i % 8 === 0 ? `Tag ${i/8}` : (i % 8 === 1 ? '' : '');
-        const isDay = i % 8 === 0;
+        const label = i % 8 === 0 ? `Tag ${i/8}` : '';
+        const isDay  = i % 8 === 0;
         return `<div style="width:${hourWidth}px;flex-shrink:0;font-size:9px;color:${isDay?'var(--text)':'var(--text-muted)'};
             padding:8px 4px;font-weight:${isDay?'900':'400'};border-left:${isDay?'2px solid var(--accent)':'1px solid var(--border)'};
             text-align:center;box-sizing:border-box;">${label}</div>`;
@@ -70,18 +95,22 @@ export function showGanttView(data, grid) {
         const myTasks = placed.filter(c => c.wer === p);
         const taskColor = colors[p] || '#666';
 
+        assignLanes(myTasks);
+        const maxLane  = myTasks.reduce((m, t) => Math.max(m, t._lane), 0);
+        const rowH     = (maxLane + 1) * laneHeight;
+
         const bars = myTasks.map(task => {
             const { earliest, latest, ownDur } = getConstraints(task);
-            const left   = (task.simStart || 0) * hourWidth;
-            const width  = Math.max(ownDur * hourWidth, 28);
-            const isGroup = !!task.gruppe;
+            const left     = (task.simStart || 0) * hourWidth;
+            const width    = Math.max(ownDur * hourWidth, 28);
+            const isGroup  = !!task.gruppe;
             const hasOffset = task.startOffset !== null && task.startOffset !== undefined;
+            const laneTop  = task._lane * laneHeight;
 
-            // Constraint-Zone (grün = erlaubter Bereich)
-            const cMin  = earliest * hourWidth;
-            const cMax  = latest !== null ? (latest + ownDur) * hourWidth : totalCols * hourWidth;
-            const cW    = Math.max(cMax - cMin, 0);
-            const constraintZone = `<div style="position:absolute;left:${cMin}px;top:8px;width:${cW}px;height:48px;
+            const cMin = earliest * hourWidth;
+            const cMax = latest !== null ? (latest + ownDur) * hourWidth : totalCols * hourWidth;
+            const cW   = Math.max(cMax - cMin, 0);
+            const constraintZone = `<div style="position:absolute;left:${cMin}px;top:${laneTop+8}px;width:${cW}px;height:48px;
                 background:rgba(16,185,129,0.06);border-left:2px dashed rgba(16,185,129,0.4);
                 border-right:${latest !== null ? '2px dashed rgba(239,68,68,0.4)' : 'none'};
                 border-radius:4px;pointer-events:none;z-index:1;"></div>`;
@@ -90,12 +119,13 @@ export function showGanttView(data, grid) {
                 ${constraintZone}
                 <div class="gantt-task-bar"
                      data-label="${escHtml(task.label)}"
+                     data-gruppe="${escHtml(task.gruppe || '')}"
                      data-earliest="${earliest}"
                      data-latest="${latest !== null ? latest : ''}"
                      data-dur="${ownDur}"
                      title="${escHtml(task.label)}: ${escHtml(task.titel||'')} | ${fmtH(task.simStart||0)} – ${fmtH(task.simEnd||0)}"
                      onclick="if(!window._ganttDragged && window.showUBahnCardDetail) window.showUBahnCardDetail('${escHtml(task.label)}')"
-                     style="position:absolute;left:${left}px;top:14px;width:${width}px;height:36px;
+                     style="position:absolute;left:${left}px;top:${laneTop+14}px;width:${width}px;height:36px;
                             background:${taskColor}22;border:2px solid ${taskColor};border-radius:10px;
                             display:flex;align-items:center;padding:0 10px;font-size:11px;color:var(--text);
                             white-space:nowrap;overflow:hidden;box-sizing:border-box;z-index:3;
@@ -109,12 +139,16 @@ export function showGanttView(data, grid) {
         }).join('');
 
         return `
-            <div style="display:flex;align-items:center;border-bottom:1px dotted var(--border);min-height:${rowHeight}px;position:relative;">
+            <div style="display:flex;align-items:flex-start;border-bottom:1px dotted var(--border);
+                        min-height:${rowH}px;position:relative;">
                 <div style="width:${labelWidth}px;flex-shrink:0;font-size:11px;font-weight:900;
                             color:${taskColor};position:sticky;left:0;background:var(--bg-panel);z-index:6;
-                            padding-right:16px;text-align:right;text-transform:uppercase;letter-spacing:1.5px;
-                            border-right:1px solid var(--border);">${escHtml(p)}</div>
-                <div style="position:relative;flex:1;height:${rowHeight}px;overflow:visible;">${bars}</div>
+                            padding-right:16px;padding-top:${laneHeight/2 - 8}px;text-align:right;
+                            text-transform:uppercase;letter-spacing:1.5px;
+                            border-right:1px solid var(--border);height:${rowH}px;box-sizing:border-box;">
+                    ${escHtml(p)}
+                </div>
+                <div style="position:relative;flex:1;height:${rowH}px;overflow:visible;">${bars}</div>
             </div>`;
     }).join('');
 
@@ -161,7 +195,14 @@ export function showGanttView(data, grid) {
 
     document.body.appendChild(overlay);
 
-    // ── Drag-Logik (nach DOM-Insert) ──────────────────
+    // Scroll-Position wiederherstellen
+    const newScrollArea = document.getElementById('gantt-scroll-area');
+    if (newScrollArea && (savedScrollLeft || savedScrollTop)) {
+        newScrollArea.scrollLeft = savedScrollLeft;
+        newScrollArea.scrollTop  = savedScrollTop;
+    }
+
+    // ── Drag-Logik ────────────────────────────────────
     let dragState = null;
     window._ganttDragged = false;
 
@@ -169,39 +210,42 @@ export function showGanttView(data, grid) {
         bar.addEventListener('mousedown', e => {
             if (e.button !== 0) return;
             e.preventDefault();
-            const scrollArea = document.getElementById('gantt-scroll-area');
-            const scrollLeft = scrollArea ? scrollArea.scrollLeft : 0;
-            const rect = bar.getBoundingClientRect();
-            const earliest = parseFloat(bar.dataset.earliest) || 0;
-            const latestRaw = bar.dataset.latest;
-            const latest = latestRaw !== '' ? parseFloat(latestRaw) : null;
-            const dur = parseFloat(bar.dataset.dur) || 1;
+            const scrollArea  = document.getElementById('gantt-scroll-area');
+            const earliest    = parseFloat(bar.dataset.earliest) || 0;
+            const latestRaw   = bar.dataset.latest;
+            const latest      = latestRaw !== '' ? parseFloat(latestRaw) : null;
+            const dur         = parseFloat(bar.dataset.dur) || 1;
             dragState = {
                 bar,
-                label: bar.dataset.label,
+                label:       bar.dataset.label,
+                gruppe:      bar.dataset.gruppe || '',
                 startClientX: e.clientX,
                 originalLeft: parseFloat(bar.style.left) || 0,
-                earliest,
-                latest,
-                dur,
+                earliest, latest, dur,
                 moved: false,
+                scrollArea,
             };
-            bar.style.cursor = 'grabbing';
-            bar.style.zIndex = '20';
+            bar.style.cursor  = 'grabbing';
+            bar.style.zIndex  = '20';
             bar.style.opacity = '0.85';
             window._ganttDragged = false;
         });
 
-        // Rechtsklick → Fixierung aufheben
+        // Rechtsklick → Fixierung aufheben (alle Gruppen-Members)
         bar.addEventListener('contextmenu', e => {
             e.preventDefault();
-            if (window.saveCardStartOffset) {
+            if (!window.saveCardStartOffset) return;
+            const gruppe = bar.dataset.gruppe;
+            if (gruppe) {
+                placed.filter(t => t.gruppe === gruppe).forEach(t => {
+                    window.saveCardStartOffset(t.label, null);
+                });
+                window.showToast && window.showToast(`Gruppe: Zeitfixierung aufgehoben`);
+            } else {
                 window.saveCardStartOffset(bar.dataset.label, null);
-                showToast && showToast(`${bar.dataset.label}: Zeitfixierung aufgehoben`);
-                setTimeout(() => {
-                    if (window._lastGanttData) window.showGanttView(window._lastGanttData.data, window._lastGanttData.grid);
-                }, 400);
+                window.showToast && window.showToast(`${bar.dataset.label}: Zeitfixierung aufgehoben`);
             }
+            if (window._lastGanttData) window.showGanttView(window._lastGanttData.data, window._lastGanttData.grid);
         });
     });
 
@@ -212,12 +256,25 @@ export function showGanttView(data, grid) {
         dragState.moved = true;
         window._ganttDragged = true;
 
-        const newLeft = dragState.originalLeft + dx;
-        const minLeft = dragState.earliest * hourWidth;
-        const maxLeft = dragState.latest !== null ? dragState.latest * hourWidth : Infinity;
+        const newLeft    = dragState.originalLeft + dx;
+        const minLeft    = dragState.earliest * hourWidth;
+        const maxLeft    = dragState.latest !== null ? dragState.latest * hourWidth : Infinity;
         const clampedLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
 
+        // Gezogenen Balken verschieben
         dragState.bar.style.left = clampedLeft + 'px';
+
+        // Alle Balken der gleichen Gruppe mitverschieben
+        if (dragState.gruppe) {
+            const delta = clampedLeft - dragState.originalLeft;
+            overlay.querySelectorAll('.gantt-task-bar').forEach(b => {
+                if (b !== dragState.bar && b.dataset.gruppe === dragState.gruppe) {
+                    const orig = parseFloat(b.dataset.origLeft ?? b.style.left) || 0;
+                    if (!b.dataset.origLeft) b.dataset.origLeft = orig;
+                    b.style.left = Math.max(0, orig + delta) + 'px';
+                }
+            });
+        }
 
         // Tooltip
         let tip = document.getElementById('gantt-drag-tip');
@@ -227,13 +284,14 @@ export function showGanttView(data, grid) {
             tip.style.cssText = 'position:fixed;background:rgba(0,0,0,0.85);color:#fff;font-size:11px;font-weight:700;padding:5px 10px;border-radius:8px;pointer-events:none;z-index:40000;';
             document.body.appendChild(tip);
         }
-        const newHours = clampedLeft / hourWidth;
-        const days = newHours / 8;
-        tip.textContent = `Start: Tag ${days.toFixed(1)} (${newHours.toFixed(1)}h)`;
+        const newDays = clampedLeft / hourWidth / 8;
+        const label = dragState.gruppe
+            ? `Gruppe (${placed.filter(t => t.gruppe === dragState.gruppe).map(t => t.label).join(', ')})`
+            : dragState.label;
+        tip.textContent = `${label} → Tag ${newDays.toFixed(1)}`;
         tip.style.left = (e.clientX + 14) + 'px';
         tip.style.top  = (e.clientY - 10) + 'px';
 
-        // Farbe wenn außerhalb erlaubtem Bereich
         const outOfRange = dragState.latest !== null && newLeft > dragState.latest * hourWidth + 2;
         dragState.bar.style.borderColor = outOfRange ? '#ef4444' : '';
     };
@@ -241,20 +299,29 @@ export function showGanttView(data, grid) {
     const onMouseUp = e => {
         document.getElementById('gantt-drag-tip')?.remove();
         if (!dragState) return;
-        const { bar, label, moved } = dragState;
-        bar.style.cursor = 'grab';
-        bar.style.zIndex = '3';
+        const { bar, label, gruppe, moved } = dragState;
+        bar.style.cursor  = 'grab';
+        bar.style.zIndex  = '3';
         bar.style.opacity = '1';
         bar.style.borderColor = '';
 
         if (moved && window.saveCardStartOffset) {
-            const newHours = parseFloat(bar.style.left) / hourWidth;
-            const newDays = newHours / 8;
-            window.saveCardStartOffset(label, newDays);
-            if (typeof showToast === 'function') showToast(`${label}: Start auf Tag ${newDays.toFixed(1)} gesetzt`);
-            setTimeout(() => {
-                if (window._lastGanttData) window.showGanttView(window._lastGanttData.data, window._lastGanttData.grid);
-            }, 400);
+            const newDays = parseFloat(bar.style.left) / hourWidth / 8;
+
+            if (gruppe) {
+                // Alle Gruppen-Members auf denselben Starttag setzen
+                const groupTasks = placed.filter(t => t.gruppe === gruppe);
+                groupTasks.forEach(t => window.saveCardStartOffset(t.label, newDays));
+                window.showToast && window.showToast(`Gruppe: ${groupTasks.length} Tasks → Tag ${newDays.toFixed(1)}`);
+            } else {
+                window.saveCardStartOffset(label, newDays);
+                window.showToast && window.showToast(`${label}: Start → Tag ${newDays.toFixed(1)}`);
+            }
+
+            // Sofort neu zeichnen (saveCardStartOffset ist synchron und aktualisiert _lastGanttData)
+            if (window._lastGanttData) {
+                window.showGanttView(window._lastGanttData.data, window._lastGanttData.grid);
+            }
         }
 
         dragState = null;
@@ -262,7 +329,7 @@ export function showGanttView(data, grid) {
     };
 
     overlay.addEventListener('mousemove', onMouseMove);
-    overlay.addEventListener('mouseup', onMouseUp);
+    overlay.addEventListener('mouseup',   onMouseUp);
     overlay.addEventListener('mouseleave', onMouseUp);
 }
 
