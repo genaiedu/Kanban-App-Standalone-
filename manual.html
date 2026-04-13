@@ -96,6 +96,7 @@
           <a href="#ch-hintergrund" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Hintergrund anpassen</a>
           <a href="#ch-termine" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Termine und Fristen</a>
           <a href="#ch-ubahn" class="toc-link"><i data-lucide="train-front" style="width:14px;height:14px;"></i> U-Bahn-Ansicht (Projektablauf)</a>
+          <a href="#ch-timeline" class="toc-link"><i data-lucide="bar-chart-2" style="width:14px;height:14px;"></i> Projekt-Timeline (Gantt)</a>
           <a href="#ch-export-import" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> Exportieren, Image und KI Import</a>
           <a href="#ch-pwa" class="toc-link"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i> App installieren</a>
         </div>
@@ -334,9 +335,55 @@
       <p style="margin-top:6px; margin-bottom:0; font-size:12px; opacity:0.8;">Je weiter entfernt eine Aufgabe in dieser Kette ist, desto schwächer leuchtet sie. So erkennst du sofort, ob eine Aufgabe ein kritischer Flaschenhals ist.</p>
     </div>
 
+    <p style="margin-top:10px;"><strong style="color:var(--text);">Karten-Detailpopup – direkt aus dem Plan heraus bearbeiten:</strong></p>
+    <p>Ein Klick auf eine Station öffnet das Detailfenster der Karte. Dort kannst du nicht nur Titel, Beschreibung und Zeitschätzung ändern, sondern auch <strong style="color:var(--text);">Abhängigkeiten und Gruppenarbeit direkt editieren</strong> – ohne zurück zur Hauptansicht zu wechseln:</p>
+    <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+      <li><strong style="color:var(--text);">Abhängigkeiten (⬆ Muss vorher fertig sein):</strong> Bestehende Abhängigkeiten lassen sich über das <strong style="color:var(--danger);">×</strong>-Symbol direkt entfernen. Über das Dropdown darunter kannst du neue Vorgänger-Aufgaben aus allen vorhandenen Karten hinzufügen.</li>
+      <li><strong style="color:var(--text);">Gruppenarbeit mit:</strong> Gruppenmitglieder lassen sich genauso per <strong style="color:var(--danger);">×</strong> entfernen. Über das Dropdown kannst du weitere Personen hinzufügen – die App legt dabei automatisch eine gemeinsame Gruppen-ID an, falls die Karte noch nicht Teil einer Gruppe war.</li>
+    </ul>
+    <p style="margin-top:8px;">Alle Änderungen wirken sich sofort auf den U-Bahn-Plan und die Projekt-Timeline aus – ideal, um im Zeitplan zu experimentieren: Was passiert, wenn man eine Gruppenarbeit aufteilt? Welche Auswirkung hat das Entfernen einer Abhängigkeit auf die Gesamtdauer?</p>
+
     <p style="margin-top:10px;"><strong style="color:var(--text);">Ansicht anpassen &amp; Export:</strong></p>
     <p>Über das schwebende Kontroll-Panel auf der linken Seite kannst du den Abstand zwischen den Stationen mit einem Schieberegler (<i data-lucide="sliders-horizontal" style="width:14px;height:14px;vertical-align:-2px;"></i>) anpassen, falls das Netz zu gedrungen wirkt. Über das Download-Symbol (<i data-lucide="download" style="width:14px;height:14px;vertical-align:-2px;"></i>) lässt sich der gesamte U-Bahn-Plan als hochauflösendes Bild abspeichern oder ausdrucken.</p>
   </div>
+  <!-- PROJEKT-TIMELINE -->
+  <div id="ch-timeline" class="help-section" style="scroll-margin-top: 20px;">
+    <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="bar-chart-2" style="width:24px;height:24px;"></i> Projekt-Timeline (Gantt)</span></div>
+    <p>Die <strong style="color:var(--text);">Projekt-Timeline</strong> zeigt alle Aufgaben als Balkendiagramm (Gantt-Chart) – eine Zeile pro Person, mit einer Zeitachse in Arbeitstagen (1 Tag = 8 Stunden). Klicke in der U-Bahn-Ansicht auf den Button <strong style="color:var(--text);">„Timeline"</strong>, um sie zu öffnen.</p>
+
+    <p style="margin-top:10px;"><strong style="color:var(--text);">Den Plan lesen</strong></p>
+    <p>Jeder Balken steht für eine Aufgabe. Die horizontale Position ergibt sich aus dem berechneten oder manuell gesetzten Startzeitpunkt. Der grün hinterlegte Bereich zeigt das <strong style="color:var(--text);">erlaubte Zeitfenster</strong>: links die grüne gestrichelte Linie (frühester Start, alle Vorgänger müssen fertig sein), rechts die rote gestrichelte Linie (spätester Start, damit Nachfolger noch pünktlich beginnen können).</p>
+    <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+      <li>Durchgezogener Rahmen = Einzelaufgabe</li>
+      <li>Gestrichelter Rahmen = Gruppenarbeit (alle Mitglieder starten gleichzeitig)</li>
+      <li>📌 = Startzeitpunkt wurde manuell fixiert</li>
+      <li>Mehrere Balken übereinander in einer Zeile = Person hat parallele Aufgaben (Sub-Lanes)</li>
+    </ul>
+
+    <p style="margin-top:10px;"><strong style="color:var(--text);">Balken verschieben (Drag &amp; Drop)</strong></p>
+    <p>Halte einen Balken gedrückt und ziehe ihn nach links oder rechts. Bei Gruppenarbeiten verschiebt sich automatisch die gesamte Gruppe. Beim Loslassen wird der neue Starttag als 📌 Fixierung gespeichert und die Timeline aktualisiert sich sofort.</p>
+    <div class="help-tip">
+      <div class="help-tip-title">Fixierung aufheben</div>
+      <p style="margin-top:4px; margin-bottom:0;">Klicke mit der <strong style="color:var(--text);">rechten Maustaste</strong> auf einen fixierten Balken, um die manuelle Zeitfixierung zu entfernen. Bei Gruppenarbeiten werden alle Mitglieder der Gruppe gleichzeitig freigegeben. Die Aufgaben kehren zur automatisch berechneten Position zurück.</p>
+    </div>
+
+    <p style="margin-top:12px;"><strong style="color:var(--text);">⚡ Optimieren – automatischer Zeitplan</strong></p>
+    <p>Der Button <strong style="color:var(--text);">„⚡ Optimieren"</strong> berechnet den <strong style="color:var(--text);">schnellstmöglichen Ablaufplan</strong> für das gesamte Projekt. Der Algorithmus arbeitet in drei Schritten:</p>
+    <ol style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+      <li><strong style="color:var(--text);">Abhängigkeiten auflösen:</strong> Alle Aufgaben werden topologisch sortiert – Vorgänger kommen immer vor ihren Nachfolgern.</li>
+      <li><strong style="color:var(--text);">ASAP-Scheduling:</strong> Jede Aufgabe startet so früh wie möglich, sobald alle Vorgänger abgeschlossen und die Person frei ist.</li>
+      <li><strong style="color:var(--text);">Gruppen synchronisieren:</strong> Alle Mitglieder einer Gruppenarbeit starten gleichzeitig – zum spätestmöglichen Zeitpunkt, zu dem <em>alle</em> Beteiligten verfügbar sind.</li>
+    </ol>
+    <p style="margin-top:8px;">Das Ergebnis ist ein Zeitplan, der möglichst viele Personen gleichzeitig beschäftigt und die Gesamtprojektdauer minimiert. Die berechneten Startzeitpunkte werden als 📌 Fixierungen gespeichert und können danach weiterhin manuell angepasst werden.</p>
+    <div class="help-info">
+      <div class="help-info-title">Tipp: Optimieren + Experimentieren kombinieren</div>
+      <p style="margin-top:4px; margin-bottom:0;">Nutze „Optimieren" als Ausgangspunkt, teste dann im Karten-Detailpopup (U-Bahn-Ansicht), was passiert wenn du eine Abhängigkeit entfernst oder eine Gruppe aufteilst – und klicke danach erneut auf „Optimieren", um den neuen Zeitplan zu berechnen.</p>
+    </div>
+
+    <p style="margin-top:12px;"><strong style="color:var(--text);">🖨 Drucken</strong></p>
+    <p>Der Button <strong style="color:var(--text);">„🖨 Drucken"</strong> öffnet den Zeitplan in einem separaten Fenster, das sofort den Druckdialog startet. Der gesamte Balkenplan wird dabei seitengerecht aufbereitet – einschließlich aller Personen-Zeilen und der vollständigen Zeitachse.</p>
+  </div>
+
   <!-- EXPORT / IMAGE / KI IMPORT -->
   <div id="ch-export-import" class="help-section" style="scroll-margin-top: 20px;">
     <div class="help-heading"><span style="display:flex;align-items:center;gap:10px;"><i data-lucide="file-json" style="width:24px;height:24px;"></i> Exportieren, Image und KI Import</span></div>
