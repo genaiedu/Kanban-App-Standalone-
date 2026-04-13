@@ -703,17 +703,22 @@ window.showUBahnCardDetail = function(label) {
       </div>
 
       <div style="margin-top:14px;">
-        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Geschätzte Bearbeitungszeit</div>
+        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Geschätzte Bearbeitungszeit</div>
         <div style="display:flex; gap:10px;">
-          <div style="flex:1;">
-            <input type="number" id="ubahn-time-d" data-cardid="${card.id}" data-colid="${currentColId}" onchange="window.ubahn_saveTime(this)" value="${liveCard?.timeEstimate?.d || ''}" min="0" placeholder="Tage" ${isLocked ? 'disabled' : ''} style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid ${isLocked?'var(--border)':color};background:rgba(var(--panel-rgb),1);color:${isLocked?'var(--text-muted)':'var(--text)'};font-size:13px;font-family:inherit;outline:none;">
-          </div>
-          <div style="flex:1;">
-            <input type="number" id="ubahn-time-h" data-cardid="${card.id}" data-colid="${currentColId}" onchange="window.ubahn_saveTime(this)" value="${liveCard?.timeEstimate?.h || ''}" min="0" max="23" placeholder="Std" ${isLocked ? 'disabled' : ''} style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid ${isLocked?'var(--border)':color};background:rgba(var(--panel-rgb),1);color:${isLocked?'var(--text-muted)':'var(--text)'};font-size:13px;font-family:inherit;outline:none;">
-          </div>
-          <div style="flex:1;">
-            <input type="number" id="ubahn-time-m" data-cardid="${card.id}" data-colid="${currentColId}" onchange="window.ubahn_saveTime(this)" value="${liveCard?.timeEstimate?.m || ''}" min="0" max="59" placeholder="Min" ${isLocked ? 'disabled' : ''} style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid ${isLocked?'var(--border)':color};background:rgba(var(--panel-rgb),1);color:${isLocked?'var(--text-muted)':'var(--text)'};font-size:13px;font-family:inherit;outline:none;">
-          </div>
+          ${[
+            { id:'ubahn-time-d', label:'Tage',    val: liveCard?.timeEstimate?.d ?? '', max: '' },
+            { id:'ubahn-time-h', label:'Stunden', val: liveCard?.timeEstimate?.h ?? '', max: 'max="23"' },
+            { id:'ubahn-time-m', label:'Minuten', val: liveCard?.timeEstimate?.m ?? '', max: 'max="59"' },
+          ].map(f => `
+            <div style="flex:1;display:flex;flex-direction:column;gap:4px;">
+              <div style="font-size:10px;font-weight:700;color:${isLocked?'var(--text-muted)':color};text-align:center;letter-spacing:0.5px;">${f.label}</div>
+              <input type="number" id="${f.id}"
+                data-cardid="${card.id}" data-colid="${currentColId}"
+                onchange="window.ubahn_saveTime(this)"
+                value="${f.val}" min="0" ${f.max} placeholder="0"
+                ${isLocked ? 'disabled' : ''}
+                style="width:100%;padding:9px 8px;border-radius:10px;border:1px solid ${isLocked?'var(--border)':color};background:rgba(var(--panel-rgb),1);color:${isLocked?'var(--text-muted)':'var(--text)'};font-size:15px;font-weight:700;font-family:inherit;outline:none;text-align:center;box-sizing:border-box;">
+            </div>`).join('')}
         </div>
       </div>
 
