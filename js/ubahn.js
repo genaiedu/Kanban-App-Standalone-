@@ -80,8 +80,8 @@ function prepareBoardData() {
     
     cardsInCol.forEach(card => {
       if (card && card.assignee) {
-        // IDs und Labels "wasserdicht" machen (trimmen, uppercase, null-safe)
-        const safeId = String(card.id || '').trim().toUpperCase();
+        // IDs: Originalschreibweise beibehalten (lowercase), Labels uppercase für Abhängigkeits-Matching
+        const safeId = String(card.id || '').trim();
         const safeLabel = String(card.label || '').trim().toUpperCase();
         
         // Dependencies wasserdicht filtern (leere Strings oder Null-Werte entfernen)
@@ -197,7 +197,7 @@ function calculateGrid(boardData, people) {
           if (card.deps) card.deps.forEach(d => { if(typeof d === 'string') node.rawDeps.add(d.trim().toUpperCase()); });
           if (card.wer) node.involved.add(card.wer);
 
-          lookup.set(String(card.id).trim().toUpperCase(), key);
+          lookup.set(String(card.id).trim(), key);
           if (card.label) lookup.set(String(card.label).trim().toUpperCase(), key);
       });
 
@@ -574,7 +574,11 @@ window.saveCardStartOffset = function(label, offsetDays) {
   const days = offsetDays !== null ? Math.max(0, Math.round(offsetDays * 10) / 10) : null;
   updateCard(S.currentBoard.id, found.colId, found.id, { startOffset: days });
   if (typeof window.loadCards === 'function') window.loadCards(found.colId);
-  if (_data) { _data = prepareBoardData(); _lastGrid = calculateGrid(_data.boardData, _data.people); }
+  if (_data) {
+    _data = prepareBoardData();
+    _lastGrid = calculateGrid(_data.boardData, _data.people);
+    window._lastGanttData = { data: _data, grid: _lastGrid };
+  }
 };
 
 window._ubahnNav = function(label) {
@@ -621,11 +625,11 @@ window.showUBahnCardDetail = function(label) {
   const card = _data.allCardsFlat.find(c => c.label === label); if (!card) return;
   const color = _data.lineColors[card.wer];
 
-  const currentColId = Object.entries(S.cards).find(([, cards]) => cards.some(c => c.id === card.id))?.[0];
+  const currentColId = Object.entries(S.cards).find(([, cards]) => cards.some(c => String(c.id).toUpperCase() === String(card.id).toUpperCase()))?.[0];
   const currentCol   = S.columns.find(c => c.id === currentColId);
   const isLocked     = currentCol && window.isFinishedColumn ? window.isFinishedColumn(currentCol) : false;
 
-  const liveCard = (S.cards[currentColId] || []).find(c => c.id === card.id);
+  const liveCard = (S.cards[currentColId] || []).find(c => String(c.id).toUpperCase() === String(card.id).toUpperCase());
   const description = liveCard?.description || card.description || '';
 
   const prereqs  = (card.deps || []).map(_resolveCard).filter(Boolean);
@@ -794,6 +798,26 @@ window.ubahn_saveDescription = function(textarea) {
   if (_data) _data = prepareBoardData();
 };
 
+window.ubahn_saveTime = function(input) {
+  const cardId = input.dataset.cardid;
+  const colId  = input.dataset.colid;
+  const dInput = document.getElementById('ubahn-time-d');
+  const hInput = document.getElementById('ubahn-time-h');
+  const mInput = document.getElementById('ubahn-time-m');
+  const timeEstimate = {
+    d: parseFloat(dInput?.value) || 0,
+    h: parseFloat(hInput?.value) || 0,
+    m: parseFloat(mInput?.value) || 0,
+  };
+  updateCard(S.currentBoard.id, colId, cardId, { timeEstimate });
+  if (typeof window.loadCards === 'function') window.loadCards(colId);
+  if (_data) {
+    _data = prepareBoardData();
+    _lastGrid = calculateGrid(_data.boardData, _data.people);
+    window._lastGanttData = { data: _data, grid: _lastGrid };
+  }
+};
+
 window.openCardDetail = function(cardId, colId) {
   if (!_data) _data = prepareBoardData();
   if (!_lastGrid) _lastGrid = calculateGrid(_data.boardData, _data.people);
@@ -829,7 +853,7 @@ window.ubahn_moveCard = async function(cardId, fromColId, toColId) {
   if (typeof window.pushUndo === 'function') window.pushUndo('Karte verschoben (U-Bahn)');
   const now = new Date().toISOString();
 
-  const srcCard = (S.cards[fromColId]||[]).find(c => c.id === cardId);
+  const srcCard = (S.cards[fromColId]||[]).find(c => String(c.id).toUpperCase() === String(cardId).toUpperCase());
   const toMove = srcCard?.groupId
     ? (S.cards[fromColId]||[]).filter(c => c.groupId === srcCard.groupId)
     : (srcCard ? [srcCard] : []);

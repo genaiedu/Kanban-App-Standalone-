@@ -7,6 +7,9 @@ export function showGanttView(data, grid) {
     // Globale Referenz für Refresh nach Drag
     window._lastGanttData = { data, grid };
 
+    // Altes Overlay entfernen, damit kein Doppel-Overlay entsteht
+    document.getElementById('gantt-overlay')?.remove();
+
     const overlay = document.createElement('div');
     overlay.id = 'gantt-overlay';
     overlay.style.cssText = `
