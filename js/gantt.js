@@ -170,6 +170,10 @@ export function showGanttView(data, grid) {
                             style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;
                                    padding:10px 20px;border-radius:12px;cursor:pointer;font-weight:bold;
                                    font-size:13px;letter-spacing:0.3px;">⚡ Optimieren</button>
+                    <button onclick="window.ganttPrint()"
+                            title="Zeitplan drucken"
+                            style="background:var(--surface);border:1px solid var(--border);color:var(--text);
+                                   padding:10px 18px;border-radius:12px;cursor:pointer;font-weight:bold;">🖨 Drucken</button>
                     <button onclick="document.getElementById('gantt-overlay').remove()"
                             style="background:var(--surface);border:1px solid var(--border);color:var(--text);
                                    padding:10px 24px;border-radius:12px;cursor:pointer;font-weight:bold;">Schließen</button>
@@ -417,6 +421,35 @@ window.ganttOptimize = function(placed) {
     if (window._lastGanttData) {
         window.showGanttView(window._lastGanttData.data, window._lastGanttData.grid);
     }
+};
+
+window.ganttPrint = function() {
+    const scrollArea = document.getElementById('gantt-scroll-area');
+    if (!scrollArea) return;
+    const styles = Array.from(document.styleSheets).map(s => {
+        try { return Array.from(s.cssRules).map(r => r.cssText).join(''); } catch(e) { return ''; }
+    }).join('');
+    const W = scrollArea.scrollWidth + 10;
+    const H = scrollArea.scrollHeight + 10;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) { window.showToast && window.showToast('Popup-Fenster blockiert — bitte erlauben.', 'error'); return; }
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Projekt-Timeline</title>
+        <style>
+            ${styles}
+            body { background:#1a1a1a !important; margin:0; padding:20px 20px 40px; font-family:sans-serif; }
+            h2 { color:#fff; font-size:15px; font-weight:900; letter-spacing:2px; text-transform:uppercase; margin:0 0 16px; }
+            #gantt-print-area { position:relative; width:${W}px; min-height:${H}px; overflow:visible; }
+            @media print {
+                @page { size:${W + 40}px ${H + 100}px landscape; margin:0; }
+                body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            }
+        </style></head>
+        <body>
+        <h2>Projekt-Timeline</h2>
+        <div id="gantt-print-area">${scrollArea.innerHTML}</div>
+        <script>window.onload=()=>{setTimeout(()=>{window.print();window.close();},900);};<\/script>
+        </body></html>`);
+    printWindow.document.close();
 };
 
 window.showGanttView = showGanttView;

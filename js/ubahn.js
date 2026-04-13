@@ -635,6 +635,28 @@ window.showUBahnCardDetail = function(label) {
   const prereqs  = (card.deps || []).map(_resolveCard).filter(Boolean);
   const enables  = _data.allCardsFlat.filter(c => (c.deps || []).map(d=>String(d).trim().toUpperCase()).includes(String(card.label).trim().toUpperCase())).map(c => _resolveCard(c.label)).filter(Boolean);
   const groupPartners = card.gruppe ? _data.allCardsFlat.filter(c => c.gruppe === card.gruppe && c.wer !== card.wer) : [];
+  const groupPartnersResolved = groupPartners.map(p => _resolveCard(p.label)).filter(Boolean);
+  const existingDepLabels = new Set((card.deps || []).map(d => String(d).toUpperCase()));
+  const availForDep = _data.allCardsFlat.filter(c =>
+    c.label !== card.label && !existingDepLabels.has(String(c.label).toUpperCase())
+  );
+  const groupMemberLabels = new Set([card.label, ...groupPartners.map(p => p.label)]);
+  const availForGroup = _data.allCardsFlat.filter(c => !groupMemberLabels.has(c.label))
+    .map(c => _resolveCard(c.label)).filter(Boolean);
+
+  // Helper: mini dep card with optional remove button
+  function miniDepCard(info) {
+    const c = _data.lineColors[info.wer] || 'var(--border)';
+    const rm = isLocked ? '' : `<button onclick="event.stopPropagation();window.ubahn_removeDep('${card.id}','${currentColId}','${info.label}')" style="flex-shrink:0;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:0 10px;line-height:1;" onmouseenter="this.style.color='#ef4444'" onmouseleave="this.style.color='var(--text-muted)'">×</button>`;
+    return `<div style="display:flex;align-items:center;background:var(--surface);border:1.5px solid ${c};border-radius:12px;margin-bottom:6px;overflow:hidden;">
+      <div onclick='window._ubahnNav(${JSON.stringify(info.label)})' style="display:flex;align-items:center;gap:8px;padding:8px 12px;flex:1;min-width:0;cursor:pointer;user-select:none;" onmouseenter="this.style.opacity='.75'" onmouseleave="this.style.opacity='1'">
+        <span style="width:28px;height:28px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">${esc(info.label)}</span>
+        <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(info.titel)}</div><div style="font-size:10px;color:var(--text-muted);">${esc(info.wer)} · ${esc(info.colName)}</div></div>
+        <span style="color:var(--text-muted);font-size:14px;">›</span>
+      </div>
+      ${rm}
+    </div>`;
+  }
 
   const prioBadge = {
     hoch:    `<span style="background:#ef444422;color:#ef4444;border:1px solid #ef444466;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">▲ Hoch</span>`,
@@ -655,10 +677,10 @@ window.showUBahnCardDetail = function(label) {
     <div data-ubahn-popup style="background:rgba(var(--panel-rgb),1);border-radius:24px;width:92%;max-width:480px;border:1px solid var(--border);padding:28px 28px 24px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,0.5);max-height:88vh;overflow-y:auto;animation:_ubahn_in .18s ease;">
       <button onclick="document.getElementById('ubahn-card-overlay').remove()" style="position:absolute;right:18px;top:18px;background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;">✕</button>
 
-      ${prereqs.length ? `
-        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">⬆ Muss vorher fertig sein</div>
-        ${prereqs.map(_miniCard).join('')}
-        ${hr}` : ''}
+      <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">⬆ Muss vorher fertig sein</div>
+      ${prereqs.length ? prereqs.map(miniDepCard).join('') : `<div style="font-size:11px;color:var(--text-muted);padding:2px 0 6px;font-style:italic;">Keine Abhängigkeiten</div>`}
+      ${!isLocked && availForDep.length ? `<select onchange="if(this.value){window.ubahn_addDep('${card.id}','${currentColId}',this.value);this.value=''}" style="width:100%;margin-top:4px;padding:7px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;cursor:pointer;outline:none;"><option value="">+ Abhängigkeit hinzufügen…</option>${availForDep.map(c => `<option value="${esc(c.label)}">${esc(c.label)}: ${esc(c.titel)} (${esc(c.wer)})</option>`).join('')}</select>` : ''}
+      ${hr}
 
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
         <div style="position:relative;flex-shrink:0;">
@@ -722,16 +744,15 @@ window.showUBahnCardDetail = function(label) {
         </div>
       </div>
 
-      ${groupPartners.length ? `
-        <div style="margin-top:14px;">
-          <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Gruppenarbeit mit</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;">
-            ${groupPartners.map(p => `<div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface);border-radius:20px;border:2px solid ${_data.lineColors[p.wer]||'var(--border)'};">
-              <span style="width:14px;height:14px;border-radius:50%;background:${_data.lineColors[p.wer]||'var(--border)'}"></span>
-              <span style="font-size:12px;font-weight:700;">${esc(p.wer)}</span>
-            </div>`).join('')}
-          </div>
-        </div>` : ''}
+      <div style="margin-top:14px;">
+        <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Gruppenarbeit mit</div>
+        ${groupPartnersResolved.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">${groupPartnersResolved.map(p => {
+          const pc = _data.lineColors[p.wer] || 'var(--border)';
+          const rm = isLocked ? '' : `<button onclick="event.stopPropagation();window.ubahn_removeFromGroup('${p.id}','${p.colId}','${card.label}')" style="background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:0 4px;line-height:1;" onmouseenter="this.style.color='#ef4444'" onmouseleave="this.style.color='var(--text-muted)'">×</button>`;
+          return `<div style="display:flex;align-items:center;gap:5px;padding:4px 8px 4px 10px;background:var(--surface);border-radius:20px;border:2px solid ${pc};"><span style="width:10px;height:10px;border-radius:50%;background:${pc};flex-shrink:0;"></span><span style="font-size:12px;font-weight:700;">${esc(p.wer)}</span>${rm}</div>`;
+        }).join('')}</div>` : `<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-style:italic;">Keine Gruppenarbeit</div>`}
+        ${!isLocked && availForGroup.length ? `<select onchange="if(this.value){window.ubahn_addToGroup(this.value,'${card.label}');this.value=''}" style="width:100%;padding:7px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;cursor:pointer;outline:none;"><option value="">+ Zur Gruppe hinzufügen…</option>${availForGroup.map(c => `<option value="${esc(c.id)}|${esc(c.colId)}">${esc(c.label)}: ${esc(c.titel)} (${esc(c.wer)})</option>`).join('')}</select>` : ''}
+      </div>
 
       <div style="margin-top:14px;">
         <div style="font-size:10px;font-weight:900;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Phase</div>
@@ -821,6 +842,64 @@ window.ubahn_saveTime = function(input) {
     _lastGrid = calculateGrid(_data.boardData, _data.people);
     window._lastGanttData = { data: _data, grid: _lastGrid };
   }
+};
+
+function _refreshAndReopen(cardLabel) {
+  if (typeof window.loadCards === 'function') {
+    Object.keys(S.cards).forEach(cid => window.loadCards(cid));
+  }
+  if (_data) {
+    _data = prepareBoardData();
+    _lastGrid = calculateGrid(_data.boardData, _data.people);
+    window._lastGanttData = { data: _data, grid: _lastGrid };
+  }
+  window.showUBahnCardDetail(cardLabel);
+  if (typeof window.renderBoard === 'function') window.renderBoard();
+}
+
+window.ubahn_removeDep = function(cardId, colId, depLabel) {
+  const c = (S.cards[colId] || []).find(x => x.id === cardId);
+  if (!c) return;
+  const newDeps = (c.dependencies || []).filter(d => String(d).toUpperCase() !== String(depLabel).toUpperCase());
+  updateCard(S.currentBoard.id, colId, cardId, { dependencies: newDeps });
+  if (_data) _data = prepareBoardData();
+  const card = _data.allCardsFlat.find(x => x.id === cardId);
+  if (card) _refreshAndReopen(card.label);
+};
+
+window.ubahn_addDep = function(cardId, colId, depLabel) {
+  const c = (S.cards[colId] || []).find(x => x.id === cardId);
+  if (!c) return;
+  const deps = [...(c.dependencies || [])];
+  if (!deps.some(d => String(d).toUpperCase() === String(depLabel).toUpperCase())) deps.push(depLabel);
+  updateCard(S.currentBoard.id, colId, cardId, { dependencies: deps });
+  if (_data) _data = prepareBoardData();
+  const card = _data.allCardsFlat.find(x => x.id === cardId);
+  if (card) _refreshAndReopen(card.label);
+};
+
+window.ubahn_removeFromGroup = function(partnerId, partnerColId, currentCardLabel) {
+  updateCard(S.currentBoard.id, partnerColId, partnerId, { groupId: '' });
+  _refreshAndReopen(currentCardLabel);
+};
+
+window.ubahn_addToGroup = function(encodedValue, currentCardLabel) {
+  const [candidateId, candidateColId] = encodedValue.split('|');
+  if (!candidateId || !candidateColId) return;
+  if (_data) _data = prepareBoardData();
+  const thisCard = _data.allCardsFlat.find(c => c.label === currentCardLabel);
+  if (!thisCard) return;
+  let gid = thisCard.gruppe;
+  if (!gid) {
+    gid = 'g' + Date.now().toString(36);
+    const self = _resolveCard(currentCardLabel);
+    if (self) {
+      updateCard(S.currentBoard.id, self.colId, self.id, { groupId: gid });
+      if (typeof window.loadCards === 'function') window.loadCards(self.colId);
+    }
+  }
+  updateCard(S.currentBoard.id, candidateColId, candidateId, { groupId: gid });
+  _refreshAndReopen(currentCardLabel);
 };
 
 window.openCardDetail = function(cardId, colId) {

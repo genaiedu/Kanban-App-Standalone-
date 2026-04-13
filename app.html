@@ -251,10 +251,6 @@
             <i data-lucide="train-front"></i>
           </button>
 
-          <button class="btn-circle" onclick="showAgenda()" data-tooltip="Agenda">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
-          </button>
-          
           <button class="btn-circle" onclick="showExport()" data-tooltip="In Text umwandeln">
             <i data-lucide="file-text"></i>
           </button>
@@ -828,23 +824,6 @@
   </div>
 </div>
 
-<div id="modal-agenda" class="modal-overlay" style="display:none;" onclick="closeModal('modal-agenda')">
-  <div class="modal" onclick="event.stopPropagation()" style="max-width:600px; max-height:85vh; display:flex; flex-direction:column;">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-      <div class="modal-title" style="display:flex; align-items:center; gap:10px; margin-bottom:0;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
-        Agenda
-      </div>
-      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-agenda')">✕ Schließen</button>
-    </div>
-    <div id="agenda-deadline" style="display:none; margin-bottom:16px; padding:12px 16px; border-radius:10px; border:1px solid rgba(16,185,129,0.3); background:rgba(16,185,129,0.06);">
-      <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">📅 Abgabetermin</div>
-      <div id="agenda-deadline-date" style="font-size:14px; font-weight:600;"></div>
-      <div id="agenda-deadline-countdown" style="font-size:12px; margin-top:2px;"></div>
-    </div>
-    <div id="agenda-list" style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex:1;"></div>
-  </div>
-</div>
 
 <div id="modal-ubahn" class="modal-overlay" style="display:none;" onclick="closeModal('modal-ubahn')">
   <div class="modal" id="modal-ubahn-inner" onclick="event.stopPropagation()" style="position:relative;">

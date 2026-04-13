@@ -488,59 +488,6 @@ window.confirmImport = () => {
 };
 
 
-// ── AGENDA ────────────────────────────────────────────
-window.showAgenda = () => {
-  if (!S.currentBoard) return;
-  document.getElementById('modal-agenda').style.display = 'flex';
-
-  const deadline = S.currentBoard.deadline || '';
-  const dlEl     = document.getElementById('agenda-deadline');
-  const dlDate   = document.getElementById('agenda-deadline-date');
-  const dlCountdown = document.getElementById('agenda-deadline-countdown');
-
-  if (deadline) {
-    dlEl.style.display = 'block';
-    const d = new Date(deadline); const now = new Date();
-    const diff = Math.ceil((d - now) / 86400000);
-    dlDate.textContent = d.toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-    if (diff < 0) { dlCountdown.textContent = `Abgabe war vor ${Math.abs(diff)} Tag${Math.abs(diff)!==1?'en':''}`; dlCountdown.style.color = 'var(--danger)'; }
-    else if (diff === 0) { dlCountdown.textContent = 'Abgabe heute!'; dlCountdown.style.color = '#f59e0b'; }
-    else { dlCountdown.textContent = `Noch ${diff} Tag${diff!==1?'e':''}`; dlCountdown.style.color = diff <= 3 ? '#f59e0b' : 'var(--success)'; }
-  } else {
-    dlEl.style.display = 'none';
-  }
-
-  const list = document.getElementById('agenda-list');
-  const allCards = [];
-  S.columns.forEach(col => (S.cards[col.id] || []).forEach(c => allCards.push({ ...c, colName: col.name })));
-  const withDue    = allCards.filter(c => c.due).sort((a,b) => new Date(a.due) - new Date(b.due));
-  const withoutDue = allCards.filter(c => !c.due);
-  const sorted     = [...withDue, ...withoutDue];
-
-  if (!sorted.length) { list.innerHTML = '<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px;">Keine Karten vorhanden.</div>'; return; }
-
-  list.innerHTML = sorted.map(card => {
-    const now = new Date(); now.setHours(0,0,0,0);
-    const due = card.due ? new Date(card.due) : null;
-    const diff = due ? Math.ceil((due - now) / 86400000) : null;
-    let dueLabel = ''; let dueColor = 'var(--text-muted)'; let cardBorder = 'var(--border)';
-    if (due) {
-      if (diff < 0) { dueLabel = `Überfällig (${Math.abs(diff)} Tag${Math.abs(diff)!==1?'e':''})`; dueColor = 'var(--danger)'; cardBorder = 'rgba(240,82,82,0.4)'; }
-      else if (diff === 0) { dueLabel = 'Fällig heute'; dueColor = '#f59e0b'; cardBorder = 'rgba(245,158,11,0.4)'; }
-      else if (diff <= 2) { dueLabel = `Fällig in ${diff} Tag${diff!==1?'en':''}`; dueColor = '#f59e0b'; }
-      else { dueLabel = due.toLocaleDateString('de-DE', { day:'numeric', month:'short', year:'numeric' }); dueColor = 'var(--success)'; }
-    }
-    const prioColors = { hoch:'var(--danger)', mittel:'#f59e0b', niedrig:'var(--success)' };
-    const lbl = card.label ? `[${card.label}] ` : '';
-    return `<div style="padding:10px 14px; background:rgba(10,20,60,0.4); border:1px solid ${cardBorder}; border-radius:10px; display:flex; align-items:flex-start; gap:12px;">
-      <div style="width:3px; min-height:40px; border-radius:2px; background:${prioColors[card.priority]||'transparent'}; flex-shrink:0; margin-top:2px;"></div>
-      <div style="flex:1; min-width:0;"><div style="font-weight:500; font-size:13px; margin-bottom:4px;">${lbl}${escHtml(card.text)}</div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; font-size:11px; color:var(--text-muted);"><span>${escHtml(card.colName)}</span>${card.assignee ? `<span>👤 ${escHtml(card.assignee)}</span>` : ''}</div></div>
-      <div style="font-size:11px; font-weight:600; color:${dueColor}; flex-shrink:0; text-align:right;">${dueLabel || '<span style="opacity:0.4;">Kein Datum</span>'}</div>
-    </div>`;
-  }).join('');
-};
-
 // ── PASSWORT-DIALOG (Tutor-Exporte) ─────────────────────
 let _teacherSessionPassword = null;
 
