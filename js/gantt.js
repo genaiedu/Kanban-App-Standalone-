@@ -164,9 +164,16 @@ export function showGanttView(data, grid) {
                         Balken ziehen zum Verschieben · 📌 = manuell gesetzt · Gesamtdauer: <strong>${maxTime.toFixed(1)}h</strong>
                     </div>
                 </div>
-                <button onclick="document.getElementById('gantt-overlay').remove()"
-                        style="background:var(--surface);border:1px solid var(--border);color:var(--text);
-                               padding:10px 24px;border-radius:12px;cursor:pointer;font-weight:bold;">Schließen</button>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <button onclick="window.ganttOptimize(window._lastGanttData?.grid?.placedCards || [])"
+                            title="Berechnet den schnellstmöglichen Ablaufplan — alle starten so früh wie möglich"
+                            style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;
+                                   padding:10px 20px;border-radius:12px;cursor:pointer;font-weight:bold;
+                                   font-size:13px;letter-spacing:0.3px;">⚡ Optimieren</button>
+                    <button onclick="document.getElementById('gantt-overlay').remove()"
+                            style="background:var(--surface);border:1px solid var(--border);color:var(--text);
+                                   padding:10px 24px;border-radius:12px;cursor:pointer;font-weight:bold;">Schließen</button>
+                </div>
             </div>
             <div id="gantt-scroll-area" style="flex:1;overflow:auto;padding:16px 20px;position:relative;">
                 <div style="display:flex;margin-left:${labelWidth}px;position:sticky;top:0;
@@ -336,4 +343,80 @@ export function showGanttView(data, grid) {
 function escHtml(t) {
     return String(t).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));
 }
+
+window.ganttOptimize = function(placed) {
+    if (!placed || placed.length === 0) {
+        window.showToast && window.showToast('Keine Tasks zum Optimieren.', 'error');
+        return;
+    }
+    // Lokale computeOptimized ist nicht zugänglich — deshalb inline-Aufruf über showGanttView-Closure.
+    // Stattdessen: direkt über _lastGanttData neu aufrufen, nachdem Offsets gesetzt wurden.
+    // Wir starten showGanttView einmal mit einer speziellen Flag, die computeOptimized auslöst.
+    // Einfachere Lösung: computeOptimized in globale Funktion extrahieren.
+    window.showToast && window.showToast('Zeitplan wird optimiert…');
+    // Offsets berechnen (Funktion ist via Closure in letzter showGanttView-Instanz nicht direkt zugänglich)
+    // Deshalb: Algorithmus hier nochmals inlinen.
+    const byLabel = {};
+    placed.forEach(t => { byLabel[(t.label||'').toUpperCase()] = t; });
+    const taskDur = t => Math.max((t.simEnd||0) - (t.simStart||0), 0.25);
+    const visited = new Set();
+    const order   = [];
+    function visit(t) {
+        if (visited.has(t.label)) return;
+        visited.add(t.label);
+        (t.deps||[]).forEach(d => { const dep = byLabel[String(d).toUpperCase()]; if (dep) visit(dep); });
+        order.push(t);
+    }
+    placed.forEach(t => visit(t));
+
+    const endTime    = {};
+    const personAvail = {};
+    const groupStart  = {};
+    order.forEach(t => {
+        const d = taskDur(t);
+        let depEarliest = 0;
+        (t.deps||[]).forEach(dep => {
+            const depT = byLabel[String(dep).toUpperCase()];
+            if (depT) depEarliest = Math.max(depEarliest, endTime[depT.label] || 0);
+        });
+        if (t.gruppe && groupStart[t.gruppe] !== undefined) {
+            const start = groupStart[t.gruppe];
+            endTime[t.label] = start + d;
+            personAvail[t.wer] = Math.max(personAvail[t.wer] || 0, start + d);
+        } else if (t.gruppe) {
+            const groupMembers = placed.filter(gt => gt.gruppe === t.gruppe);
+            let gs = depEarliest;
+            groupMembers.forEach(gt => {
+                (gt.deps||[]).forEach(dep => {
+                    const depT = byLabel[String(dep).toUpperCase()];
+                    if (depT) gs = Math.max(gs, endTime[depT.label] || 0);
+                });
+                gs = Math.max(gs, personAvail[gt.wer] || 0);
+            });
+            groupStart[t.gruppe] = gs;
+            endTime[t.label] = gs + d;
+            personAvail[t.wer] = Math.max(personAvail[t.wer] || 0, gs + d);
+        } else {
+            const start = Math.max(depEarliest, personAvail[t.wer] || 0);
+            endTime[t.label] = start + d;
+            personAvail[t.wer] = start + d;
+        }
+    });
+
+    // Offsets speichern (in Tagen)
+    placed.forEach(t => {
+        const start = (endTime[t.label] || 0) - taskDur(t);
+        const days  = start / 8;
+        if (window.saveCardStartOffset) window.saveCardStartOffset(t.label, days);
+    });
+
+    const totalH = Math.max(...placed.map(t => endTime[t.label] || 0));
+    const totalD = (totalH / 8).toFixed(1);
+    window.showToast && window.showToast(`⚡ Optimiert! Gesamtdauer: ${totalD} Tage`);
+
+    if (window._lastGanttData) {
+        window.showGanttView(window._lastGanttData.data, window._lastGanttData.grid);
+    }
+};
+
 window.showGanttView = showGanttView;
