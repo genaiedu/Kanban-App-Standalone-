@@ -198,6 +198,7 @@ export function createCard(boardId, colId, fields) {
     due: fields.due || '',
     description: fields.description || '',
     timeEstimate: fields.timeEstimate || { d: 0, h: 0, m: 0 },
+    startOffset: fields.startOffset ?? null,
     label: fields.label || '',
     order: fields.order ?? (col.cards ? col.cards.length : 0),
     startedAt: fields.startedAt || '',
@@ -205,7 +206,6 @@ export function createCard(boardId, colId, fields) {
     dependencies: fields.dependencies || [],
     groupId: fields.groupId || '',
     comments: fields.comments || [],
-    description: fields.description || '',
     createdAt: new Date().toISOString(),
   };
   if (!col.cards) col.cards = [];

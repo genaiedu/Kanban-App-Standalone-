@@ -98,9 +98,10 @@ function prepareBoardData() {
           prio: card.priority || 'mittel', 
           deps: safeDeps, 
           gruppe: card.groupId || null, 
-          colName: col?.name || '', 
+          colName: col?.name || '',
           description: card.description || '',
-          timeEstimate: card.timeEstimate || {}
+          timeEstimate: card.timeEstimate || {},
+          startOffset: card.startOffset ?? null
         });
       }
     });
@@ -325,7 +326,12 @@ function calculateGrid(boardData, people) {
       const inv = Array.from(node.involved).filter(p => people.includes(p));
       inv.forEach(p => { if (personLastEnd[p] > maxWorkerReady) maxWorkerReady = personLastEnd[p]; });
 
+      // startOffset (Tage → Stunden) aus Karten-Override ermitteln
+      const offsets = node.cards.map(c => c.startOffset).filter(s => s !== null && s !== undefined);
+      const overrideHours = offsets.length > 0 ? Math.max(...offsets) * 8 : null;
+
       let start = Math.max(maxDepEnd, maxWorkerReady, 0);
+      if (overrideHours !== null) start = Math.max(overrideHours, maxDepEnd); // Deps müssen fertig sein
       const transit = start > 0 ? 0.3 : 0;
       start += transit;
 
@@ -556,10 +562,20 @@ function _resolveCard(labelOrId) {
   const target = String(labelOrId).trim().toUpperCase();
   for (const [colId, cards] of Object.entries(S.cards)) {
     const c = cards.find(x => (x.label||'').trim().toUpperCase() === target || String(x.id).trim().toUpperCase() === target);
-    if (c) return { id: c.id, label: c.label, titel: c.text, wer: c.assignee, colName: S.columns.find(col => col.id === colId)?.name || '' };
+    if (c) return { id: c.id, label: c.label, titel: c.text, wer: c.assignee, colId, colName: S.columns.find(col => col.id === colId)?.name || '' };
   }
   return null;
 }
+
+// startOffset einer Karte setzen (aus Gantt-Drag aufrufbar)
+window.saveCardStartOffset = function(label, offsetDays) {
+  const found = _resolveCard(label);
+  if (!found) return;
+  const days = offsetDays !== null ? Math.max(0, Math.round(offsetDays * 10) / 10) : null;
+  updateCard(S.currentBoard.id, found.colId, found.id, { startOffset: days });
+  if (typeof window.loadCards === 'function') window.loadCards(found.colId);
+  if (_data) { _data = prepareBoardData(); _lastGrid = calculateGrid(_data.boardData, _data.people); }
+};
 
 window._ubahnNav = function(label) {
   const overlay = document.getElementById('ubahn-card-overlay');

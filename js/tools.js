@@ -119,6 +119,7 @@ WICHTIGSTE REGELN FÜR DIE PLANUNG:
 8. VERKETTUNGEN: Nutze das Feld "gruppe" für Karten, die vertikal zusammengehören.
 9. BESCHREIBUNG: Füge für jede nicht-triviale Aufgabe eine detaillierte Erläuterung im Feld 'beschreibung' hinzu (2–5 Sätze). Bestehende Beschreibungen unbedingt übernehmen! Ergänze immer an welchen Kriterien festgemacht werden kann, dass die Aufgabe gut gelöst wurde.
 10. BEARBEITUNGSZEIT: Schätze für jede Aufgabe die REINE NETTO-ARBEITSZEIT in Tagen (d), Stunden (h) und Minuten (m). Berechne KEINE Enddaten/Fälligkeiten daraus, da der Projektstart variabel ist!
+12. STARTVERSATZ & LEERLAUF MINIMIEREN: Gib für jede Karte im Feld 'startversatz' an, ab welchem Projekttag (Dezimalzahl, 0.0 = Projektstart, 1.0 = zweiter Tag) mit der Aufgabe begonnen werden soll. Plane so, dass der Leerlauf einzelner Teilnehmer möglichst gering ist: Wenn jemand auf Vorgänger-Aufgaben wartet, belege diese Wartezeit mit sinnvollen Parallelaufgaben dieser Person. Der 'startversatz' darf nie kleiner sein als das Ende aller Vorgänger-Aufgaben (deps) dieser Person.
 11. Es darf niemals vorkommen, dass eine Person innerhalb einer Gruppenarbeit mehr als eine Aufgaben übernimmt. Es darf nicht vorkommen, dass eine Task in einer Grppenarbeit in der Verkettungslogig oberhalb oder unterhalb einer anderen Task in der selben Gruppenarbeit ist.
 13. Achte darauf, dass es durch die verkettungen keine Zirkelschlüsse gibt.
 14. Belasse es bei den Spalten im board, erfinde keine hinzu.
@@ -153,7 +154,8 @@ Dies ist ein Beispiel:
       "deps": ["Label1", "Label2"],
       "gruppe": "Optionaler Gruppenname",
       "beschreibung": "Detaillierte Erläuterung (2-5 Sätze)...",
-      "zeit": { "d": 0, "h": 2, "m": 30 }
+      "zeit": { "d": 0, "h": 2, "m": 30 },
+      "startversatz": 0.0
     }
   ]
 }`;
@@ -346,10 +348,10 @@ function parseExportText(raw) {
         dependencies: Array.isArray(card.deps || card.dependencies) ? (card.deps || card.dependencies) : [],
         groupId: card.gruppe || card.groupId || '',
         
-        // NEU: Import für Beschreibung und Zeit-Schätzung aus der KI-Antwort
         description: card.beschreibung || card.description || '',
         timeEstimate: card.zeit || card.timeEstimate || { d: 0, h: 0, m: 0 },
-        
+        startOffset: card.startversatz ?? card.startOffset ?? null,
+
         comments: card.comments || [], startedAt: card.startedAt || '', finishedAt: card.finishedAt || ''
       }))
     }));
@@ -410,9 +412,10 @@ window.confirmImport = () => {
           createCard(newBoard.id, newCol.id, { 
             text: card.text || 'Ohne Titel', priority: card.priority || '', assignee: card.assignee || '', 
             due: card.due || '', label: card.label || '', dependencies: card.dependencies || [], 
-            groupId: card.groupId || '', description: card.description || '', 
-            timeEstimate: card.timeEstimate || { d: 0, h: 0, m: 0 }, // <-- HIER EINGEFÜGT
-            comments: card.comments || [], order: card.order ?? cardOrder++, 
+            groupId: card.groupId || '', description: card.description || '',
+            timeEstimate: card.timeEstimate || { d: 0, h: 0, m: 0 },
+            startOffset: card.startOffset ?? null,
+            comments: card.comments || [], order: card.order ?? cardOrder++,
             startedAt: card.startedAt || '', finishedAt: card.finishedAt || '' 
           });
           importedCardsCount++;
@@ -454,9 +457,10 @@ window.confirmImport = () => {
           createCard(S.currentBoard.id, newCol.id, { 
             text: card.text, priority: card.priority || '', assignee: card.assignee || '', 
             due: card.due || '', label: cardLabel, dependencies: card.dependencies || [], 
-            groupId: card.groupId || '', description: card.description || '', 
-            timeEstimate: card.timeEstimate || { d: 0, h: 0, m: 0 }, // <-- HIER EINGEFÜGT
-            order: cardOrder++, startedAt: card.startedAt || '', finishedAt: card.finishedAt || '' 
+            groupId: card.groupId || '', description: card.description || '',
+            timeEstimate: card.timeEstimate || { d: 0, h: 0, m: 0 },
+            startOffset: card.startOffset ?? null,
+            order: cardOrder++, startedAt: card.startedAt || '', finishedAt: card.finishedAt || ''
           });
           importedCardsCount++;
         }
