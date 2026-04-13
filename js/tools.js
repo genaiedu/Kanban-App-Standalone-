@@ -633,6 +633,13 @@ function _showPasswordDialog(mode) {
 
 // ── JSON-DATEI EXPORT ─────────────────────────────────────
 window.exportDataAsFile = async () => {
+  // Lokale Version sofort sichern (nur Tutoren), BEVOR die Session geprüft wird.
+  // S.isAdminMode ist zuverlässiger als session?.isStudent, da das Session-Objekt
+  // durch eine vorhandene kf_student_config überschrieben werden kann.
+  if (S.isAdminMode) {
+    saveLocalVersion(S.currentBoard?.name || 'Board');
+  }
+
   // Session holen — Schüler-Config aus localStorage als Fallback wenn Session fehlt
   let session = window._kfSession;
   if (!session) {
@@ -688,10 +695,7 @@ window.exportDataAsFile = async () => {
   const name = (S.currentUser?.displayName || '').replace(/\s+/g,'_') || 'nutzer';
   const suggestedName = `eduban-${who}${name}-${date}.json`;
 
-  // Lokale Version speichern (nur Lehrer, nicht Schüler)
-  if (!session?.isStudent) {
-    saveLocalVersion(S.currentBoard?.name || 'Board');
-  }
+  // (Versionsspeicherung erfolgt bereits am Anfang dieser Funktion via S.isAdminMode)
 
   if (window.showSaveFilePicker) {
     try {
@@ -952,7 +956,7 @@ window.showVersionHistory = function() {
     <div style="background:rgba(var(--panel-rgb),1);border-radius:20px;width:92%;max-width:520px;border:1px solid var(--border);padding:28px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,0.5);max-height:80vh;display:flex;flex-direction:column;">
       <button onclick="document.getElementById('modal-versions').remove()" style="position:absolute;right:18px;top:18px;background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;">✕</button>
       <div style="font-size:18px;font-weight:900;margin-bottom:4px;">Versionsverlauf</div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:20px;">Maximal ${getLocalVersions().length > 0 ? getLocalVersions().length : 0} von 20 Versionen gespeichert. Wird beim Export automatisch aktualisiert.</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:20px;">${getLocalVersions().length} von max. 20 Versionen gespeichert. Wird beim Export automatisch aktualisiert.</div>
       <div style="overflow-y:auto;flex:1;">${rows}</div>
     </div>`;
   document.body.appendChild(modal);
