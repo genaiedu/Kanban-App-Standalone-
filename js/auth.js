@@ -279,6 +279,7 @@ function enterApp(user, isStudent) {
 
   const adminBtn     = document.getElementById('sidebar-admin-btn');
   const snapshotsBtn = document.getElementById('sidebar-snapshots-btn');
+  const versionsBtn  = document.getElementById('sidebar-versions-btn');
   const iniBtn       = document.getElementById('sidebar-ini-btn');
   const returnBtn    = document.getElementById('sidebar-return-to-student-btn');
   const fmIniLabel   = document.getElementById('fm-ini-label');
@@ -286,6 +287,7 @@ function enterApp(user, isStudent) {
   if (isStudent) {
     if (adminBtn)      adminBtn.style.display   = 'none';
     if (snapshotsBtn)  snapshotsBtn.style.display = 'none';
+    if (versionsBtn)   versionsBtn.style.display = 'none';
     if (iniBtn)        iniBtn.style.display     = 'none';
     if (returnBtn)     returnBtn.style.display  = 'none';
     if (fmIniLabel)    fmIniLabel.style.display = 'none';
@@ -299,6 +301,7 @@ function enterApp(user, isStudent) {
   } else {
     if (adminBtn)      adminBtn.style.display   = '';
     if (snapshotsBtn)  snapshotsBtn.style.display = '';
+    if (versionsBtn)   versionsBtn.style.display = '';
     if (iniBtn)        iniBtn.style.display     = '';
     if (returnBtn)     returnBtn.style.display  = '';
     if (fmIniLabel)    fmIniLabel.style.display = '';

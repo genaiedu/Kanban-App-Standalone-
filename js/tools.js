@@ -1,6 +1,7 @@
 // js/tools.js — KI-Assistent, Export, Import, Agenda, INI (lokal, kein Firebase)
 import { S, getBoards, getColumns, getCards, createBoard, createColumn,
-  createCard, deleteColumn, deleteCard, updateBoard, replaceCards } from './state.js';
+  createCard, deleteColumn, deleteCard, updateBoard, replaceCards,
+  saveLocalVersion, getLocalVersions, restoreLocalVersion, deleteLocalVersion } from './state.js';
 
 // ── LEHRER INI-DATEI ERSTELLEN ────────────────────────────
 window.createTeacherIniFile = async () => {
@@ -683,6 +684,11 @@ window.exportDataAsFile = async () => {
   const name = (S.currentUser?.displayName || '').replace(/\s+/g,'_') || 'nutzer';
   const suggestedName = `eduban-${who}${name}-${date}.json`;
 
+  // Lokale Version speichern (nur Lehrer, nicht Schüler)
+  if (!session?.isStudent) {
+    saveLocalVersion(S.currentBoard?.name || 'Board');
+  }
+
   if (window.showSaveFilePicker) {
     try {
       const handle = await window.showSaveFilePicker({
@@ -692,7 +698,7 @@ window.exportDataAsFile = async () => {
       const writable = await handle.createWritable();
       await writable.write(json);
       await writable.close();
-      showToast('🔒 Datei verschlüsselt exportiert!');
+      showToast('🔒 Datei exportiert & Version gespeichert!');
       return;
     } catch(e) { if (e.name === 'AbortError') return; }
   }
@@ -701,7 +707,7 @@ window.exportDataAsFile = async () => {
   const a    = document.createElement('a');
   a.href = url; a.download = suggestedName; a.click();
   URL.revokeObjectURL(url);
-  showToast('🔒 Datei verschlüsselt exportiert!');
+  showToast('🔒 Datei exportiert & Version gespeichert!');
 };
 
 // ── JSON-DATEI IMPORT ─────────────────────────────────────
@@ -904,4 +910,72 @@ window.exportForStudent = async function() {
   a.href = url; a.download = suggestedName; a.click();
   URL.revokeObjectURL(url);
   showToast('📤 Datei gespeichert! Die Schülerin oder der Schüler kann sie mit dem eigenen Passwort öffnen.');
+};
+
+// ── LOKALER VERSIONSVERLAUF (nur Lehrer) ──────────────
+window.showVersionHistory = function() {
+  const versions = getLocalVersions();
+
+  const fmt = iso => {
+    const d = new Date(iso);
+    return d.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' })
+      + ' · ' + d.toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' }) + ' Uhr';
+  };
+
+  let rows = '';
+  if (!versions.length) {
+    rows = `<div style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:14px;">Noch keine gespeicherten Versionen.<br>Exportiere das Board, um eine Version zu speichern.</div>`;
+  } else {
+    versions.forEach((v, i) => {
+      rows += `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border-radius:12px;margin-bottom:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(v.label)}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${fmt(v.savedAt)}${i === 0 ? ' <span style="background:var(--accent);color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;">AKTUELL</span>' : ''}</div>
+          </div>
+          <button onclick="window._restoreVersion('${v.id}')" style="padding:6px 14px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Laden</button>
+          <button onclick="window._deleteVersion('${v.id}',this)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;">✕</button>
+        </div>`;
+    });
+  }
+
+  document.getElementById('modal-versions')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'modal-versions';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);z-index:20010;display:flex;align-items:center;justify-content:center;';
+  modal.onclick = e => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div style="background:rgba(var(--panel-rgb),1);border-radius:20px;width:92%;max-width:520px;border:1px solid var(--border);padding:28px;position:relative;box-shadow:0 30px 90px rgba(0,0,0,0.5);max-height:80vh;display:flex;flex-direction:column;">
+      <button onclick="document.getElementById('modal-versions').remove()" style="position:absolute;right:18px;top:18px;background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;">✕</button>
+      <div style="font-size:18px;font-weight:900;margin-bottom:4px;">Versionsverlauf</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:20px;">Maximal ${getLocalVersions().length > 0 ? getLocalVersions().length : 0} von 20 Versionen gespeichert. Wird beim Export automatisch aktualisiert.</div>
+      <div style="overflow-y:auto;flex:1;">${rows}</div>
+    </div>`;
+  document.body.appendChild(modal);
+};
+
+window._restoreVersion = async function(id) {
+  const ok = await showConfirm(
+    'Diese Version laden?\n\nDas aktuelle Board wird überschrieben. Du kannst vorher noch eine neue Version speichern (Exportieren).',
+    'Laden', 'Abbrechen'
+  );
+  if (!ok) return;
+  const success = restoreLocalVersion(id);
+  if (success) {
+    document.getElementById('modal-versions')?.remove();
+    showToast('Version geladen! Seite wird neu geladen…');
+    setTimeout(() => location.reload(), 1200);
+  } else {
+    showToast('Version konnte nicht geladen werden.', 'error');
+  }
+};
+
+window._deleteVersion = function(id, btn) {
+  deleteLocalVersion(id);
+  btn.closest('div[style]').remove();
+  const versions = getLocalVersions();
+  if (!versions.length) {
+    document.querySelector('#modal-versions [style*="overflow-y"]').innerHTML =
+      `<div style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:14px;">Keine gespeicherten Versionen mehr.</div>`;
+  }
 };

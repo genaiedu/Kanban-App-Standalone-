@@ -2,8 +2,10 @@
 // Alle Daten liegen als JSON in localStorage unter dem Schlüssel 'kanban_data'
 // Struktur: { version, user, settings, boards: [{ id, name, ..., columns: [{ id, ..., cards: [] }] }] }
 
-const STORAGE_KEY = 'kanban_data';
-const SETTINGS_KEY = 'kanban_settings';
+const STORAGE_KEY   = 'kanban_data';
+const SETTINGS_KEY  = 'kanban_settings';
+const VERSIONS_KEY  = 'kanban_versions';
+const MAX_VERSIONS  = 20;
 
 // ── UUID-GENERATOR ────────────────────────────────────
 function generateId() {
@@ -261,6 +263,44 @@ export function replaceCards(boardId, colId, cards) {
   if (!col) return;
   col.cards = cards.map(c => ({ ...c }));
   saveData(data);
+}
+
+// ── LOKALE VERSIONSVERWALTUNG ─────────────────────────
+export function saveLocalVersion(boardName) {
+  const raw = localStorage.getItem(STORAGE_KEY) || '{}';
+  let versions = [];
+  try { versions = JSON.parse(localStorage.getItem(VERSIONS_KEY) || '[]'); } catch(e) {}
+  const now = new Date();
+  const version = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    savedAt: now.toISOString(),
+    label: boardName || 'Board',
+    data: raw,
+  };
+  versions.unshift(version);
+  if (versions.length > MAX_VERSIONS) versions = versions.slice(0, MAX_VERSIONS);
+  try { localStorage.setItem(VERSIONS_KEY, JSON.stringify(versions)); } catch(e) {
+    console.error('Versionsspeicherung fehlgeschlagen (localStorage voll?):', e);
+  }
+  return version;
+}
+
+export function getLocalVersions() {
+  try { return JSON.parse(localStorage.getItem(VERSIONS_KEY) || '[]'); } catch(e) { return []; }
+}
+
+export function restoreLocalVersion(id) {
+  const versions = getLocalVersions();
+  const v = versions.find(v => v.id === id);
+  if (!v) return false;
+  localStorage.setItem(STORAGE_KEY, v.data);
+  return true;
+}
+
+export function deleteLocalVersion(id) {
+  let versions = getLocalVersions();
+  versions = versions.filter(v => v.id !== id);
+  localStorage.setItem(VERSIONS_KEY, JSON.stringify(versions));
 }
 
 // ── EXPORT / IMPORT ───────────────────────────────────
