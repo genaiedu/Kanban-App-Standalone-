@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KanbanFluss</title>
+  <link rel="icon" type="image/png" href="images/logo.png"/>
+  
+    <link href="css/fonts.css" rel="stylesheet"/>
+  
+    <script src="js/lucide.min.js"></script>
+
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="bg-layer"></div>
+<div id="bg-overlay"></div>
+
+<div id="loading-screen" class="loading">
+  <div class="spinner"></div>
+  <span>Wird geladen…</span>
+</div>
+
+<div id="auth-screen" style="display:none;">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div style="
+        background: #ffffff;
+        border-radius: 24px;
+        width:140px; height:140px;
+        display:flex; align-items:center; justify-content:center;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.15);">
+        <img src="images/logo.png" style="width:110px; height:110px; object-fit:contain;" alt="KanbanFluss" onerror="this.style.display='none';"/>
+      </div>
+    </div>
+
+        <div id="login-form">
+      <div class="auth-title">Willkommen zurück</div>
+      <div class="auth-subtitle">Melde dich an, um deine Boards zu öffnen</div>
+      <div class="error-msg" id="login-error"></div>
+      <button class="btn-google" onclick="doGoogleLogin()">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Mit Google einloggen
+      </button>
+      <div class="divider"><span>oder</span></div>
+      <div class="form-group">
+        <label>E-Mail-Adresse</label>
+        <input type="email" id="login-email" placeholder="name@example.com" autocomplete="email"/>
+      </div>
+      <div class="form-group">
+        <label>Passwort</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+      </div>
+      <button class="btn btn-primary" onclick="doLogin()">Einloggen</button>
+      <div style="text-align:center; margin-top:10px;">
+        <a onclick="showResetForm()" style="color:var(--text-muted); font-size:13px; cursor:pointer; text-decoration:none;"
+           onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">
+          Passwort vergessen?
+        </a>
+      </div>
+      <div class="auth-switch">Noch kein Konto? <a onclick="showRegister()">Jetzt registrieren</a></div>
+      <div style="margin-top:16px; padding-top:16px; border-top:1px solid rgba(100,160,255,0.1);">
+        <button class="btn btn-ghost" style="width:100%; margin-bottom:10px;" onclick="loginAsGuest()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Als Gast testen
+        </button>
+      </div>
+    </div>
+
+        <div id="reset-form" style="display:none;">
+      <div class="auth-title">Passwort vergessen?</div>
+      <div class="auth-subtitle">Gib deine E-Mail-Adresse ein – du erhältst einen Link zum Zurücksetzen.</div>
+      <div class="error-msg" id="reset-error"></div>
+      <div class="error-msg" id="reset-success" style="color:var(--success);"></div>
+      <div class="form-group">
+        <label>E-Mail-Adresse</label>
+        <input type="email" id="reset-email" placeholder="name@example.com" autocomplete="email"/>
+      </div>
+      <button class="btn btn-primary" onclick="doPasswordReset()">Link senden</button>
+      <p style="font-size:12px; color:var(--text-muted); text-align:center; line-height:1.7; margin-top:16px;">
+        Die E-Mail kann im Spam- oder Quarantäne-Ordner landen.<br>Bitte dort nachschauen, falls sie nicht ankommt.
+      </p>
+      <div class="auth-switch"><a onclick="showLogin()" style="color:var(--text-muted);">← Zurück zum Login</a></div>
+    </div>
+
+        <div id="register-form" style="display:none;">
+      <div class="auth-title">Konto erstellen</div>
+      <div class="auth-subtitle">Registriere dich kostenlos und leg los</div>
+      <div class="error-msg" id="register-error"></div>
+      <button class="btn-google" onclick="doGoogleLogin()">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Mit Google registrieren
+      </button>
+      <div class="divider"><span>oder</span></div>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="register-name" placeholder="Dein Name"/>
+      </div>
+      <div class="form-group">
+        <label>E-Mail-Adresse</label>
+        <input type="email" id="register-email" placeholder="name@example.com" autocomplete="email"/>
+      </div>
+      <div class="form-group">
+        <label>Passwort</label>
+        <input type="password" id="register-password" placeholder="Min. 6 Zeichen" autocomplete="new-password"/>
+      </div>
+      <button class="btn btn-primary" onclick="doRegister()">Registrieren</button>
+      <div class="auth-switch">Bereits registriert? <a onclick="showLogin()">Einloggen</a></div>
+    </div>
+  </div>
+</div>
+
+<div id="app-screen">
+    <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeSidebar()"></div>
+
+    <div id="user-floating-pill" style="
+    position: fixed;
+    top: 14px;
+    right: 20px;
+    z-index: 150;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(var(--panel-rgb), 0.80);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(100,160,255,0.2);
+    border-radius: 20px;
+    padding: 5px 14px 5px 5px;
+    font-size: 13px;
+    color: var(--text);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  ">
+    <div class="user-avatar" id="user-avatar">?</div>
+    <span id="user-name-display" style="font-weight:500;">–</span>
+  </div>
+
+  <div class="main-layout">
+    <div class="sidebar" id="sidebar-el">
+      <div class="sidebar-grip" id="sidebar-grip" onclick="toggleSidebar()" title="Sidebar ein-/ausblenden">
+        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="24" viewBox="0 0 10 24">
+          <circle cx="5" cy="6"  r="1.5" fill="rgba(80,100,160,0.7)"/>
+          <circle cx="5" cy="12" r="1.5" fill="rgba(80,100,160,0.7)"/>
+          <circle cx="5" cy="18" r="1.5" fill="rgba(80,100,160,0.7)"/>
+        </svg>
+      </div>
+
+            <div style="
+        display:flex; align-items:center; gap:10px;
+        padding: 16px 16px 12px;
+        border-bottom: 1px solid rgba(100,160,255,0.12);
+        margin-bottom: 4px;
+        flex-shrink: 0;
+      ">
+        <div style="background:#fff;border-radius:8px;padding:4px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <img src="images/logo.png" style="width:22px;height:22px;object-fit:contain;" onerror="this.style.display='none';"/>
+        </div>
+        <span style="font-weight:700;font-size:15px;letter-spacing:-0.3px;">KanbanFluss</span>
+      </div>
+
+            <div class="sidebar-boards-area">
+        <div class="sidebar-section">
+          <div class="sidebar-label">Meine Boards</div>
+          <div id="boards-list"></div>
+          <button class="btn-new-board" onclick="showNewBoardModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Neues Board
+          </button>
+        </div>
+      </div>
+
+            <div class="sidebar-bottom">
+        <div class="sidebar-divider-line"></div>
+        <button class="sidebar-action-btn" onclick="toggleSettingsPanel()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> Einstellungen
+        </button>
+        <button class="sidebar-action-btn" onclick="openHelp()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> Hilfe
+        </button>
+        <button class="sidebar-action-btn" onclick="openAdminArea()" id="sidebar-admin-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg> Admin
+        </button>
+        <div class="sidebar-divider-line"></div>
+        <button class="sidebar-action-btn sidebar-logout" onclick="doLogout()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Abmelden
+        </button>
+      </div>
+    </div>
+
+    <div class="board-area" id="board-area">
+      <div class="sidebar-grip" id="sidebar-grip" onclick="toggleSidebar()" title="Sidebar ein-/ausblenden">
+        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="24" viewBox="0 0 10 24">
+          <circle cx="5" cy="6"  r="1.5" fill="rgba(80,100,160,0.7)"/>
+          <circle cx="5" cy="12" r="1.5" fill="rgba(80,100,160,0.7)"/>
+          <circle cx="5" cy="18" r="1.5" fill="rgba(80,100,160,0.7)"/>
+        </svg>
+      </div>
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">
+          <img src="images/logo.png" alt="KanbanFluss" style="width:100%; height:100%; object-fit:contain;" onerror="this.style.display='none';"/>
+        </div>
+        <div class="empty-title">Willkommen bei KanbanFluss</div>
+        <div class="empty-sub">Erstelle dein erstes Board und organisiere deine Aufgaben.</div>
+        <button class="btn-create-first" onclick="showNewBoardModal()">Erstes Board erstellen</button>
+      </div>
+      <div id="board-content" style="display:none;">
+        <div class="board-header" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <div class="board-title-display" id="board-title-display"></div>
+          <button onclick="showAgenda()" title="Agenda anzeigen" style="display:flex; align-items:center; gap:8px; font-size:22px; font-weight:700; letter-spacing:-0.5px; background:rgba(var(--panel-rgb),var(--panel-opacity,0.72)); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(100,160,255,0.18); border-radius:10px; padding:8px 18px; color:var(--text); cursor:pointer; font-family:inherit;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>
+            Agenda
+          </button>
+          <button onclick="showExport()" title="Board exportieren" style="display:flex; align-items:center; gap:8px; font-size:22px; font-weight:700; letter-spacing:-0.5px; background:rgba(var(--panel-rgb),var(--panel-opacity,0.72)); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(100,160,255,0.18); border-radius:10px; padding:8px 18px; color:var(--text); cursor:pointer; font-family:inherit;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+          </button>
+          <button onclick="showImport()" title="Board importieren" style="display:flex; align-items:center; gap:8px; font-size:22px; font-weight:700; letter-spacing:-0.5px; background:rgba(var(--panel-rgb),var(--panel-opacity,0.72)); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(100,160,255,0.18); border-radius:10px; padding:8px 18px; color:var(--text); cursor:pointer; font-family:inherit;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><line x1="12" y1="3" x2="12" y2="15" stroke-dasharray="3 3"/></svg>
+            Import
+          </button>
+          <button onclick="showAiPrompt()" title="KI-Prompt generieren" style="display:flex; align-items:center; gap:8px; font-size:22px; font-weight:700; letter-spacing:-0.5px; background:rgba(var(--panel-rgb),var(--panel-opacity,0.72)); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(100,160,255,0.18); border-radius:10px; padding:8px 18px; color:var(--text); cursor:pointer; font-family:inherit;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            KI-Assistent
+          </button>
+        </div>
+        <div class="columns-container" id="columns-container"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-new-board" class="modal-overlay" style="display:none;" onclick="closeModal('modal-new-board')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:480px;">
+
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:24px;">
+      <div class="wizard-step active" id="ws-1">1</div>
+      <div class="wizard-line"></div>
+      <div class="wizard-step" id="ws-2">2</div>
+      <div class="wizard-line"></div>
+      <div class="wizard-step" id="ws-3">3</div>
+      <span style="margin-left:8px; font-size:13px; color:var(--text-muted);" id="wizard-label">Board benennen</span>
+    </div>
+
+        <div id="wizard-step-1">
+      <div class="modal-title">Wie soll das Board heißen?</div>
+      <div class="form-group" style="margin-top:16px;">
+        <label>Board-Name</label>
+        <input type="text" id="new-board-name" placeholder="z.B. Schulprojekt, Sprint 1, Privat…"/>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-new-board')">Abbrechen</button>
+        <button class="btn-sm btn-sm-primary" onclick="wizardNext(2)">Weiter →</button>
+      </div>
+    </div>
+
+        <div id="wizard-step-2" style="display:none;">
+      <div class="modal-title">Wie viele Personen arbeiten mit?</div>
+      <p style="font-size:13px; color:var(--text-muted); margin:8px 0 20px;">Das WIP-Limit wird automatisch berechnet.</p>
+      <div class="member-count-grid" id="member-count-grid">
+              </div>
+      <div class="modal-actions">
+        <button class="btn-sm btn-sm-ghost" onclick="wizardNext(1)">← Zurück</button>
+        <button class="btn-sm btn-sm-primary" onclick="wizardNext(3)">Weiter →</button>
+      </div>
+    </div>
+
+        <div id="wizard-step-3" style="display:none;">
+      <div class="modal-title">Wie heißen die Teammitglieder?</div>
+      <p style="font-size:13px; color:var(--text-muted); margin:8px 0 16px;">Nicknames oder Vornamen – wie ihr möchtet.</p>
+      <div id="nickname-inputs"></div>
+      <div class="modal-actions">
+        <button class="btn-sm btn-sm-ghost" onclick="wizardNext(2)">← Zurück</button>
+        <button class="btn-sm btn-sm-primary" onclick="createBoard()">Board erstellen ✓</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="modal-new-column" class="modal-overlay" style="display:none;" onclick="closeModal('modal-new-column')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Neue Spalte hinzufügen</div>
+    <div class="form-group">
+      <label>Spaltenname</label>
+      <input type="text" id="new-column-name" placeholder="z.B. Offen, In Bearbeitung, Fertig…"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-new-column')">Abbrechen</button>
+      <button class="btn-sm btn-sm-primary" onclick="createColumn()">Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-edit-card" class="modal-overlay" style="display:none;" onclick="closeModal('modal-edit-card')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Karte bearbeiten</div>
+    <input type="hidden" id="edit-card-id"/>
+    <input type="hidden" id="edit-card-col"/>
+    <div class="form-group">
+      <label>Text</label>
+      <textarea id="edit-card-text" class="add-card-textarea" rows="3"></textarea>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+      <div class="form-group">
+        <label>Priorität</label>
+        <select id="edit-card-priority" class="priority-select" style="width:100%">
+          <option value="">Keine</option>
+          <option value="hoch">🔴 Hoch</option>
+          <option value="mittel">🟡 Mittel</option>
+          <option value="niedrig">🟢 Niedrig</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Fälligkeitsdatum</label>
+        <input type="date" id="edit-card-due" style="color-scheme:dark; width:100%;"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Zuweisen an</label>
+      <select id="edit-card-assignee" class="priority-select" style="width:100%">
+        <option value="">– Niemand –</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-edit-card')">Abbrechen</button>
+      <button class="btn-sm btn-sm-primary" onclick="saveEditCard()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div id="settings-panel" style="display:none;">
+  <div class="settings-overlay" onclick="toggleSettingsPanel()"></div>
+  <div class="settings-drawer">
+    <div class="settings-header">
+      <span class="settings-title" style="display:flex;align-items:center;gap:8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> Einstellungen
+      </span>
+      <button class="settings-close" onclick="toggleSettingsPanel()">✕</button>
+    </div>
+    <div class="settings-body">
+           <div class="settings-label">Erscheinungsbild</div>
+<div style="display:flex; gap:10px; margin-bottom:20px;">
+  <button id="btn-theme-dark" class="btn-sm btn-sm-primary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;" onclick="setTheme('dark')">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+    </svg>
+    Dunkel
+  </button>
+  <button id="btn-theme-light" class="btn-sm btn-sm-ghost" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;" onclick="setTheme('light')">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2"/>
+      <path d="M12 20v2"/>
+      <path d="m4.93 4.93 1.41 1.41"/>
+      <path d="m17.66 17.66 1.41 1.41"/>
+      <path d="M2 12h2"/>
+      <path d="M20 12h2"/>
+      <path d="m6.34 17.66-1.41 1.41"/>
+      <path d="m19.07 4.93-1.41 1.41"/>
+    </svg>
+    Hell
+  </button>
+</div>
+
+      <div class="settings-label">Panel-Transparenz</div>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+        <span style="font-size:12px;color:var(--text-muted);">Transparent</span>
+        <input type="range" id="overlay-slider" min="20" max="95" step="5" value="72"
+          style="flex:1; accent-color: var(--accent); cursor:pointer;"
+          oninput="setOverlay(this.value)"/>
+        <span style="font-size:12px;color:var(--text-muted);">Undurchsichtig</span>
+      </div>
+      <div class="settings-label">Voreinstellungen</div>
+      <div class="bg-presets" id="bg-presets">
+        <div class="bg-preset active" data-bg="" style="background: linear-gradient(135deg,#0a0e1a,#1a2a6c);" onclick="setBg('')">
+          <span>Standard</span>
+        </div>
+      </div>
+      <div class="settings-label" style="margin-top:20px;" id="img-thumbnails-label">Hintergrundbilder (H1–H20)</div>
+      <div class="bg-presets" id="custom-images-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="app-footer" style="
+  position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: none;
+">
+  <span style="
+    pointer-events: all;
+    background: rgba(var(--panel-rgb), 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(100,160,255,0.15);
+    border-radius: 20px;
+    padding: 5px 16px;
+    font-size: 12px;
+    white-space: nowrap;
+  ">
+    <a onclick="openLegal()" style="color:rgba(180,200,255,0.7); cursor:pointer; text-decoration:none;"
+       onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(180,200,255,0.7)'">
+      Impressum &amp; Datenschutz
+    </a>
+  </span>
+</div>
+
+<div id="modal-legal" class="modal-overlay" style="display:none;" onclick="closeModal('modal-legal')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:620px; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex; gap:12px; margin-bottom:24px;">
+      <button id="tab-impressum" class="btn-sm btn-sm-primary" onclick="showLegalTab('impressum')">Impressum</button>
+      <button id="tab-datenschutz" class="btn-sm btn-sm-ghost" onclick="showLegalTab('datenschutz')">Datenschutzerklärung</button>
+    </div>
+
+        <div id="legal-impressum">
+      <h2 style="font-size:18px; font-weight:700; margin-bottom:16px;">Impressum</h2>
+      <p style="font-size:13px; line-height:1.7; color:var(--text-muted);">
+        <strong style="color:var(--text);">Angaben gemäß § 5 TMG</strong><br><br>
+        <strong style="color:var(--text);">Betreiber</strong><br>
+        Claus Unterberg<br>
+        c/o Gymnasium Thomaeum Kempen<br>
+        Am Gymnasium 4<br>
+        47906 Kempen<br><br>
+        <strong style="color:var(--text);">Kontakt</strong><br>
+        E-Mail: claus.unterberg@thomaeum.de<br><br>
+        <strong style="color:var(--text);">Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</strong><br>
+        Claus Unterberg, Am Gymnasium 4, 47906 Kempen<br><br>
+        <strong style="color:var(--text);">Haftungsausschluss</strong><br>
+        Die Inhalte dieser App wurden mit größtmöglicher Sorgfalt erstellt. Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte kann jedoch keine Gewähr übernommen werden. Als Diensteanbieter bin ich gemäß § 7 Abs.1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich.<br><br>
+        <strong style="color:var(--text);">Hosting</strong><br>
+        Diese App wird über GitHub Pages (GitHub Inc., 88 Colin P Kelly Jr St, San Francisco, CA 94107, USA) bereitgestellt. Die Datenbankdienste werden über Google Firebase (Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland) betrieben.
+      </p>
+    </div>
+
+        <div id="legal-datenschutz" style="display:none;">
+      <h2 style="font-size:18px; font-weight:700; margin-bottom:16px;">Datenschutzerklärung</h2>
+      <div style="font-size:13px; line-height:1.7; color:var(--text-muted);">
+        <strong style="color:var(--text);">1. Verantwortlicher</strong><br>
+        Claus Unterberg, Am Gymnasium 4, 47906 Kempen<br>
+        E-Mail: claus.unterberg@thomaeum.de<br><br>
+
+        <strong style="color:var(--text);">2. Erhobene Daten</strong><br>
+        Bei der Registrierung und Nutzung dieser App werden folgende personenbezogene Daten erhoben und verarbeitet:<br>
+        – Name (freiwillige Angabe bei der Registrierung)<br>
+        – E-Mail-Adresse (erforderlich für die Registrierung)<br>
+        – Von Nutzern erstellte Inhalte (Board-Namen, Kartentexte, Aufgaben)<br>
+        – Zeitstempel der Erstellung und Bearbeitung von Inhalten<br><br>
+
+        <strong style="color:var(--text);">3. Zweck der Datenverarbeitung</strong><br>
+        Die erhobenen Daten werden ausschließlich zur Bereitstellung der Kanban-App-Funktionalität verwendet. Eine Weitergabe an Dritte erfolgt nicht, außer an die nachfolgend genannten Dienstleister.<br><br>
+
+        <strong style="color:var(--text);">3a. Administrator-Zugriff</strong><br>
+        Der Betreiber dieser App verfügt über einen passwortgeschützten Administrator-Bereich. Im Rahmen dieser Funktion hat der Administrator die technische Möglichkeit, <strong style="color:var(--text);">alle Boards und Aufgaben aller registrierten Nutzer einzusehen</strong>, unabhängig davon, welchem Nutzer diese Inhalte gehören. Dies dient ausschließlich der Verwaltung der Plattform sowie der Moderation von Inhalten. Eine darüber hinausgehende Nutzung oder Weitergabe dieser Daten findet nicht statt. Nutzer werden durch einen entsprechenden Hinweis im Nutzerhandbuch sowie in dieser Datenschutzerklärung über diese Möglichkeit informiert.<br><br>
+
+        <strong style="color:var(--text);">4. Dienstleister und Datenübertragung</strong><br>
+        <em style="color:var(--text);">Google Firebase (Authentifizierung und Datenbank)</em><br>
+        Zur Benutzeranmeldung und Datenspeicherung wird Google Firebase verwendet. Anbieter ist Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland. Die Datenverarbeitung erfolgt auf Servern in der EU (Frankfurt). Google Firebase ist nach dem EU-US Data Privacy Framework zertifiziert. Weitere Informationen: <a href="https://firebase.google.com/support/privacy" target="_blank" style="color:var(--accent);">firebase.google.com/support/privacy</a><br><br>
+        <em style="color:var(--text);">GitHub Pages (Hosting)</em><br>
+        Das Hosting erfolgt über GitHub Pages (GitHub Inc., San Francisco, USA). GitHub kann dabei technische Zugriffsdaten (IP-Adresse, Zeitpunkt des Zugriffs) erfassen. Weitere Informationen: <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages#data-collection" target="_blank" style="color:var(--accent);">GitHub Pages Datenschutz</a><br><br>
+
+        <strong style="color:var(--text);">5. Speicherdauer</strong><br>
+        Personenbezogene Daten werden gespeichert, solange ein Nutzerkonto besteht. Nach Löschung des Kontos werden alle zugehörigen Daten innerhalb von 30 Tagen entfernt.<br><br>
+
+        <strong style="color:var(--text);">6. Rechte der betroffenen Personen</strong><br>
+        Gemäß DSGVO haben Nutzer folgende Rechte:<br>
+        – Recht auf Auskunft (Art. 15 DSGVO)<br>
+        – Recht auf Berichtigung (Art. 16 DSGVO)<br>
+        – Recht auf Löschung (Art. 17 DSGVO)<br>
+        – Recht auf Einschränkung der Verarbeitung (Art. 18 DSGVO)<br>
+        – Recht auf Datenübertragbarkeit (Art. 20 DSGVO)<br>
+        – Widerspruchsrecht (Art. 21 DSGVO)<br><br>
+        Zur Ausübung dieser Rechte wende dich an: claus.unterberg@thomaeum.de<br><br>
+
+        <strong style="color:var(--text);">7. Beschwerderecht</strong><br>
+        Du hast das Recht, dich bei der zuständigen Aufsichtsbehörde zu beschweren. In NRW ist dies der Landesbeauftragte für Datenschutz und Informationsfreiheit (LDI NRW), Postfach 20 04 44, 40102 Düsseldorf.<br><br>
+
+        <strong style="color:var(--text);">8. Cookies und lokale Speicherung</strong><br>
+        Diese App verwendet keinen Cookies zu Tracking-Zwecken. Es wird ausschließlich der lokale Browserspeicher (localStorage) genutzt, um Benutzereinstellungen (Hintergrundbild, Transparenz) zu speichern. Diese Daten verlassen das Gerät nicht.<br><br>
+
+        <strong style="color:var(--text);">Stand:</strong> März 2026
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-legal')">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-help" class="modal-overlay" style="display:none;" onclick="closeModal('modal-help')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:660px; max-height:85vh; overflow-y:auto;">
+
+    <div style="display:flex; flex-direction:column; align-items:center; gap:16px; margin-bottom:28px;">
+      <div style="background:#ffffff; border-radius:20px; width:90px; height:90px;
+        display:flex; align-items:center; justify-content:center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15); flex-shrink:0;">
+        <img src="images/logo.png" style="width:66px; height:66px; object-fit:contain;" alt="KanbanFluss" onerror="this.style.display='none';"/>
+      </div>
+      <div style="text-align:center;">
+        <div class="modal-title" style="margin-bottom:4px;">Nutzerhandbuch</div>
+        <div style="font-size:13px; color:var(--text-muted);">KanbanFluss – Kurzanleitung</div>
+      </div>
+    </div>
+
+    <div style="font-size:13px; line-height:1.8; color:var(--text-muted);">
+
+            <div class="help-section" style="background:rgba(77,127,255,0.06); border:1px solid rgba(77,127,255,0.15); border-radius:10px; padding:14px 18px;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px;">Inhalt</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 16px;">
+          <div style="color:var(--accent); font-weight:500;">Für alle Nutzerinnen und Nutzer</div>
+          <div style="color:var(--accent); font-weight:500;">Für Lehrerinnen und Lehrer</div>
+          <div>· Was ist ein Kanban-Board?</div>
+          <div>· Zugang und Admin-Bereich</div>
+          <div>· Registrierung und Anmeldung</div>
+          <div>· Nutzerverwaltung</div>
+          <div>· Boards erstellen und duplizieren</div>
+          <div>· Abgabetermin festlegen</div>
+          <div>· Spalten verwalten</div>
+          <div>· Aging-Warnung einstellen</div>
+          <div>· Karten erstellen und bearbeiten</div>
+          <div>· Benotung</div>
+          <div>· Drag &amp; Drop</div>
+          <div>· Hintergrundbilder verwalten</div>
+          <div>· Karten löschen</div>
+          <div>· Admin-Passwort</div>
+          <div>· Export, Import und KI-Assistent</div>
+          <div></div>
+          <div>· Agenda, Termine und Fristen</div>
+          <div></div>
+          <div>· Datenschutzhinweis</div>
+          <div></div>
+        </div>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Was ist ein Kanban-Board?</span></div>
+        <p>Kanban ist eine Methode zur Visualisierung und Steuerung von Arbeit. Der Begriff stammt aus dem Japanischen und bedeutet so viel wie <strong style="color:var(--text);">„Signalkarte"</strong> oder „sichtbare Karte". Entwickelt wurde die Methode ursprünglich von Toyota in den 1950er Jahren zur Optimierung von Produktionsabläufen – heute wird sie weltweit in Schulen, Unternehmen und bei Einzelpersonen eingesetzt.</p>
+
+        <p style="margin-top:10px;">Die Grundidee ist denkbar einfach: Aufgaben werden als <strong style="color:var(--text);">Karten</strong> dargestellt und auf einem Board in <strong style="color:var(--text);">Spalten</strong> angeordnet, die den aktuellen Status der Aufgabe zeigen. Typische Spalten sind:</p>
+        <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+          <li><strong style="color:var(--text);">— Offen</strong> – Aufgaben die noch nicht begonnen wurden</li>
+          <li><strong style="color:var(--text);">— In Bearbeitung</strong> – Aufgaben an denen gerade gearbeitet wird</li>
+          <li><strong style="color:var(--text);">— Fertig</strong> – Abgeschlossene Aufgaben</li>
+        </ul>
+
+        <p style="margin-top:10px;">Ein zentrales Prinzip von Kanban ist das sogenannte <strong style="color:var(--text);">WIP-Limit</strong> (Work in Progress). Es legt fest wie viele Aufgaben gleichzeitig „In Bearbeitung" sein dürfen. Das klingt zunächst wie eine Einschränkung – ist aber in Wirklichkeit ein wichtiges Werkzeug: Wer zu viele Dinge gleichzeitig beginnt, erledigt am Ende weniger. Das WIP-Limit zwingt dazu, angefangene Aufgaben zu Ende zu bringen bevor neue begonnen werden.</p>
+
+        <p style="margin-top:10px;">Ein Kanban-Board macht den Arbeitsfluss für alle Beteiligten <strong style="color:var(--text);">auf einen Blick sichtbar</strong>: Wo stockt es? Was ist erledigt? Wer arbeitet woran? Diese Transparenz ist besonders wertvoll bei der Zusammenarbeit in Teams.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Registrierung und Anmeldung</span></div>
+        <p>Beim ersten Besuch der App kannst du dich entweder mit deinem <strong style="color:var(--text);">Google-Konto</strong> anmelden oder ein neues Konto mit E-Mail-Adresse und Passwort erstellen. Klicke dafür auf „Jetzt registrieren" und fülle das Formular aus. Das Passwort muss mindestens 6 Zeichen lang sein.</p>
+        <p style="margin-top:8px;">Beim nächsten Besuch meldest du dich einfach mit denselben Zugangsdaten an. Deine Boards und Aufgaben sind dann genau so, wie du sie zuletzt hinterlassen hast.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Boards erstellen</span></div>
+        <p>Ein <strong style="color:var(--text);">Board</strong> ist dein Arbeitsbereich – zum Beispiel für ein Projekt, eine Klasse oder eine Aufgabensammlung. Klicke in der linken Seitenleiste auf <strong style="color:var(--text);">„＋ Neues Board"</strong> um den Einrichtungsassistenten zu starten.</p>
+        <p style="margin-top:8px;">Der Assistent führt dich durch drei Schritte:</p>
+        <ol style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+          <li><strong style="color:var(--text);">Board-Name</strong> – Gib dem Board einen aussagekräftigen Namen.</li>
+          <li><strong style="color:var(--text);">Teamgröße</strong> – Wähle aus wie viele Personen mitarbeiten (1–10). Das WIP-Limit wird automatisch berechnet.</li>
+          <li><strong style="color:var(--text);">Nicknames</strong> – Gib für jede Person einen Namen oder Nickname ein. Diese werden später beim Zuweisen von Aufgaben verwendet.</li>
+        </ol>
+        <p style="margin-top:8px;">Nach der Erstellung erscheint das Board in der Seitenleiste und enthält bereits drei Standardspalten: <em>— Offen</em>, <em>— In Bearbeitung</em> und <em>— Fertig</em>.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="8" y1="6" y2="21"/><line x1="16" x2="16" y1="6" y2="21"/><line x1="2" x2="22" y1="6" y2="6"/></svg> Spalten verwalten</span></div>
+        <p>Jedes Board besteht aus <strong style="color:var(--text);">Spalten</strong>, die den Status einer Aufgabe beschreiben. Du kannst beliebig viele eigene Spalten hinzufügen – klicke dafür auf <strong style="color:var(--text);">„＋ Spalte hinzufügen"</strong> ganz rechts im Board.</p>
+        <p style="margin-top:8px;">Spalten können über das 🗑-Symbol gelöscht werden. Achtung: dabei werden auch alle Karten in dieser Spalte gelöscht.</p>
+        <p style="margin-top:8px;"><strong style="color:var(--text);">WIP-Limit:</strong> Die Spalte „In Bearbeitung" hat ein automatisches Limit für gleichzeitig aktive Aufgaben. Dieses wird beim Erstellen des Boards anhand der Teamgröße berechnet. Wenn das Limit erreicht ist, färbt sich die Spalte orange bzw. rot – eine Karte kann dann nicht mehr hineingezogen werden.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/></svg> Karten erstellen und bearbeiten</span></div>
+        <p><strong style="color:var(--text);">Karten</strong> sind einzelne Aufgaben. Klicke auf <strong style="color:var(--text);">„＋ Karte hinzufügen"</strong> unterhalb einer Spalte um eine neue Karte zu erstellen. Du kannst dabei eine <strong style="color:var(--text);">Priorität</strong> (Hoch / Mittel / Niedrig) angeben.</p>
+        <p style="margin-top:8px;">Um eine Karte zu bearbeiten, klicke auf das <strong style="color:var(--text);">✎-Symbol</strong> auf der Karte. Im Bearbeitungsdialog kannst du:</p>
+        <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+          <li>Den Text der Aufgabe ändern</li>
+          <li>Die Priorität anpassen</li>
+          <li>Ein <strong style="color:var(--text);">Fälligkeitsdatum</strong> setzen – die Karte färbt sich automatisch grün, orange oder rot je nach verbleibender Zeit</li>
+          <li>Die Karte einem <strong style="color:var(--text);">Teammitglied zuweisen</strong> – wähle aus der Dropdown-Liste der Boardmitglieder</li>
+        </ul>
+        <p style="margin-top:8px;">Karten die dir zugewiesen sind, erkennst du am <strong style="color:var(--accent);">blauen linken Rand</strong>.</p>
+      </div>
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l4-4 4 4"/><path d="M9 5v14"/><path d="M19 15l-4 4-4-4"/><path d="M15 19V5"/></svg> Drag &amp; Drop</span></div>
+        <p>Aufgaben lassen sich per <strong style="color:var(--text);">Drag & Drop</strong> zwischen Spalten verschieben – einfach eine Karte greifen und in die gewünschte Spalte ziehen. Beim Verschieben werden automatisch Zeitstempel gesetzt:</p>
+        <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+          <li><strong style="color:var(--text);">Startdatum (▶)</strong> – wird gesetzt sobald eine Karte zum ersten Mal bewegt wird</li>
+          <li><strong style="color:var(--text);">Enddatum (✓)</strong> – wird automatisch gesetzt wenn die Karte in die „Fertig"-Spalte gezogen wird</li>
+        </ul>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg> Karten löschen</span></div>
+        <p>Du kannst Karten über das <strong style="color:var(--text);">✕-Symbol</strong> löschen. Es ist nur möglich, <strong style="color:var(--text);">eigene Karten</strong> zu löschen – also Karten die dir zugewiesen sind oder keiner Person zugewiesen wurden. Karten anderer Teammitglieder können nicht gelöscht werden.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> Hintergrund anpassen</span></div>
+        <p>Klicke oben rechts auf das <strong style="color:var(--text);">🖼️-Symbol</strong> um dein persönliches Hintergrundbild zu wählen. Du kannst zwischen verschiedenen Farbverläufen und 20 Hintergrundbildern wählen. Mit dem Transparenz-Regler lässt sich einstellen wie stark die Panels über dem Bild erscheinen. Diese Einstellung wird nur auf deinem Gerät gespeichert.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg> Agenda</span></div>
+        <p>Die <strong style="color:var(--text);">Agenda</strong> gibt dir einen schnellen Überblick über alle Aufgaben des aktuellen Boards – sortiert nach Fälligkeitsdatum. Du findest den Agenda-Button direkt neben dem Board-Namen.</p>
+        <p style="margin-top:8px;">In der Agenda siehst du auf einen Blick:</p>
+        <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+          <li>Alle Karten des Boards mit ihrer jeweiligen Spalte und Zuweisung</li>
+          <li>Farbliche Markierung der Dringlichkeit: <strong style="color:var(--success);">grün</strong> (noch Zeit), <strong style="color:#f59e0b;">orange</strong> (bald fällig) und <strong style="color:var(--danger);">rot</strong> (überfällig)</li>
+          <li>Falls eine <strong style="color:var(--text);">Projekt-Deadline</strong> gesetzt wurde, erscheint sie ganz oben mit einem Countdown</li>
+        </ul>
+        <p style="margin-top:8px;">Aufgaben ohne Fälligkeitsdatum werden am Ende der Liste angezeigt.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Termine und Fristen</span></div>
+        <p>In KanbanFluss gibt es drei verschiedene Arten von Terminen:</p>
+
+        <p style="margin-top:12px;"><strong style="color:var(--text);">1. Fälligkeitsdatum einer Karte</strong></p>
+        <p>Du selbst kannst für jede deiner Karten ein Fälligkeitsdatum setzen. Es zeigt an, bis wann du planst, die jeweilige Aufgabe abzuschließen. Das Datum lässt sich über das ✎-Symbol auf der Karte einstellen. Je nach verbleibender Zeit färbt sich die Anzeige automatisch grün, orange oder rot.</p>
+
+        <p style="margin-top:12px;"><strong style="color:var(--text);">2. Aging-Warnung (Verweildauer)</strong></p>
+        <p>Die Lehrkraft kann pro Board festlegen, nach wie vielen Tagen eine Karte in der Spalte „In Bearbeitung" rötlich markiert wird. Diese Warnung zeigt an, dass eine Aufgabe zu lange liegen bleibt, ohne fertiggestellt zu werden. Die Einstellung wird im Admin-Bereich vorgenommen und gilt für alle Karten des jeweiligen Boards. Standardmäßig liegt der Wert bei 5 Tagen.</p>
+
+        <p style="margin-top:12px;"><strong style="color:var(--text);">3. Projekt-Deadline (Abgabetermin)</strong></p>
+        <p>Die Lehrkraft kann für ein gesamtes Board eine Deadline festlegen – also den Termin, bis zu dem das Projekt insgesamt abgeschlossen sein soll. Dieser Abgabetermin erscheint als Countdown am oberen Rand der Agenda. So hast du jederzeit im Blick, wie viel Zeit für das Gesamtprojekt noch bleibt.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export, Import und KI-Assistent</span></div>
+        <p>Oberhalb des Boards befinden sich vier zusätzliche Schaltflächen, die das Arbeiten mit den Board-Inhalten über die App hinaus ermöglichen.</p>
+
+        <p style="margin-top:12px;"><strong style="color:var(--text);">Export</strong></p>
+        <p>Der Export gibt den gesamten Inhalt des aktuellen Boards als lesbaren Klartext aus – mit allen Spalten, Karten, Prioritäten, Zuweisungen, Fälligkeitsdaten und Zeitstempeln. Am Ende folgt eine nach Fälligkeit sortierte Agenda. Über die Schaltfläche <strong style="color:var(--text);">„In Zwischenablage kopieren"</strong> lässt sich der Text direkt übernehmen – zum Beispiel für ein Protokoll, eine E-Mail oder die Weiterverarbeitung.</p>
+
+        <p style="margin-top:12px;"><strong style="color:var(--text);">Import</strong></p>
+        <p>Über den Import kann ein zuvor exportierter Board-Text wieder in die App eingelesen werden. Dafür den Text in das Eingabefeld einfügen, dann auf <strong style="color:var(--text);">„Vorschau"</strong> klicken – die App zeigt an, welche Spalten und Karten erkannt wurden. Erst nach Bestätigung werden die Daten tatsächlich ins Board geschrieben. Bestehende Inhalte bleiben dabei erhalten; Karten werden in passende Spalten einsortiert oder neue Spalten angelegt.</p>
+
+        <p style="margin-top:12px;"><strong style="color:var(--text);">Board duplizieren</strong></p>
+        <p>In der linken Seitenleiste erscheint beim Hovern über einen Board-Eintrag neben dem Lösch-Symbol ein Kopier-Symbol. Ein Klick darauf erstellt eine vollständige Kopie des Boards – mit allen Spalten, Karten und Einstellungen. Der Name wird automatisch um <em>„– Kopie"</em> ergänzt. Das ist nützlich, wenn ein bewährtes Board als Vorlage für eine neue Gruppe oder ein neues Projekt dienen soll.</p>
+
+        <p style="margin-top:12px;"><strong style="color:var(--text);">✦ KI-Assistent</strong></p>
+        <p>Der KI-Assistent erzeugt einen fertigen Prompt, der in ein externes KI-System (z.&nbsp;B. ChatGPT, Claude oder Gemini) eingefügt werden kann. Das KI-System führt dann Schritt für Schritt durch die Überarbeitung des Boards:</p>
+        <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+          <li>Es fordert zunächst aktiv den Export-Text an</li>
+          <li>Es prüft alle Kartentexte auf Rechtschreib- und Grammatikfehler und schlägt Korrekturen vor</li>
+          <li>Es analysiert jede Karte einzeln und schlägt bei Bedarf eine Aufteilung in 2–4 konkrete Teilschritte vor</li>
+          <li>Alle Vorschläge werden einzeln mit Rückfrage abgestimmt</li>
+          <li>Am Ende gibt das KI-System das überarbeitete Board im Import-Format aus – es kann direkt über die Import-Funktion wieder eingelesen werden</li>
+        </ul>
+        <p style="margin-top:8px;">Auf diese Weise werden KI-Funktionen bewusst aus der App ausgelagert: kein eigener API-Key, keine Datenweitergabe im Hintergrund.</p>
+
+        <p style="margin-top:12px;"><strong style="color:var(--text);">Was der KI-Assistent zu Beginn fragt</strong></p>
+        <p>Das KI-System startet immer mit einer Einstiegsfrage und bietet zwei Wege an:</p>
+        <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+          <li><strong style="color:var(--text);">Pfad A – Bestehendes Board überarbeiten:</strong> Das Board wird exportiert und eingefügt. Das KI-System prüft Rechtschreibung, schlägt Korrekturen vor und geht jede Karte einzeln auf mögliche Aufteilung durch.</li>
+          <li><strong style="color:var(--text);">Pfad B – Neues Board erstellen:</strong> Das KI-System stellt gezielte Fragen zu Thema, Teamgröße, Mitgliedernamen, Deadline, Prioritäten und gewünschten Spalten. Auf Basis der Antworten entwirft es ein vollständiges Board, das Schritt für Schritt angepasst werden kann.</li>
+        </ul>
+        <p style="margin-top:8px;">In beiden Fällen gibt das KI-System am Ende einen fertigen Text im Import-Format aus, der direkt über die Import-Funktion in die App eingelesen werden kann.</p>
+      </div>
+
+            <div style="margin:28px 0 16px; padding:12px 18px; background:rgba(77,127,255,0.08); border-left:3px solid var(--accent); border-radius:0 8px 8px 0;">
+        <div style="font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--accent);">Für Lehrerinnen und Lehrer</div>
+        <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Die folgenden Funktionen sind nur im Admin-Bereich verfügbar.</div>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg> Zugang zum Admin-Bereich</span></div>
+        <p>Der Admin-Bereich ist ausschließlich für Lehrerinnen und Lehrer gedacht. Er ermöglicht den Zugriff auf alle Boards aller angemeldeten Schülerinnen und Schüler sowie die Verwaltung zentraler Einstellungen. Schülerinnen und Schüler sehen diese Schaltfläche nicht.</p>
+        <p style="margin-top:8px;">Es gibt zwei Wege, Admin-Zugang zu erhalten:</p>
+        <ul style="margin:8px 0 0 18px; display:flex; flex-direction:column; gap:4px;">
+          <li><strong style="color:var(--text);">Geschützte Admin-E-Mail:</strong> Bestimmte E-Mail-Adressen sind direkt im Quellcode hinterlegt und haben automatisch Admin-Zugang ohne Passworteingabe.</li>
+          <li><strong style="color:var(--text);">Admin-Passwort:</strong> Alle anderen E-Mail-Adressen, die im Reiter <em>Admins</em> eingetragen wurden, können sich mit dem gemeinsamen Admin-Passwort einloggen.</li>
+        </ul>
+        <p style="margin-top:8px;">Klicke in der Seitenleiste auf <strong style="color:var(--text);">Admin</strong>, um den Bereich zu öffnen. Beim ersten Aufruf wird ein Admin-Passwort festgelegt.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg> Nutzerverwaltung</span></div>
+        <p>Im Reiter <strong style="color:var(--text);">Nutzer</strong> sind alle registrierten Konten aufgelistet. Zu jeder Person sind die E-Mail-Adresse, der Anzeigename und alle zugehörigen Boards sichtbar. Boards können hier direkt eingesehen und bei Bedarf gelöscht werden.</p>
+        <p style="margin-top:8px;">Das ist besonders nützlich, um sich einen Überblick über den Arbeitsstand einer ganzen Klasse zu verschaffen, ohne sich in jedes Konto einzeln einloggen zu müssen. Konten, die nicht mehr gebraucht werden, können hier ebenfalls entfernt werden.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M12 14v4"/><path d="M10 16h4"/></svg> Abgabetermin (Projekt-Deadline) festlegen</span></div>
+        <p>Im Reiter <strong style="color:var(--text);">Abgabe</strong> lässt sich für jedes Board einer Schülerin oder eines Schülers ein verbindlicher Abgabetermin setzen. Dieser Termin erscheint dann als farbiger Countdown ganz oben in der Agenda des jeweiligen Boards – für die Schülerinnen und Schüler jederzeit sichtbar.</p>
+        <p style="margin-top:8px;">Der Sinn dieser Funktion: Anders als ein selbst gesetztes Fälligkeitsdatum auf einer einzelnen Karte ist die Projekt-Deadline von der Lehrkraft gesetzt und gilt für das gesamte Board. Sie schafft einen gemeinsamen Orientierungspunkt für alle Beteiligten und macht den verbleibenden Zeitraum ohne Umwege sichtbar. Der Countdown färbt sich automatisch orange, wenn die Deadline näher rückt, und rot, wenn sie überschritten ist.</p>
+        <p style="margin-top:8px;">Zum Setzen: im Admin-Bereich unter <em>Abgabe</em> zunächst die gewünschte Person auswählen, dann das Datum pro Board eintragen und auf <strong style="color:var(--text);">Speichern</strong> klicken. Mit dem ✕-Button lässt sich ein Termin auch wieder entfernen.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Aging-Warnung einstellen</span></div>
+        <p>Im Reiter <strong style="color:var(--text);">Aging</strong> lässt sich pro Board festlegen, nach wie vielen Tagen eine Karte in der Spalte „In Bearbeitung" rötlich markiert wird. Der Standardwert liegt bei 5 Tagen.</p>
+        <p style="margin-top:8px;">Hintergrund: Im Kanban-Prinzip ist es ein Warnsignal, wenn eine Aufgabe zu lange in der Bearbeitungsspalte verweilt, ohne abgeschlossen zu werden. Dies kann auf eine Blockade, falsche Einschätzung des Aufwands oder mangelnde Priorisierung hinweisen. Die Aging-Warnung macht dieses Problem sichtbar – sowohl für die Schülerinnen und Schüler selbst als auch beim Blick der Lehrkraft auf den Export.</p>
+        <p style="margin-top:8px;">Empfehlung: Bei kürzeren Projektphasen (z.&nbsp;B. eine Unterrichtseinheit über zwei Wochen) ist ein Wert von 2–3 Tagen sinnvoll. Bei längeren Projekten kann der Wert entsprechend höher gesetzt werden.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> Benotung</span></div>
+        <p>Im Reiter <strong style="color:var(--text);">Noten</strong> kann für jede Schülerin und jeden Schüler pro Board eine Note vergeben werden. Die Noten werden direkt in der Datenbank gespeichert und sind nur im Admin-Bereich sichtbar – Schülerinnen und Schüler sehen ihre eigene Note nicht in der App.</p>
+        <p style="margin-top:8px;">Die Funktion eignet sich dafür, Projektarbeiten oder Gruppenarbeiten direkt im Zusammenhang mit dem jeweiligen Board zu bewerten, ohne zwischen verschiedenen Systemen wechseln zu müssen. Die vergebenen Noten bleiben dem Board dauerhaft zugeordnet.</p>
+        <p style="margin-top:8px;">Zum Benoten: unter <em>Noten</em> zunächst die Person, dann das Board auswählen. Die Note lässt sich per Dropdown auf einer Skala von 1 bis 6 einstellen und wird sofort gespeichert.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> Hintergrundbilder verwalten</span></div>
+        <p>Im Reiter <strong style="color:var(--text);">Bilder</strong> lässt sich einstellen, wie viele eigene Hintergrundbilder im Einstellungspanel der App angezeigt werden sollen. Die Bilder müssen als <code>H1.png</code>, <code>H2.png</code> usw. im Ordner <code>images/</code> auf dem Server (GitHub Pages) liegen.</p>
+        <p style="margin-top:8px;">Die Anzahl der angezeigten Thumbnails wird hier zentral gesetzt und gilt für alle Nutzerinnen und Nutzer der App. So können schulspezifische oder themenbezogene Hintergrundbilder bereitgestellt werden, ohne dass jede Person die Bilder einzeln hochladen muss.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg> Weitere Lehrerinnen und Lehrer als Admins</span></div>
+        <p>Im Reiter <strong style="color:var(--text);">Admins</strong> lassen sich weitere E-Mail-Adressen mit Admin-Zugang ausstatten. Wer dort eingetragen ist, kann sich mit dem gemeinsamen Admin-Passwort anmelden und hat dann dieselben Möglichkeiten wie der Hauptadministrator.</p>
+        <p style="margin-top:8px;">Das ist sinnvoll, wenn mehrere Lehrerinnen oder Lehrer gemeinsam mit derselben App-Instanz arbeiten – zum Beispiel in einem Fachteam oder bei einer gemeinsamen Projektwoche. Eingetragene Adressen lassen sich jederzeit wieder entfernen.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Admin-Passwort ändern</span></div>
+        <p>Im Reiter <strong style="color:var(--text);">Passwort</strong> lässt sich das Admin-Passwort jederzeit ändern. Das Passwort muss mindestens 6 Zeichen lang sein. Es wird verschlüsselt in der Datenbank gespeichert und gilt für alle Personen, die über den <em>Admins</em>-Reiter eingetragen wurden.</p>
+        <p style="margin-top:8px;">Hinweis: Geschützte Admin-E-Mail-Adressen, die direkt im Quellcode hinterlegt sind, benötigen kein Passwort und sind von einer Passwortänderung nicht betroffen.</p>
+      </div>
+
+            <div class="help-section">
+        <div class="help-heading"><span style="display:flex;align-items:center;gap:8px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg> Datenschutzhinweis</span></div>
+        <p>Deine Boards, Aufgaben und Profildaten werden in der Cloud gespeichert. Der Betreiber dieser App hat als Administrator die technische Möglichkeit, alle Boards einzusehen. Weitere Informationen findest du in der <a onclick="closeModal('modal-help'); openLegal();" style="color:var(--accent); cursor:pointer;">Datenschutzerklärung</a>.</p>
+      </div>
+
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-sm btn-sm-primary" onclick="closeModal('modal-help')">Verstanden ✓</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-admin-login" class="modal-overlay" style="display:none;" onclick="closeModal('modal-admin-login')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:400px; background:rgba(var(--panel-rgb),0.85); backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px); border:1px solid rgba(100,160,255,0.25); box-shadow:0 8px 40px rgba(0,0,20,0.6);">
+    <div style="text-align:center; margin-bottom:20px;">
+      <div style="margin-bottom:12px; display:flex; justify-content:center;">
+        <div style="background:var(--surface2);backdrop-filter:blur(12px);border:1px solid rgba(100,160,255,0.25);border-radius:16px;padding:16px;display:inline-flex;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+        </div>
+      </div>
+      <div class="modal-title" style="margin-bottom:4px;">Administrator-Bereich</div>
+      <div style="font-size:13px; color:var(--text-muted);">Bitte Admin-Passwort eingeben</div>
+    </div>
+    <div class="error-msg" id="admin-login-error"></div>
+    <div class="form-group">
+      <label>Admin-Passwort</label>
+      <input type="password" id="admin-password-input" placeholder="••••••••"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-admin-login')">Abbrechen</button>
+      <button class="btn-sm btn-sm-primary" onclick="doAdminLogin()">Einloggen</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-admin-setup" class="modal-overlay" style="display:none;" onclick="closeModal('modal-admin-setup')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:400px; background:rgba(var(--panel-rgb),0.85); backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px); border:1px solid rgba(100,160,255,0.25); box-shadow:0 8px 40px rgba(0,0,20,0.6);">
+    <div style="text-align:center; margin-bottom:20px;">
+      <div style="margin-bottom:12px; display:flex; justify-content:center;">
+        <div style="background:var(--surface2);backdrop-filter:blur(12px);border:1px solid rgba(100,160,255,0.25);border-radius:16px;padding:16px;display:inline-flex;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+      </div>
+      <div class="modal-title" style="margin-bottom:4px;">Admin-Passwort festlegen</div>
+      <div style="font-size:13px; color:var(--text-muted);">Noch kein Admin-Passwort gesetzt. Lege jetzt eines fest.</div>
+    </div>
+    <div class="form-group">
+      <label>Neues Admin-Passwort</label>
+      <input type="password" id="admin-setup-pw1" placeholder="Min. 6 Zeichen"/>
+    </div>
+    <div class="form-group">
+      <label>Passwort wiederholen</label>
+      <input type="password" id="admin-setup-pw2" placeholder="Wiederholen"/>
+    </div>
+    <div class="error-msg" id="admin-setup-error"></div>
+    <div class="modal-actions">
+      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-admin-setup')">Abbrechen</button>
+      <button class="btn-sm btn-sm-primary" onclick="doAdminSetup()">Passwort speichern</button>
+    </div>
+  </div>
+</div>
+
+<div id="admin-panel" style="display:none;">
+  <div class="settings-overlay" onclick="closeAdminPanel()"></div>
+  <div class="settings-drawer" style="width:420px;">
+    <div class="settings-header">
+      <span class="settings-title" style="display:flex;align-items:center;gap:8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg> Admin-Bereich
+      </span>
+      <button class="settings-close" onclick="closeAdminPanel()">✕</button>
+      </div>
+      <div class="settings-body">
+
+            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:20px;">
+        <button id="admin-tab-users-btn"  class="btn-sm btn-sm-primary" onclick="showAdminTab('users')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg> Nutzer</button>
+        <button id="admin-tab-emails-btn" class="btn-sm btn-sm-ghost"  onclick="showAdminTab('emails')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg> Admins</button>
+        <button id="admin-tab-images-btn" class="btn-sm btn-sm-ghost"  onclick="showAdminTab('images')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> Bilder</button>
+        <button id="admin-tab-grades-btn" class="btn-sm btn-sm-ghost"  onclick="showAdminTab('grades')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> Noten</button>
+        <button id="admin-tab-deadline-btn" class="btn-sm btn-sm-ghost" onclick="showAdminTab('deadline')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M12 14v4"/><path d="M10 16h4"/></svg> Abgabe</button>
+        <button id="admin-tab-aging-btn"  class="btn-sm btn-sm-ghost"  onclick="showAdminTab('aging')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Aging</button>
+        <button id="admin-tab-pw-btn"     class="btn-sm btn-sm-ghost"  onclick="showAdminTab('pw')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Passwort</button>
+      </div>
+
+            <div id="admin-tab-grades">
+        <div class="settings-label">Nutzer wählen</div>
+        <div id="admin-grades-users" class="admin-user-select-list"></div>
+        <div id="admin-grades-boards" style="display:none;">
+          <button class="admin-back-btn" onclick="showAdminGradesUsers()">← Zurück</button>
+          <div class="settings-label" style="margin-top:12px;">Board wählen</div>
+          <select id="admin-board-select" class="priority-select" style="width:100%; margin-bottom:16px;" onchange="loadAdminGrades()">
+            <option value="">– Board wählen –</option>
+          </select>
+          <div id="admin-grades-list"></div>
+        </div>
+      </div>
+
+            <div id="admin-tab-deadline" style="display:none;">
+        <div class="settings-label">Nutzer wählen</div>
+        <div id="admin-deadline-users" class="admin-user-select-list"></div>
+        <div id="admin-deadline-detail" style="display:none;">
+          <button class="admin-back-btn" onclick="showAdminDeadlineUsers()">← Zurück</button>
+          <div class="settings-label" style="margin-top:12px;">Abgabetermin pro Board</div>
+          <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.6;">
+            Erscheint als Countdown in der Agenda des jeweiligen Boards.
+          </div>
+          <div id="admin-deadline-list"></div>
+        </div>
+      </div>
+
+            <div id="admin-tab-aging" style="display:none;">
+        <div class="settings-label">Nutzer wählen</div>
+        <div id="admin-aging-users" class="admin-user-select-list"></div>
+        <div id="admin-aging-detail" style="display:none;">
+          <button class="admin-back-btn" onclick="showAdminAgingUsers()">← Zurück</button>
+          <div class="settings-label" style="margin-top:12px;">Aging-Warnung pro Board</div>
+          <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.6;">
+            Legt fest nach wie vielen Tagen eine Karte rötlich markiert wird.
+          </div>
+          <div id="admin-aging-list"></div>
+        </div>
+      </div>
+
+            <div id="admin-tab-images" style="display:none;">
+        <div class="settings-label">Anzahl Hintergrundbilder</div>
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.6;">
+          Legt fest wie viele Bilder (H1.png bis Hx.png) im Einstellungspanel als Thumbnails angezeigt werden. Stelle sicher dass die entsprechenden Dateien im <code style="background:rgba(77,127,255,0.15);padding:1px 6px;border-radius:4px;color:var(--accent);">images/</code>-Ordner auf GitHub vorhanden sind.
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+          <input type="number" id="admin-img-count" class="settings-input"
+            min="1" max="200" style="width:100px;"
+            placeholder="z.B. 20"/>
+          <button class="btn-sm btn-sm-primary" onclick="saveImageCount()">Speichern</button>
+        </div>
+        <div id="admin-img-preview" style="font-size:12px; color:var(--text-muted);"></div>
+      </div>
+
+            <div id="admin-tab-users" style="display:none;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+          <div class="settings-label" style="margin-bottom:0;">Alle Nutzer</div>
+          <button class="btn-sm btn-sm-ghost" onclick="loadAdminUsers()" style="font-size:11px;">↺ Aktualisieren</button>
+        </div>
+        <div id="admin-users-list"></div>
+      </div>
+
+            <div id="admin-tab-emails" style="display:none;">
+        <div class="settings-label">Admin-E-Mails verwalten</div>
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">
+          Diese E-Mail-Adressen haben automatisch Admin-Zugang ohne Passwort.
+        </div>
+        <div id="admin-emails-list" style="margin-bottom:16px;"></div>
+        <div style="display:flex; gap:8px;">
+          <input type="email" id="admin-new-email" class="settings-input" style="flex:1;" placeholder="neue@email.de"/>
+          <button class="btn-sm btn-sm-primary" onclick="addAdminEmail()">＋</button>
+        </div>
+      </div>
+
+            <div id="admin-tab-pw" style="display:none;">
+        <div class="settings-label">Admin-Passwort ändern</div>
+        <div class="form-group">
+          <label>Neues Passwort</label>
+          <input type="password" id="admin-change-pw1" class="settings-input" style="width:100%" placeholder="Min. 6 Zeichen"/>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label>Wiederholen</label>
+          <input type="password" id="admin-change-pw2" class="settings-input" style="width:100%" placeholder="Wiederholen"/>
+        </div>
+        <div class="error-msg" id="admin-change-error" style="margin-top:8px;"></div>
+        <button class="btn-sm btn-sm-primary" style="margin-top:12px;" onclick="changeAdminPassword()">Passwort ändern</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="modal-wip" class="modal-overlay" style="display:none;" onclick="closeModal('modal-wip')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">WIP-Limit festlegen</div>
+    <input type="hidden" id="wip-col-id"/>
+    <div class="form-group">
+      <label>Maximale Kartenanzahl (0 = kein Limit)</label>
+      <input type="number" id="wip-limit-input" min="0" max="99" placeholder="z.B. 3"/>
+    </div>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:-8px; margin-bottom:4px;">
+      💡 Tipp: Fertig-Spalten brauchen kein Limit – die werden automatisch ausgenommen.
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-wip')">Abbrechen</button>
+      <button class="btn-sm btn-sm-primary" onclick="saveWipLimit()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-ai-prompt" class="modal-overlay" style="display:none;" onclick="closeModal('modal-ai-prompt')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:680px; max-height:90vh; display:flex; flex-direction:column;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-shrink:0;">
+      <div class="modal-title" style="display:flex; align-items:center; gap:10px; margin-bottom:0;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+        KI-Assistent – Prompt
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button id="ai-prompt-copy-btn" class="btn-sm btn-sm-primary" onclick="copyAiPrompt()" style="display:flex; align-items:center; gap:6px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          Prompt kopieren
+        </button>
+        <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-ai-prompt')">✕ Schließen</button>
+      </div>
+    </div>
+    <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.6; flex-shrink:0;">
+      Kopiere diesen Prompt und füge ihn in ein KI-System deiner Wahl ein (z.&nbsp;B. ChatGPT, Claude, Gemini). Das System wird dich Schritt für Schritt durch die Überarbeitung deines Boards führen und am Ende einen Text ausgeben, den du direkt über <strong style="color:var(--text);">Import</strong> wieder einlesen kannst.
+    </div>
+    <pre id="ai-prompt-content" style="
+      flex: 1;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      font-family: 'DM Mono', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+    "></pre>
+  </div>
+</div>
+
+<div id="modal-import" class="modal-overlay" style="display:none;" onclick="closeModal('modal-import')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:660px; max-height:90vh; display:flex; flex-direction:column;">
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; flex-shrink:0;">
+      <div class="modal-title" style="display:flex; align-items:center; gap:10px; margin-bottom:0;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Board importieren
+      </div>
+      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-import')">✕ Schließen</button>
+    </div>
+    <div style="font-size:12px; color:var(--text-muted); margin-bottom:12px; line-height:1.6; flex-shrink:0;">
+      Füge hier den Inhalt eines exportierten Boards ein. Es werden alle Spalten und Karten (inkl. Priorität, Zuweisung und Fälligkeitsdatum) in das aktuell geöffnete Board importiert. Bestehende Spalten und Karten bleiben erhalten.
+    </div>
+
+        <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; min-height:0;">
+      <textarea id="import-textarea" style="
+        flex-shrink: 0;
+        height: 200px;
+        background: rgba(0,0,0,0.35);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px 18px;
+        font-family: 'DM Mono', 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--text);
+        resize: vertical;
+        outline: none;
+        width: 100%;
+      " placeholder="Exportierten Board-Text hier einfügen…"></textarea>
+      <div id="import-error" style="display:none; padding:10px 14px; border-radius:8px; border:1px solid rgba(240,82,82,0.3); background:rgba(240,82,82,0.08); font-size:12px; color:#f87171; flex-shrink:0;"></div>
+      <div id="import-preview" style="display:none; padding:12px 16px; border-radius:10px; border:1px solid rgba(77,127,255,0.25); background:rgba(77,127,255,0.07); font-size:12px; color:var(--text-muted); line-height:1.8; flex-shrink:0;"></div>
+    </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end; flex-shrink:0; margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+      <button class="btn-sm btn-sm-ghost" onclick="parseImportPreview()">Vorschau</button>
+      <button id="import-confirm-btn" class="btn-sm btn-sm-primary" style="display:none;" onclick="confirmImport()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M20 6 9 17l-5-5"/></svg>
+        Jetzt importieren
+      </button>
+      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-import')">Abbrechen</button>
+    </div>
+
+  </div>
+</div>
+
+<div id="modal-export" class="modal-overlay" style="display:none;" onclick="closeModal('modal-export')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:700px; max-height:90vh; display:flex; flex-direction:column;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-shrink:0;">
+      <div class="modal-title" style="display:flex; align-items:center; gap:10px; margin-bottom:0;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Board-Export
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button id="export-copy-btn" class="btn-sm btn-sm-primary" onclick="copyExportToClipboard()" style="display:flex; align-items:center; gap:6px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          In Zwischenablage kopieren
+        </button>
+        <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-export')">✕ Schließen</button>
+      </div>
+    </div>
+    <pre id="export-content" style="
+      flex: 1;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      font-family: 'DM Mono', 'Courier New', monospace;
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+    ">Lade…</pre>
+  </div>
+</div>
+
+<div id="modal-agenda" class="modal-overlay" style="display:none;" onclick="closeModal('modal-agenda')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:600px; max-height:85vh; display:flex; flex-direction:column;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+      <div class="modal-title" style="display:flex; align-items:center; gap:10px; margin-bottom:0;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
+        Agenda
+      </div>
+      <button class="btn-sm btn-sm-ghost" onclick="closeModal('modal-agenda')">✕ Schließen</button>
+    </div>
+    <div id="agenda-deadline" style="display:none; margin-bottom:16px; padding:12px 16px; border-radius:10px; border:1px solid rgba(16,185,129,0.3); background:rgba(16,185,129,0.06);">
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">📅 Abgabetermin</div>
+      <div id="agenda-deadline-date" style="font-size:14px; font-weight:600;"></div>
+      <div id="agenda-deadline-countdown" style="font-size:12px; margin-top:2px;"></div>
+    </div>
+    <div id="agenda-list" style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex:1;"></div>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+
+</body>
+</html>
