@@ -4,13 +4,40 @@ import { S, getBoards, getColumns, getCards, updateCard, updateBoard } from './s
 // ── PRODUKTNOTEN (localStorage) ───────────────────────
 const GRADES_KEY = 'kanban_grades';
 
-function getProductGrades(boardId) {
-  try { return JSON.parse(localStorage.getItem(GRADES_KEY) || '{}')[boardId] || {}; } catch(e) { return {}; }
+async function getProductGrades(boardId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(GRADES_KEY) || '{}');
+    const entry = all[boardId];
+    if (!entry) return {};
+    if (entry.encrypted && entry.tchKeyEnc && entry.encData) {
+      const privKey = window._tutorSession?.privateKey;
+      if (!privKey) return {};
+      const keyB64 = await window.kfCrypto.rsaDecryptKey(entry.tchKeyEnc, privKey);
+      const key    = await window.kfCrypto.importKey(keyB64);
+      const json   = await window.kfCrypto.decryptWithKey(entry.encData, key);
+      return JSON.parse(json);
+    }
+    return entry; // Legacy: unverschlüsselte Einträge
+  } catch(e) { return {}; }
 }
 
-function saveProductGrades(boardId, grades) {
+async function saveProductGrades(boardId, grades) {
   const all = JSON.parse(localStorage.getItem(GRADES_KEY) || '{}');
-  all[boardId] = grades;
+  const ini = window._loadedIni;
+  if (ini && ini.publicKey) {
+    try {
+      const pubKey     = await window.kfCrypto.importPubJwk(ini.publicKey);
+      const dataKey    = await window.kfCrypto.genDataKey();
+      const dataKeyB64 = await window.kfCrypto.exportKey(dataKey);
+      const encData    = await window.kfCrypto.encryptWithKey(JSON.stringify(grades), dataKey);
+      const tchKeyEnc  = await window.kfCrypto.rsaEncryptKey(dataKeyB64, pubKey);
+      all[boardId] = { encrypted: true, tchKeyEnc, encData };
+    } catch(e) {
+      all[boardId] = grades; // Fallback: unverschlüsselt
+    }
+  } else {
+    all[boardId] = grades;
+  }
   localStorage.setItem(GRADES_KEY, JSON.stringify(all));
 }
 
@@ -24,6 +51,10 @@ function findDoneCol(cols) {
 
 // ── ADMIN BOARD-TOOLS LADEN ────────────────────────────
 window.loadAdminBoardTools = async () => {
+  if (typeof window.currentUserIsAdmin === 'function' && !(await window.currentUserIsAdmin())) {
+    showToast('Sitzung abgelaufen. Bitte Admin-Bereich erneut öffnen.', 'error');
+    return;
+  }
   const boardId = document.getElementById('admin-bt-board-select').value;
   const container = document.getElementById('admin-bt-tools-container');
 
@@ -70,9 +101,8 @@ window.loadAdminBoardTools = async () => {
   let boardTotalEffort = 0;
   finishedCards.forEach(c => boardTotalEffort += parseInt(c.effort || '1'));
 
-  const productGrades = getProductGrades(boardId);
+  const productGrades = await getProductGrades(boardId);
 
-  const members = board.members || [];
   const historicalAssignees = [...new Set(finishedCards.map(c => c.assignee).filter(a => a && !members.includes(a)))];
   const allMembers = [...members, ...historicalAssignees];
   if (!allMembers.length) {
@@ -237,7 +267,7 @@ window.exportBoardGrades = async () => {
     const historicalAssignees = [...new Set(finishedCards.map(c => c.assignee).filter(a => a && !members.includes(a)))];
     const allMembers = [...members, ...historicalAssignees];
 
-    const productGrades = getProductGrades(boardId);
+    const productGrades = await getProductGrades(boardId);
 
     const sep = '═'.repeat(60);
     const sep2 = '─'.repeat(60);
@@ -367,7 +397,7 @@ window.generateGutachtenPrompt = async (member) => {
     finishedCards.forEach(c => boardTotalEffort += parseInt(c.effort || '1'));
 
     const memberCards = finishedCards.filter(c => c.assignee === member);
-    const productGrades = getProductGrades(boardId);
+    const productGrades = await getProductGrades(boardId);
 
     let totalEffort = 0, weightedGradeSum = 0;
     memberCards.forEach(c => {
@@ -550,9 +580,9 @@ window.saveProductGrade = async (boardId, member) => {
   const grade   = document.getElementById(`prod-val-${boardId}-${member}`)?.value || '';
   const comment = document.getElementById(`prod-comment-${boardId}-${member}`)?.value.trim() || '';
 
-  const grades = getProductGrades(boardId);
+  const grades = await getProductGrades(boardId);
   grades[member] = { member, grade, comment, updatedAt: new Date().toISOString() };
-  saveProductGrades(boardId, grades);
+  await saveProductGrades(boardId, grades);
 
   showToast(`Produktnote für ${member} gespeichert!`);
   await safeReloadAdminTools();
@@ -657,7 +687,7 @@ window.openBoardToolbox = async (boardId, boardName, ownerName) => {
 
   const historicalAssignees = [...new Set(finishedCards.map(c => c.assignee).filter(a => a && !members.includes(a)))];
   const allMembers = [...members, ...historicalAssignees];
-  const productGrades = getProductGrades(boardId);
+  const productGrades = await getProductGrades(boardId);
 
   let html = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
@@ -823,9 +853,9 @@ window.toolboxSaveProductGrade = async (boardId, member) => {
   const grade   = document.getElementById(`prod-val-${boardId}-${member}`)?.value || '';
   const comment = document.getElementById(`prod-comment-${boardId}-${member}`)?.value.trim() || '';
 
-  const grades = getProductGrades(boardId);
+  const grades = await getProductGrades(boardId);
   grades[member] = { member, grade, comment, updatedAt: new Date().toISOString() };
-  saveProductGrades(boardId, grades);
+  await saveProductGrades(boardId, grades);
 
   showToast('Produktnote gespeichert!');
   await safeReloadToolbox(boardId);

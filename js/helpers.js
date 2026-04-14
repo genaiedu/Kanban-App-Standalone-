@@ -132,6 +132,85 @@ window.addEnterListener = function(id, fn) {
   if (el) el.addEventListener('keydown', e => { if(e.key==='Enter') fn(); });
 };
 
+// ── TUTOR-PASSWORTDIALOG ──────────────────────────────
+// Wird von openAdminArea() aufgerufen, wenn keine gültige Admin-Session vorliegt.
+// Prüft das Masterpasswort gegen die geladene INI-Datei und entsperrt den Admin-Bereich.
+window.showTutorPasswordPrompt = async function() {
+  const ini = window._loadedIni;
+  if (!ini || !ini.encryptedPrivateKey) {
+    showToast('Bitte zuerst die Tutor-INI-Datei laden (Seitenleiste → "INI laden").', 'error');
+    return;
+  }
+
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.65);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+    const box = document.createElement('div');
+    box.style.cssText = 'background:rgba(26,31,46,0.97);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:28px 24px 20px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+
+    const teacherHint = ini.teacherName
+      ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Tutor: <strong style="color:var(--text);">${ini.teacherName}</strong></div>`
+      : '';
+
+    box.innerHTML = `
+      <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:8px;">🔑 Tutor-Authentifizierung</div>
+      ${teacherHint}
+      <div style="font-size:13px;color:var(--text-muted);margin:12px 0 16px;line-height:1.5;">
+        Gib dein Masterpasswort ein, um den Admin-Bereich zu entsperren.
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Masterpasswort</label>
+        <input id="_tpw-i" type="password" placeholder="Masterpasswort eingeben"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:#1e2436;color:#e2e8f0;font-size:14px;outline:none;"/>
+      </div>
+      <div id="_tpw-e" style="color:#ef4444;font-size:12px;min-height:18px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button id="_tpw-cancel" style="padding:8px 18px;font-size:13px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#e2e8f0;cursor:pointer;">Abbrechen</button>
+        <button id="_tpw-ok" style="padding:8px 18px;font-size:13px;border-radius:10px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-weight:600;">🔓 Entsperren</button>
+      </div>`;
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    const inp     = box.querySelector('#_tpw-i');
+    const errEl   = box.querySelector('#_tpw-e');
+    const btnOk   = box.querySelector('#_tpw-ok');
+    const btnCancel = box.querySelector('#_tpw-cancel');
+    setTimeout(() => inp?.focus(), 50);
+
+    const close = () => {
+      overlay.style.opacity = '0';
+      overlay.style.transition = 'opacity 0.15s ease';
+      setTimeout(() => overlay.remove(), 150);
+      resolve();
+    };
+
+    const tryAuth = async () => {
+      const pw = inp.value;
+      if (!pw) { errEl.textContent = 'Bitte Passwort eingeben.'; return; }
+      btnOk.disabled = true; btnOk.textContent = 'Prüfe…';
+      errEl.textContent = '';
+      try {
+        const privKey = await window.kfCrypto.getPrivKeyFromIni(ini, pw);
+        window._tutorSession = { privateKey: privKey };
+        if (typeof window.setAdminAuthenticated === 'function') window.setAdminAuthenticated();
+        close();
+        if (typeof window.openAdminArea === 'function') window.openAdminArea();
+      } catch(e) {
+        errEl.textContent = 'Falsches Passwort.';
+        btnOk.disabled = false; btnOk.textContent = '🔓 Entsperren';
+        inp.select();
+      }
+    };
+
+    btnCancel.onclick = close;
+    btnOk.onclick = tryAuth;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') tryAuth(); });
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  });
+};
+
 // ── LUCIDE INTERVALL ─────────────────────────────────
 if (typeof lucide !== 'undefined') {
   lucide.createIcons();

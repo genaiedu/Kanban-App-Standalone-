@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>EDUBAN – Tutor-Einrichtung</title>
+  <link rel="icon" type="image/png" sizes="512x512" href="images/logo-512.png"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-body:   #0a0e1a;
+      --bg-panel:  #1a1f2e;
+      --bg-card:   #1e2436;
+      --text:      #e2e8f0;
+      --text-muted:#94a3b8;
+      --border:    rgba(255,255,255,0.1);
+      --accent:    #6366f1;
+      --accent-h:  #5254cc;
+      --danger:    #ef4444;
+      --success:   #22c55e;
+    }
+    html, body {
+      min-height: 100%;
+      background: var(--bg-body);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 32px 32px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .logo img { width: 40px; height: 40px; border-radius: 10px; }
+    .logo-text { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+    .field { margin-bottom: 16px; }
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: var(--accent); }
+    .error-msg {
+      color: var(--danger);
+      font-size: 12px;
+      min-height: 18px;
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+    .btn-primary {
+      width: 100%;
+      padding: 12px 20px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-h); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    .success-box {
+      display: none;
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.35);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 20px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: #4ade80;
+    }
+    .success-box strong { color: #86efac; }
+    .info-box {
+      background: rgba(99,102,241,0.08);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-top: 24px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+    .info-box strong { color: var(--text); }
+    .warn-box {
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.25);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 22px;
+      font-size: 12px;
+      color: #fca5a5;
+      line-height: 1.6;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 24px 0;
+    }
+    .step {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      background: rgba(99,102,241,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #818cf8;
+      margin-top: 1px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">
+    <img src="images/logo-192.png" alt="EDUBAN Logo" onerror="this.style.display='none'"/>
+    <span class="logo-text">EDUBAN</span>
+  </div>
+
+  <hr class="divider" style="margin-top:16px; margin-bottom:20px;"/>
+
+  <h1>🔑 Tutor-INI erstellen</h1>
+  <p class="subtitle">
+    Erstelle hier deine persönliche Tutor-Schlüsseldatei (.ini).
+    Sie enthält dein verschlüsseltes Schlüsselpaar und wird einmalig benötigt, um den Tutor-Bereich in EDUBAN freizuschalten.
+  </p>
+
+  <div class="warn-box">
+    ⚠️ <strong>Nur für Tutoren.</strong> Schülerinnen und Schüler benötigen diese Seite nicht.
+    Die erzeugte INI-Datei muss sicher aufbewahrt werden – wer sie kennt, kann auf den Tutor-Bereich zugreifen.
+  </div>
+
+  <div class="field">
+    <label for="teacher-name">Dein Name (wird in der App angezeigt)</label>
+    <input type="text" id="teacher-name" placeholder="z. B. Fr. Müller" autocomplete="name"/>
+  </div>
+
+  <div class="field">
+    <label for="master-pw">Masterpasswort <span style="color:var(--danger);">*</span></label>
+    <input type="password" id="master-pw" placeholder="Mindestens 8 Zeichen" autocomplete="new-password"/>
+  </div>
+
+  <div class="field">
+    <label for="master-pw2">Passwort bestätigen <span style="color:var(--danger);">*</span></label>
+    <input type="password" id="master-pw2" placeholder="Passwort wiederholen" autocomplete="new-password"/>
+  </div>
+
+  <div class="error-msg" id="error-msg"></div>
+
+  <button class="btn-primary" id="create-btn" onclick="createIni()">
+    🔑 INI-Datei erstellen &amp; speichern
+  </button>
+
+  <div class="success-box" id="success-box">
+    ✅ <strong>INI-Datei erfolgreich erstellt!</strong><br><br>
+    <strong>Nächste Schritte:</strong><br>
+    <span id="success-steps"></span>
+  </div>
+
+  <hr class="divider"/>
+
+  <div style="font-size:13px; font-weight:600; color:var(--text); margin-bottom:12px;">So funktioniert der Ablauf:</div>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <span>Erstelle hier deine INI-Datei und speichere sie sicher (z. B. auf deinem Gerät, nicht im Schulnetzwerk).</span>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <span>Öffne <a href="tutor-T4xWqN8k.html">EDUBAN (Tutor-App)</a> und klicke in der Seitenleiste auf <strong>„INI laden"</strong>.</span>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <span>Gib beim Klick auf den Admin-Bereich dein Masterpasswort ein – EDUBAN entsperrt daraufhin die Notenverwaltung.</span>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <span>Schülerinnen und Schüler erhalten die INI-Datei <strong>nicht</strong>. Sie registrieren sich mit dem Öffentlichen Schlüssel, den der Tutor ihnen separat (z. B. als QR-Code oder Datei) bereitstellt.</span>
+  </div>
+
+  <div class="info-box">
+    <strong>Sicherheitshinweis:</strong><br>
+    Es wird lokal im Browser ein RSA-2048-Schlüsselpaar erzeugt. Der private Schlüssel wird mit PBKDF2 (200.000 Iterationen) und AES-GCM verschlüsselt.
+    Dein Masterpasswort verlässt dieses Gerät <strong>nie</strong>. Ohne das Passwort kann die INI-Datei nicht entschlüsselt werden.
+    Für den Produktionseinsatz empfiehlt sich HTTPS.
+  </div>
+</div>
+
+<!-- crypto.js als reguläres Skript einbinden (kein ES-Modul nötig) -->
+<script src="js/crypto.js"></script>
+<script>
+  document.getElementById('master-pw2').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') createIni();
+  });
+  document.getElementById('master-pw').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('master-pw2').focus();
+  });
+  document.getElementById('teacher-name').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('master-pw').focus();
+  });
+
+  async function createIni() {
+    const nameEl  = document.getElementById('teacher-name');
+    const pwEl    = document.getElementById('master-pw');
+    const pw2El   = document.getElementById('master-pw2');
+    const errEl   = document.getElementById('error-msg');
+    const btn     = document.getElementById('create-btn');
+    const success = document.getElementById('success-box');
+
+    const name = nameEl.value.trim();
+    const pw   = pwEl.value;
+    const pw2  = pw2El.value;
+
+    errEl.textContent = '';
+    success.style.display = 'none';
+
+    if (!name)          { errEl.textContent = 'Bitte gib deinen Namen ein.'; nameEl.focus(); return; }
+    if (pw.length < 8)  { errEl.textContent = 'Das Masterpasswort muss mindestens 8 Zeichen haben.'; pwEl.focus(); return; }
+    if (pw !== pw2)     { errEl.textContent = 'Die Passwörter stimmen nicht überein.'; pw2El.focus(); return; }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Schlüsselpaar wird generiert…';
+
+    try {
+      const iniJson = await window.kfCrypto.createIni(name, pw);
+      const suggestedName = name.replace(/\s+/g, '_') + '.ini';
+
+      // Datei-Download
+      if (window.showSaveFilePicker) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName,
+            types: [{ description: 'EDUBAN Tutor-INI', accept: { 'application/json': ['.ini'] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(iniJson);
+          await writable.close();
+        } catch (e) {
+          if (e.name === 'AbortError') {
+            btn.disabled = false;
+            btn.textContent = '🔑 INI-Datei erstellen & speichern';
+            return;
+          }
+          throw e;
+        }
+      } else {
+        const blob = new Blob([iniJson], { type: 'application/json' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = suggestedName; a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      // Felder leeren
+      pwEl.value  = '';
+      pw2El.value = '';
+
+      // Erfolgsmeldung
+      document.getElementById('success-steps').innerHTML =
+        `Lege die Datei <strong>${suggestedName}</strong> sicher ab.<br>` +
+        `Öffne die <a href="tutor-T4xWqN8k.html">Tutor-App</a>, klicke auf <strong>„INI laden"</strong> und wähle diese Datei aus.<br>` +
+        `Beim ersten Klick auf den Admin-Bereich wirst du nach dem Masterpasswort gefragt.`;
+      success.style.display = 'block';
+      success.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    } catch (e) {
+      errEl.textContent = 'Fehler: ' + (e.message || e);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔑 INI-Datei erstellen & speichern';
+    }
+  }
+</script>
+</body>
+</html>

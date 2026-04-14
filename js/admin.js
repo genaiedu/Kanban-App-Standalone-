@@ -3,11 +3,38 @@ import { S, getBoards, getColumns, getCards, updateBoard, deleteBoard,
   deleteColumn, deleteCard } from './state.js';
 
 // ── ADMIN CHECK ───────────────────────────────────────
-// Lokal: immer Admin
-window.currentUserIsAdmin = async function() { return true; };
+const ADMIN_AUTH_TIMEOUT = 15 * 60 * 1000; // 15 Minuten
+let _adminAuthTimestamp = null;
+
+window.currentUserIsAdmin = async function() {
+  if (!_adminAuthTimestamp) return false;
+  if (Date.now() - _adminAuthTimestamp > ADMIN_AUTH_TIMEOUT) {
+    _adminAuthTimestamp = null;
+    return false;
+  }
+  return true;
+};
+
+window.setAdminAuthenticated = function() {
+  _adminAuthTimestamp = Date.now();
+};
+
+window.resetAdminSession = function() {
+  _adminAuthTimestamp = null;
+  window._tutorSession = null;
+};
 
 // ── ADMIN ÖFFNEN ──────────────────────────────────────
 window.openAdminArea = async () => {
+  const isAdmin = await window.currentUserIsAdmin();
+  if (!isAdmin) {
+    if (typeof window.showTutorPasswordPrompt === 'function') {
+      await window.showTutorPasswordPrompt();
+    } else {
+      showToast('Bitte als Tutor authentifizieren.', 'error');
+    }
+    return;
+  }
   S.isAdminMode = true;
   const panel = document.getElementById('admin-panel');
   if (panel) panel.style.display = 'block';
@@ -161,26 +188,54 @@ window.saveDeadlineToolbox = () => {
   saveDeadline(boardId, inputId);
 };
 
-// ── NOTEN (lokal in localStorage) ────────────────────
+// ── NOTEN (lokal in localStorage, verschlüsselt) ────────────────────────────────
 const GRADES_KEY = 'kanban_grades';
 
-function getGrades(boardId) {
-  try { return JSON.parse(localStorage.getItem(GRADES_KEY) || '{}')[boardId] || {}; } catch(e) { return {}; }
+async function getGrades(boardId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(GRADES_KEY) || '{}');
+    const entry = all[boardId];
+    if (!entry) return {};
+    // Verschlüsselte Einträge entschlüsseln (privater Schlüssel muss in _tutorSession liegen)
+    if (entry.encrypted && entry.tchKeyEnc && entry.encData) {
+      const privKey = window._tutorSession?.privateKey;
+      if (!privKey) return {};
+      const keyB64 = await window.kfCrypto.rsaDecryptKey(entry.tchKeyEnc, privKey);
+      const key    = await window.kfCrypto.importKey(keyB64);
+      const json   = await window.kfCrypto.decryptWithKey(entry.encData, key);
+      return JSON.parse(json);
+    }
+    return entry; // Legacy: unverschlüsselte Einträge
+  } catch(e) { return {}; }
 }
 
-function saveGrades(boardId, grades) {
+async function saveGrades(boardId, grades) {
   const all = JSON.parse(localStorage.getItem(GRADES_KEY) || '{}');
-  all[boardId] = grades;
+  const ini = window._loadedIni;
+  if (ini && ini.publicKey) {
+    try {
+      const pubKey    = await window.kfCrypto.importPubJwk(ini.publicKey);
+      const dataKey   = await window.kfCrypto.genDataKey();
+      const dataKeyB64 = await window.kfCrypto.exportKey(dataKey);
+      const encData   = await window.kfCrypto.encryptWithKey(JSON.stringify(grades), dataKey);
+      const tchKeyEnc = await window.kfCrypto.rsaEncryptKey(dataKeyB64, pubKey);
+      all[boardId] = { encrypted: true, tchKeyEnc, encData };
+    } catch(e) {
+      all[boardId] = grades; // Fallback: unverschlüsselt
+    }
+  } else {
+    all[boardId] = grades;
+  }
   localStorage.setItem(GRADES_KEY, JSON.stringify(all));
 }
 
-window.loadToolboxGrades = () => {
+window.loadToolboxGrades = async () => {
   const boardId = document.getElementById('toolbox-board-id').value;
   const boards  = getBoards();
   const board   = boards.find(b => b.id === boardId);
   if (!board) return;
   const members  = board.members || [];
-  const existing = getGrades(boardId);
+  const existing = await getGrades(boardId);
   const list     = document.getElementById('toolbox-grades-list');
   if (!members.length) { list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Keine Mitglieder.</div>'; return; }
   list.innerHTML = members.map(member => {
@@ -200,12 +255,12 @@ window.loadToolboxGrades = () => {
   }).join('');
 };
 
-window.saveGradeLocal = (boardId, safeId, member) => {
+window.saveGradeLocal = async (boardId, safeId, member) => {
   const grade   = document.getElementById(`grade-val-${safeId}`)?.value || '';
   const comment = document.getElementById(`grade-comment-${safeId}`)?.value.trim() || '';
-  const grades  = getGrades(boardId);
+  const grades  = await getGrades(boardId);
   grades[member] = { grade, comment, updatedAt: new Date().toISOString() };
-  saveGrades(boardId, grades);
+  await saveGrades(boardId, grades);
   showToast(`Note für ${member} gespeichert!`);
 };
 
