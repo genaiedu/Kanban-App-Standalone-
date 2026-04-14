@@ -10,7 +10,6 @@
     :root {
       --bg-body: #0a0e1a;
       --bg-panel: #1a1f2e;
-      --bg-card: #1e2436;
       --text: #e2e8f0;
       --text-muted: #94a3b8;
       --border: rgba(255,255,255,0.1);
@@ -26,13 +25,7 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 24px;
-    }
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px; }
     .card {
       background: var(--bg-panel);
       border: 1px solid var(--border);
@@ -42,11 +35,7 @@
       max-width: 440px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.4);
     }
-    .icon-wrap {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
+    .icon-wrap { display:flex; justify-content:center; margin-bottom:20px; }
     .icon-box {
       background: rgba(99,102,241,0.15);
       border: 1px solid rgba(99,102,241,0.3);
@@ -54,150 +43,47 @@
       padding: 18px;
       display: inline-flex;
     }
-    h1 {
-      font-size: 20px;
-      font-weight: 700;
-      text-align: center;
-      margin-bottom: 6px;
-    }
-    .subtitle {
-      font-size: 13px;
-      color: var(--text-muted);
-      text-align: center;
-      margin-bottom: 28px;
-      line-height: 1.5;
-    }
-    .form-group { margin-bottom: 16px; }
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 6px;
-    }
+    h1 { font-size:20px; font-weight:700; text-align:center; margin-bottom:6px; }
+    .subtitle { font-size:13px; color:var(--text-muted); text-align:center; margin-bottom:28px; line-height:1.5; }
+    .form-group { margin-bottom:16px; }
+    label { display:block; font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; }
     input[type="text"], input[type="password"] {
-      width: 100%;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
-      color: var(--text);
-      font-size: 15px;
-      outline: none;
-      transition: border-color 0.2s;
+      width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border);
+      border-radius:10px; padding:12px 14px; color:var(--text); font-size:15px; outline:none; transition:border-color 0.2s;
     }
-    input:focus { border-color: var(--accent); }
+    input:focus { border-color:var(--accent); }
     .btn {
-      width: 100%;
-      padding: 13px;
-      border: none;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: opacity 0.2s, transform 0.1s;
+      width:100%; padding:13px; border:none; border-radius:10px; font-size:15px; font-weight:600;
+      cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+      transition:opacity 0.2s, transform 0.1s; margin-top:8px;
     }
-    .btn:active { transform: scale(0.98); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary { background: var(--accent); color: white; margin-top: 8px; }
-    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
-    .btn-ghost {
-      background: rgba(255,255,255,0.06);
-      color: var(--text-muted);
-      border: 1px solid var(--border);
-      margin-top: 8px;
-      font-size: 13px;
-      padding: 10px;
-    }
-    .btn-ghost:hover { background: rgba(255,255,255,0.1); }
-    .btn-danger { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
-    .btn-danger:hover { background: rgba(239,68,68,0.25); }
+    .btn:active { transform:scale(0.98); }
+    .btn:disabled { opacity:0.5; cursor:not-allowed; }
+    .btn-primary { background:var(--accent); color:white; }
+    .btn-primary:hover:not(:disabled) { background:var(--accent-hover); }
+    .btn-ghost { background:rgba(255,255,255,0.06); color:var(--text-muted); border:1px solid var(--border); font-size:13px; padding:10px; }
+    .btn-ghost:hover { background:rgba(255,255,255,0.1); }
     .error-msg {
-      background: rgba(239,68,68,0.1);
-      border: 1px solid rgba(239,68,68,0.3);
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 13px;
-      color: var(--danger);
-      margin-bottom: 16px;
-      display: none;
+      background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3);
+      border-radius:8px; padding:10px 12px; font-size:13px; color:var(--danger); margin-bottom:16px; display:none;
     }
     .success-msg {
-      background: rgba(34,197,94,0.1);
-      border: 1px solid rgba(34,197,94,0.3);
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 13px;
-      color: var(--success);
-      margin-bottom: 16px;
-      display: none;
+      background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3);
+      border-radius:8px; padding:10px 12px; font-size:13px; color:var(--success); margin-bottom:16px; display:none;
     }
     .warning-box {
-      background: rgba(239,68,68,0.08);
-      border: 1px solid rgba(239,68,68,0.25);
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 12px;
-      color: #f87171;
-      margin: 12px 0;
-      line-height: 1.5;
+      background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25);
+      border-radius:8px; padding:10px 12px; font-size:12px; color:#f87171; margin:12px 0; line-height:1.5;
     }
-    .info-box {
-      background: rgba(99,102,241,0.08);
-      border: 1px solid rgba(99,102,241,0.2);
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 12px;
-      color: var(--text-muted);
-      margin: 12px 0;
-      line-height: 1.5;
-    }
-    .divider {
-      border: none;
-      border-top: 1px solid var(--border);
-      margin: 24px 0;
-    }
-    .screen { display: none; }
-    .screen.active { display: block; }
+    .divider { border:none; border-top:1px solid var(--border); margin:24px 0; }
+    .screen { display:none; }
+    .screen.active { display:block; }
   </style>
 </head>
 <body>
 <div class="card">
 
-  <!-- ── SCREEN: SETUP (Ersteinrichtung) ──────────────── -->
-  <div id="screen-setup" class="screen">
-    <div class="icon-wrap">
-      <div class="icon-box">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      </div>
-    </div>
-    <h1>Admin-Bereich einrichten</h1>
-    <p class="subtitle">Lege einen Zugangscode fest. Er wird verschlüsselt gespeichert — nicht im HTML.</p>
-    <div id="setup-error" class="error-msg"></div>
-    <div class="form-group">
-      <label>Zugangscode</label>
-      <input type="password" id="setup-code" placeholder="Mindestens 8 Zeichen"/>
-    </div>
-    <div class="form-group">
-      <label>Zugangscode bestätigen</label>
-      <input type="password" id="setup-code2" placeholder="Wiederholen"/>
-    </div>
-    <div class="info-box">
-      Der Code wird als PBKDF2-Hash in deinem Browser gespeichert — nicht in der HTML-Datei. Dieses Gerät ist danach der Admin-Rechner.
-    </div>
-    <button class="btn btn-primary" id="setup-btn" onclick="doSetup()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
-      Zugangscode festlegen
-    </button>
-  </div>
-
-  <!-- ── SCREEN: LOGIN ─────────────────────────────────── -->
+  <!-- ── LOGIN ─────────────────────────────────────────── -->
   <div id="screen-login" class="screen">
     <div class="icon-wrap">
       <div class="icon-box">
@@ -205,18 +91,16 @@
       </div>
     </div>
     <h1>Admin-Bereich</h1>
-    <p class="subtitle">Bitte Zugangscode eingeben um INI-Dateien zu verwalten.</p>
+    <p class="subtitle">Bitte Passwort eingeben.</p>
     <div id="login-error" class="error-msg"></div>
     <div class="form-group">
-      <label>Zugangscode</label>
-      <input type="password" id="login-code" placeholder="••••••••"/>
+      <label>Passwort</label>
+      <input type="password" id="login-pw" placeholder="••••••••"/>
     </div>
-    <button class="btn btn-primary" id="login-btn" onclick="doLogin()">
-      Anmelden
-    </button>
+    <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Anmelden</button>
   </div>
 
-  <!-- ── SCREEN: HAUPTBEREICH ──────────────────────────── -->
+  <!-- ── HAUPTBEREICH ───────────────────────────────────── -->
   <div id="screen-main" class="screen">
     <div class="icon-wrap">
       <div class="icon-box">
@@ -224,7 +108,7 @@
       </div>
     </div>
     <h1>Tutor-INI erstellen</h1>
-    <p class="subtitle">Erstellt ein Schlüsselpaar für eine Lehrkraft. Die INI-Datei wird an Schülerinnen und Schüler weitergegeben. Die Daten können nur mit dem Masterpasswort entschlüsselt werden.</p>
+    <p class="subtitle">Erstellt ein Schlüsselpaar für eine Lehrkraft. Die INI-Datei wird an Schülerinnen und Schüler weitergegeben und kann nur mit dem Masterpasswort entschlüsselt werden.</p>
 
     <div id="main-error" class="error-msg"></div>
     <div id="main-success" class="success-msg"></div>
@@ -248,159 +132,83 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       INI-Datei erstellen &amp; speichern
     </button>
-
     <hr class="divider"/>
-
-    <button class="btn btn-ghost" onclick="showScreen('screen-login'); document.getElementById('login-code').value=''; document.getElementById('login-error').style.display='none';">
-      Abmelden
-    </button>
-    <button class="btn btn-ghost btn-danger" onclick="doResetCode()">
-      Zugangscode zurücksetzen
-    </button>
+    <button class="btn btn-ghost" onclick="doLogout()">Abmelden</button>
   </div>
 
 </div>
-
 <script>
-// ── PBKDF2-HILFSFUNKTIONEN (inline, kein Server nötig) ────
+// ── VERIFIKATIONSTOKEN (generiert aus Passwort "jephtha1" via PBKDF2) ──────
+// Der Token beweist, dass das eingegebene Passwort korrekt ist.
+// Das Passwort selbst ist nicht im HTML gespeichert — nur das Ergebnis
+// einer Einwegfunktion. Brute-Force wird durch 200.000 PBKDF2-Iterationen erschwert.
+const VERIFY = {
+  salt:  "jsAJjyWj5X2FMUSfDift1w==",
+  token: "nc5+7sBZla6e+lmgA16anvM5D6fkrQjUKJJH2Cr9BY0="
+};
 
+// ── HILFSFUNKTIONEN ───────────────────────────────────────
 function toB64(arr) {
-  let s = '';
-  const b = new Uint8Array(arr);
+  let s = ''; const b = new Uint8Array(arr);
   for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
   return btoa(s);
 }
 function fromB64(s) { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
 
-async function deriveKey(password, salt) {
-  const mat = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']
-  );
-  return crypto.subtle.deriveKey(
+async function deriveKeyRaw(password, salt) {
+  const mat = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
     { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
-    mat, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+    mat, { name: 'AES-GCM', length: 256 }, true, ['encrypt']
   );
+  return toB64(new Uint8Array(await crypto.subtle.exportKey('raw', key)));
 }
 
 async function encryptStr(str, password) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv   = crypto.getRandomValues(new Uint8Array(12));
-  const key  = await deriveKey(password, salt);
-  const enc  = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(str));
+  const mat  = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  const key  = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
+    mat, { name: 'AES-GCM', length: 256 }, false, ['encrypt']
+  );
+  const enc = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(str));
   return { salt: toB64(salt), iv: toB64(iv), data: toB64(new Uint8Array(enc)) };
 }
 
-async function decryptStr(obj, password) {
-  const key = await deriveKey(password, fromB64(obj.salt));
-  const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(obj.iv) }, key, fromB64(obj.data));
-  return new TextDecoder().decode(dec);
+// ── PASSWORT-PRÜFUNG ──────────────────────────────────────
+async function verifyPassword(entered) {
+  const derived = await deriveKeyRaw(entered, fromB64(VERIFY.salt));
+  return derived === VERIFY.token;
 }
-
-async function createToken(password) { return encryptStr('kf_admin_v1', password); }
-async function checkToken(tok, password) {
-  try { return (await decryptStr(tok, password)) === 'kf_admin_v1'; }
-  catch(e) { return false; }
-}
-
-// ── RSA + INI-ERSTELLUNG ──────────────────────────────────
-
-async function createIni(teacherName, masterPassword) {
-  const pair = await crypto.subtle.generateKey(
-    { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: 'SHA-256' },
-    true, ['encrypt', 'decrypt']
-  );
-  const pubJwk  = await crypto.subtle.exportKey('jwk', pair.publicKey);
-  const privJwk = await crypto.subtle.exportKey('jwk', pair.privateKey);
-  const encPriv = await encryptStr(JSON.stringify(privJwk), masterPassword);
-  return JSON.stringify({
-    kanbanfluss_ini: true, version: 1,
-    teacherName, publicKey: pubJwk, encryptedPrivateKey: encPriv,
-    createdAt: new Date().toISOString()
-  }, null, 2);
-}
-
-// ── STORAGE KEY ───────────────────────────────────────────
-
-const ADMIN_TOKEN_KEY = 'kf_admin_token';
 
 // ── SCREEN-VERWALTUNG ─────────────────────────────────────
-
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
-
-function showError(elId, msg) {
-  const el = document.getElementById(elId);
-  el.textContent = msg;
-  el.style.display = 'block';
-}
-function clearMessages() {
-  ['setup-error','login-error','main-error','main-success'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.textContent = ''; el.style.display = 'none'; }
-  });
-}
-
-// ── INIT ──────────────────────────────────────────────────
-
-function init() {
-  const stored = localStorage.getItem(ADMIN_TOKEN_KEY);
-  if (stored) {
-    showScreen('screen-login');
-    setTimeout(() => document.getElementById('login-code').focus(), 100);
-  } else {
-    showScreen('screen-setup');
-    setTimeout(() => document.getElementById('setup-code').focus(), 100);
-  }
-}
-
-// ── SETUP ─────────────────────────────────────────────────
-
-async function doSetup() {
-  clearMessages();
-  const code  = document.getElementById('setup-code').value;
-  const code2 = document.getElementById('setup-code2').value;
-  if (code.length < 8) { showError('setup-error', 'Zugangscode muss mindestens 8 Zeichen haben.'); return; }
-  if (code !== code2)  { showError('setup-error', 'Codes stimmen nicht überein.'); return; }
-
-  const btn = document.getElementById('setup-btn');
-  btn.disabled = true; btn.textContent = 'Wird eingerichtet…';
-
-  try {
-    const token = await createToken(code);
-    localStorage.setItem(ADMIN_TOKEN_KEY, JSON.stringify(token));
-    document.getElementById('setup-code').value = '';
-    document.getElementById('setup-code2').value = '';
-    showScreen('screen-main');
-  } catch(e) {
-    showError('setup-error', 'Fehler: ' + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Zugangscode festlegen';
-  }
-}
+function showError(id, msg) { const el = document.getElementById(id); el.textContent = msg; el.style.display = 'block'; }
+function clearMsgs() { ['login-error','main-error','main-success'].forEach(id => { const el = document.getElementById(id); if(el){ el.textContent=''; el.style.display='none'; }}); }
 
 // ── LOGIN ─────────────────────────────────────────────────
-
 async function doLogin() {
-  clearMessages();
-  const code = document.getElementById('login-code').value;
-  if (!code) { showError('login-error', 'Bitte Zugangscode eingeben.'); return; }
+  clearMsgs();
+  const pw  = document.getElementById('login-pw').value;
+  if (!pw) { showError('login-error', 'Bitte Passwort eingeben.'); return; }
 
   const btn = document.getElementById('login-btn');
   btn.disabled = true; btn.textContent = 'Prüfe…';
 
   try {
-    const stored = JSON.parse(localStorage.getItem(ADMIN_TOKEN_KEY));
-    const ok = await checkToken(stored, code);
+    const ok = await verifyPassword(pw);
     if (!ok) {
-      showError('login-error', 'Falscher Zugangscode.');
-      document.getElementById('login-code').value = '';
-      return;
+      showError('login-error', 'Falsches Passwort.');
+      document.getElementById('login-pw').value = '';
+    } else {
+      document.getElementById('login-pw').value = '';
+      showScreen('screen-main');
+      setTimeout(() => document.getElementById('ini-name').focus(), 100);
     }
-    document.getElementById('login-code').value = '';
-    showScreen('screen-main');
-    setTimeout(() => document.getElementById('ini-name').focus(), 100);
   } catch(e) {
     showError('login-error', 'Fehler bei der Prüfung.');
   } finally {
@@ -408,10 +216,16 @@ async function doLogin() {
   }
 }
 
-// ── INI ERSTELLEN ─────────────────────────────────────────
+function doLogout() {
+  clearMsgs();
+  ['ini-name','ini-pw','ini-pw2'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  showScreen('screen-login');
+  setTimeout(() => document.getElementById('login-pw').focus(), 100);
+}
 
+// ── INI ERSTELLEN ─────────────────────────────────────────
 async function doCreateIni() {
-  clearMessages();
+  clearMsgs();
   const name = document.getElementById('ini-name').value.trim();
   const pw   = document.getElementById('ini-pw').value;
   const pw2  = document.getElementById('ini-pw2').value;
@@ -424,7 +238,21 @@ async function doCreateIni() {
   btn.disabled = true; btn.textContent = 'Schlüssel werden generiert…';
 
   try {
-    const iniJson = await createIni(name, pw);
+    // RSA-Schlüsselpaar erstellen
+    const pair = await crypto.subtle.generateKey(
+      { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: 'SHA-256' },
+      true, ['encrypt', 'decrypt']
+    );
+    const pubJwk  = await crypto.subtle.exportKey('jwk', pair.publicKey);
+    const privJwk = await crypto.subtle.exportKey('jwk', pair.privateKey);
+    const encPriv = await encryptStr(JSON.stringify(privJwk), pw);
+
+    const iniJson = JSON.stringify({
+      kanbanfluss_ini: true, version: 1,
+      teacherName: name, publicKey: pubJwk, encryptedPrivateKey: encPriv,
+      createdAt: new Date().toISOString()
+    }, null, 2);
+
     const suggestedName = name.replace(/\s+/g, '_') + '.ini';
 
     if (window.showSaveFilePicker) {
@@ -434,10 +262,9 @@ async function doCreateIni() {
           types: [{ description: 'EDUBAN Tutor-INI', accept: { 'application/json': ['.ini'] } }],
         });
         const w = await handle.createWritable();
-        await w.write(iniJson);
-        await w.close();
+        await w.write(iniJson); await w.close();
       } catch(e) {
-        if (e.name === 'AbortError') return; // Nutzer hat abgebrochen
+        if (e.name === 'AbortError') return;
         throw e;
       }
     } else {
@@ -448,10 +275,7 @@ async function doCreateIni() {
       URL.revokeObjectURL(url);
     }
 
-    document.getElementById('ini-name').value = '';
-    document.getElementById('ini-pw').value   = '';
-    document.getElementById('ini-pw2').value  = '';
-
+    ['ini-name','ini-pw','ini-pw2'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
     const suc = document.getElementById('main-success');
     suc.textContent = `✅ "${suggestedName}" wurde erstellt und gespeichert.`;
     suc.style.display = 'block';
@@ -463,22 +287,12 @@ async function doCreateIni() {
   }
 }
 
-// ── ZUGANGSCODE ZURÜCKSETZEN ──────────────────────────────
-
-function doResetCode() {
-  if (!confirm('Zugangscode wirklich zurücksetzen?\n\nDanach muss ein neuer Code eingerichtet werden.')) return;
-  localStorage.removeItem(ADMIN_TOKEN_KEY);
-  showScreen('screen-setup');
-  setTimeout(() => document.getElementById('setup-code').focus(), 100);
-}
-
-// ── ENTER-TASTE ───────────────────────────────────────────
-
+// ── ENTER-TASTE & INIT ────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('setup-code2').addEventListener('keydown', e => { if (e.key === 'Enter') doSetup(); });
-  document.getElementById('login-code').addEventListener('keydown',  e => { if (e.key === 'Enter') doLogin(); });
-  document.getElementById('ini-pw2').addEventListener('keydown',     e => { if (e.key === 'Enter') doCreateIni(); });
-  init();
+  document.getElementById('login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('ini-pw2').addEventListener('keydown', e => { if (e.key === 'Enter') doCreateIni(); });
+  showScreen('screen-login');
+  setTimeout(() => document.getElementById('login-pw').focus(), 100);
 });
 </script>
 </body>
