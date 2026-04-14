@@ -15,8 +15,8 @@ echo "Starte lokalen Webserver auf Port $PORT aus: $(pwd)"
 python3 -m http.server $PORT &>/dev/null &
 sleep 1
 
-URL="http://localhost:$PORT/kf-pX7mK9tL.html"
-echo "Öffne KanbanFluss (Lehrkraft) im Browser..."
+URL="http://localhost:$PORT/tutor-T4xWqN8k.html"
+echo "Öffne KanbanFluss (Tutor) im Browser..."
 
 # Chrome bevorzugen (unterstützt Speichern-Dialog beim Export)
 if open -a "Google Chrome" "$URL" 2>/dev/null; then
@@ -27,7 +27,7 @@ else
 fi
 
 echo ""
-echo "KanbanFluss (Lehrkraft) läuft auf $URL"
+echo "KanbanFluss (Tutor) läuft auf $URL"
 echo "Dieses Fenster kann offen bleiben (Server läuft im Hintergrund)."
 echo "Zum Beenden: Strg+C"
 wait
