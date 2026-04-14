@@ -3,20 +3,81 @@ import { S, getBoards, getColumns, getCards, updateBoard, deleteBoard,
   deleteColumn, deleteCard } from './state.js';
 
 // ── ADMIN CHECK ───────────────────────────────────────
-// Lokal: immer Admin
-window.currentUserIsAdmin = async function() { return true; };
+window.currentUserIsAdmin = async function() { return S.isAdminMode; };
 
 // ── ADMIN ÖFFNEN ──────────────────────────────────────
 window.openAdminArea = async () => {
+  // Bereits in dieser Session authentifiziert → direkt öffnen
+  if (window._adminAuthenticated) {
+    _enterAdminPanel();
+    return;
+  }
+
+  // INI-Datei nötig für Masterpasswort-Prüfung
+  if (!window._loadedIni || !window._loadedIni.encryptedPrivateKey) {
+    // INI laden, danach Passwort-Dialog zeigen
+    if (typeof window.loadTeacherIni === 'function') {
+      await window.loadTeacherIni();
+    }
+    if (!window._loadedIni || !window._loadedIni.encryptedPrivateKey) {
+      showToast('Bitte zuerst eine INI-Datei laden.', 'error');
+      return;
+    }
+  }
+
+  // Passwort-Modal öffnen
+  const errEl = document.getElementById('admin-login-error');
+  const pwEl  = document.getElementById('admin-password-input');
+  if (errEl) errEl.textContent = '';
+  if (pwEl)  pwEl.value = '';
+  document.getElementById('modal-admin-login').style.display = 'flex';
+  setTimeout(() => { if (pwEl) pwEl.focus(); }, 100);
+};
+
+// ── ADMIN LOGIN (Masterpasswort prüfen) ───────────────
+window.doAdminLogin = async () => {
+  const pw    = document.getElementById('admin-password-input').value;
+  const errEl = document.getElementById('admin-login-error');
+  errEl.textContent = '';
+
+  if (!pw) { errEl.textContent = 'Bitte Masterpasswort eingeben.'; return; }
+
+  const btn = document.querySelector('#modal-admin-login .btn-sm-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Prüfe…'; }
+
+  try {
+    // Masterpasswort gegen INI-Datei prüfen (entschlüsselt den privaten Schlüssel)
+    const privKey = await window.kfCrypto.getPrivKeyFromIni(window._loadedIni, pw);
+    window._tutorPrivKey = privKey; // für Board-Entschlüsselung merken
+    window._adminAuthenticated = true;
+    closeModal('modal-admin-login');
+    _enterAdminPanel();
+  } catch(e) {
+    errEl.textContent = 'Falsches Masterpasswort.';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Einloggen'; }
+  }
+};
+
+function _enterAdminPanel() {
   S.isAdminMode = true;
   const panel = document.getElementById('admin-panel');
   if (panel) panel.style.display = 'block';
   loadAdminBoardList();
   if (typeof showAdminTab === 'function') showAdminTab('group');
-};
+}
 
 window.openAdminPanel = () => openAdminArea();
-window.closeAdminPanel = () => { document.getElementById('admin-panel').style.display = 'none'; };
+window.closeAdminPanel = () => {
+  document.getElementById('admin-panel').style.display = 'none';
+};
+
+// Beim Abmelden Admin-Session zurücksetzen
+window.resetAdminSession = function() {
+  window._adminAuthenticated = false;
+  window._tutorPrivKey = null;
+  S.isAdminMode = false;
+};
 
 // ── ADMIN TABS ────────────────────────────────────────
 window.showAdminTab = (tabId) => {

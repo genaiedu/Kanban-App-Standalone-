@@ -436,10 +436,11 @@ window.logoutUser = async function() {
 // ── ENTER-TASTEN ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   [
-    ['profile-name',      () => saveProfile()],
-    ['edit-profile-name', () => saveProfileEdit()],
-    ['student-login-pw',  () => submitStudentLogin()],
-    ['student-reg-pw2',   () => submitStudentRegister()],
+    ['profile-name',        () => saveProfile()],
+    ['edit-profile-name',   () => saveProfileEdit()],
+    ['student-login-pw',    () => submitStudentLogin()],
+    ['student-reg-pw2',     () => submitStudentRegister()],
+    ['admin-password-input',() => doAdminLogin()],
   ].forEach(([id, fn]) => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') fn(); });
