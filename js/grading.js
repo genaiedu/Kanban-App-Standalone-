@@ -103,6 +103,7 @@ window.loadAdminBoardTools = async () => {
 
   const productGrades = await getProductGrades(boardId);
 
+  const members = board.members || [];
   const historicalAssignees = [...new Set(finishedCards.map(c => c.assignee).filter(a => a && !members.includes(a)))];
   const allMembers = [...members, ...historicalAssignees];
   if (!allMembers.length) {

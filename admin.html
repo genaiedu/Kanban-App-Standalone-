@@ -232,7 +232,7 @@
   </div>
   <div class="step">
     <div class="step-num">2</div>
-    <span>Öffne <a href="tutor-T4xWqN8k.html">EDUBAN (Tutor-App)</a> und klicke in der Seitenleiste auf <strong>„INI laden"</strong>.</span>
+    <span>Öffne die <strong>Tutor-App</strong> (tutor-T4xWqN8k.html) und klicke in der Seitenleiste auf <strong>„INI laden"</strong>.</span>
   </div>
   <div class="step">
     <div class="step-num">3</div>
@@ -254,6 +254,9 @@
 <!-- crypto.js als reguläres Skript einbinden (kein ES-Modul nötig) -->
 <script src="js/crypto.js"></script>
 <script>
+  // ── Tutor-App-URL (an diese Datei ggf. anpassen) ───────
+  const TUTOR_APP_URL = 'tutor-T4xWqN8k.html';
+
   document.getElementById('master-pw2').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') createIni();
   });
@@ -320,11 +323,21 @@
       pwEl.value  = '';
       pw2El.value = '';
 
-      // Erfolgsmeldung
-      document.getElementById('success-steps').innerHTML =
-        `Lege die Datei <strong>${suggestedName}</strong> sicher ab.<br>` +
-        `Öffne die <a href="tutor-T4xWqN8k.html">Tutor-App</a>, klicke auf <strong>„INI laden"</strong> und wähle diese Datei aus.<br>` +
-        `Beim ersten Klick auf den Admin-Bereich wirst du nach dem Masterpasswort gefragt.`;
+      // Erfolgsmeldung – DOM-Konstruktion statt innerHTML um XSS zu vermeiden
+      const stepsEl = document.getElementById('success-steps');
+      stepsEl.innerHTML = '';
+
+      const frag = document.createDocumentFragment();
+      const addText = t => frag.appendChild(document.createTextNode(t));
+      const addBr   = () => frag.appendChild(document.createElement('br'));
+      const addBold = t => { const b = document.createElement('strong'); b.textContent = t; frag.appendChild(b); };
+      const addLink = (href, label) => { const a = document.createElement('a'); a.href = href; a.textContent = label; frag.appendChild(a); };
+
+      addText('Lege die Datei '); addBold(suggestedName); addText(' sicher ab.'); addBr();
+      addText('Öffne die '); addLink(TUTOR_APP_URL, 'Tutor-App'); addText(', klicke auf '); addBold('„INI laden"'); addText(' und wähle diese Datei aus.'); addBr();
+      addText('Beim ersten Klick auf den Admin-Bereich wirst du nach dem Masterpasswort gefragt.');
+
+      stepsEl.appendChild(frag);
       success.style.display = 'block';
       success.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
